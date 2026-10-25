@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Liegestütz Tracker</title>
+<meta name="theme-color" content="#0b0f1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Push-Ups">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <h1 id="title">Training</h1>
+    <button class="icon-btn" id="btn-settings" aria-label="Einstellungen">⚙︎</button>
+  </header>
+
+  <main>
+    <!-- TRAINING -->
+    <section id="view-train" class="view active">
+      <div class="timer-row">
+        <div class="stat"><span class="label">Zeit</span><span class="value mono" id="timer">00:00</span></div>
+        <div class="stat"><span class="label">Tempo</span><span class="value mono" id="pace">0,0<small>/min</small></span></div>
+        <div class="stat"><span class="label">Heute</span><span class="value mono" id="today-total">0</span></div>
+      </div>
+
+      <button id="tap" class="tap" aria-label="Liegestütz zählen">
+        <svg class="ring" viewBox="0 0 200 200" aria-hidden="true">
+          <circle class="ring-bg" cx="100" cy="100" r="92"/>
+          <circle class="ring-fg" id="ring-fg" cx="100" cy="100" r="92"/>
+        </svg>
+        <span class="tap-count" id="count">0</span>
+        <span class="tap-hint" id="tap-hint">Tippen zum Starten</span>
+      </button>
+
+      <div class="goal-row">
+        <button class="chip" id="goal-minus" aria-label="Ziel verringern">−</button>
+        <span>Ziel: <b id="goal-val">20</b> Wdh.</span>
+        <button class="chip" id="goal-plus" aria-label="Ziel erhöhen">+</button>
+      </div>
+
+      <div class="controls">
+        <button class="btn ghost" id="btn-undo">↩︎ −1</button>
+        <button class="btn" id="btn-pause">Start</button>
+        <button class="btn primary" id="btn-finish">Fertig</button>
+      </div>
+      <button class="link-btn" id="btn-reset">Zurücksetzen</button>
+    </section>
+
+    <!-- KALENDER -->
+    <section id="view-cal" class="view">
+      <div class="cal-head">
+        <button class="icon-btn" id="cal-prev" aria-label="Vorheriger Monat">‹</button>
+        <h2 id="cal-title"></h2>
+        <button class="icon-btn" id="cal-next" aria-label="Nächster Monat">›</button>
+      </div>
+      <div class="cal-grid weekdays" id="cal-weekdays"></div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="month-summary" id="month-summary"></div>
+      <div class="card" id="day-detail"></div>
+    </section>
+
+    <!-- STATISTIK -->
+    <section id="view-stats" class="view">
+      <div class="kpis" id="kpis"></div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3>Fortschritt</h3>
+          <div class="seg" id="range-seg">
+            <button data-r="days" class="on">30 Tage</button>
+            <button data-r="weeks">Wochen</button>
+            <button data-r="months">Monate</button>
+          </div>
+        </div>
+        <div id="chart-main" class="chart"></div>
+        <div class="legend"><span><i class="sw bar"></i>Wiederholungen</span><span><i class="sw line"></i>Trend</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Wiederholungen je Einheit</h3></div>
+        <div id="chart-sessions" class="chart"></div>
+      </div>
+
+      <div class="card insight" id="insight"></div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button data-view="train" class="on"><span class="ti">💪</span>Training</button>
+    <button data-view="cal"><span class="ti">📅</span>Kalender</button>
+    <button data-view="stats"><span class="ti">📈</span>Statistik</button>
+  </nav>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<dialog id="dlg-settings">
+  <form method="dialog">
+    <h3>Einstellungen</h3>
+    <label class="row"><span>Ton beim Zählen</span><input type="checkbox" id="opt-sound"></label>
+    <label class="row"><span>Bildschirm anlassen</span><input type="checkbox" id="opt-wake"></label>
+    <div class="row col">
+      <button type="button" class="btn" id="btn-export">Daten exportieren</button>
+      <button type="button" class="btn" id="btn-import">Daten importieren</button>
+      <input type="file" id="file-import" accept="application/json" hidden>
+      <button type="button" class="btn danger" id="btn-wipe">Alle Daten löschen</button>
+    </div>
+    <button class="btn primary" value="close">Schließen</button>
+  </form>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
