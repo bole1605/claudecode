@@ -12,7 +12,7 @@ const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); re
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
 let sessions = load(KEY.sessions, []);
-let settings = Object.assign({ sound: true, wake: true, goal: 20 }, load(KEY.settings, {}));
+let settings = Object.assign({ sound: true, haptic: true, wake: true, goal: 20 }, load(KEY.settings, {}));
 let active = Object.assign({ reps: 0, acc: 0, runStart: null }, load(KEY.active, {}));
 
 /* ---------- Helpers ---------- */
@@ -30,9 +30,35 @@ function totalsByDay() {
   for (const s of sessions) m.set(s.date, (m.get(s.date) || 0) + s.reps);
   return m;
 }
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 function toast(msg) {
-  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
-  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2200);
+  const t = $('#toast'); $('span', t).textContent = msg; t.classList.add('show');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+/* Haptik: Vibration (Android) bzw. Schalter-Trick für das Taptic Engine-Feedback in iOS-Safari */
+const hapticLabel = Object.assign(document.createElement('label'), { className: 'haptic', innerHTML: '<input type="checkbox" switch tabindex="-1">' });
+document.body.append(hapticLabel);
+function haptic(ms = 10) {
+  if (!settings.haptic) return;
+  try { navigator.vibrate ? navigator.vibrate(ms) : hapticLabel.click(); } catch {}
+}
+
+/* Action Sheet (HIG: destruktive Aktionen immer bestätigen lassen) */
+function actionSheet({ title, message, actions }) {
+  const ov = document.createElement('div'); ov.className = 'overlay';
+  ov.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><div class="sheet-group">
+    ${title || message ? `<div class="sheet-head">${title ? `<b>${esc(title)}</b>` : ''}${message ? `<span>${esc(message)}</span>` : ''}</div>` : ''}
+    ${actions.map((a, i) => `<button class="sheet-btn ${a.danger ? 'danger' : ''}" data-i="${i}">${esc(a.label)}</button>`).join('')}
+    </div><button class="sheet-cancel">Abbrechen</button></div>`;
+  const close = () => { ov.classList.add('out'); setTimeout(() => ov.remove(), 230); document.removeEventListener('keydown', esc_); };
+  const esc_ = e => { if (e.key === 'Escape') close(); };
+  ov.addEventListener('click', e => {
+    if (e.target === ov || e.target.closest('.sheet-cancel')) return close();
+    const b = e.target.closest('[data-i]'); if (b) { close(); actions[b.dataset.i].fn(); }
+  });
+  document.addEventListener('keydown', esc_);
+  document.body.append(ov); haptic(8);
 }
 
 /* ---------- Navigation ---------- */
@@ -40,13 +66,15 @@ const TITLES = { train: 'Training', cal: 'Kalender', stats: 'Statistik' };
 function showView(v) {
   $$('.view').forEach(e => e.classList.toggle('active', e.id === 'view-' + v));
   $$('.tabbar button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
-  $('#title').textContent = TITLES[v];
-  $('main').scrollTop = 0;
+  $$('.tabbar button').forEach(b => b.setAttribute('aria-selected', b.dataset.view === v));
+  $('#title').textContent = $('#nav-title').textContent = TITLES[v];
+  $('#main').scrollTop = 0; $('#navbar').classList.remove('scrolled');
   if (v === 'cal') renderCalendar();
   if (v === 'stats') renderStats();
   if (v === 'train') renderTodayTotal();
 }
-$$('.tabbar button').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
+$$('.tabbar button').forEach(b => b.addEventListener('click', () => { haptic(6); showView(b.dataset.view); }));
+$('#main').addEventListener('scroll', e => $('#navbar').classList.toggle('scrolled', e.target.scrollTop > 36), { passive: true });
 
 /* ---------- Training: Zähler & Stoppuhr ---------- */
 let tick = null, audio = null, wakeLock = null;
@@ -88,8 +116,9 @@ function pause() {
 function addRep(n = 1) {
   if (n > 0 && !running()) start();
   active.reps = Math.max(0, active.reps + n); persistActive();
-  if (n > 0) { beep(); navigator.vibrate?.(15); }
+  if (n > 0) { beep(); haptic(12); } else haptic(6);
   renderTrain();
+  if (n > 0 && !reduceMotion.matches) $('#count').animate([{ transform: 'scale(1)' }, { transform: 'scale(1.14)' }, { transform: 'scale(1)' }], { duration: 320, easing: 'cubic-bezier(.34,1.56,.64,1)' });
 }
 function resetActive() {
   pause(); active = { reps: 0, acc: 0, runStart: null }; persistActive(); renderTrain();
@@ -103,7 +132,7 @@ function finish() {
   const r = active.reps;
   active = { reps: 0, acc: 0, runStart: null }; persistActive();
   renderTrain(); renderTodayTotal();
-  toast(`✅ ${r} Liegestütze gespeichert`);
+  haptic(20); toast(`${r} Liegestütze gespeichert`);
 }
 
 function renderTimer() {
@@ -118,7 +147,7 @@ function renderTodayTotal() {
 function renderTrain() {
   $('#count').textContent = active.reps;
   const p = Math.min(1, active.reps / settings.goal);
-  $('#ring-fg').style.strokeDashoffset = 578 * (1 - p);
+  $('#ring-fg').style.strokeDashoffset = 552.9 * (1 - p);
   $('#tap').classList.toggle('reached', active.reps >= settings.goal);
   $('#goal-val').textContent = settings.goal;
   const started = active.acc > 0 || running();
@@ -138,18 +167,23 @@ $('#btn-pause').addEventListener('click', () => running() ? pause() : start());
 $('#btn-finish').addEventListener('click', finish);
 $('#btn-reset').addEventListener('click', () => {
   if (active.reps === 0 && active.acc === 0 && !running()) return;
-  if (confirm('Aktuelles Training verwerfen?')) resetActive();
+  actionSheet({ title: 'Training verwerfen?', message: 'Die bisher gezählten Wiederholungen werden nicht gespeichert.',
+    actions: [{ label: 'Training verwerfen', danger: true, fn: resetActive }] });
 });
-$('#goal-plus').addEventListener('click', () => { settings.goal = Math.min(500, settings.goal + 5); save(KEY.settings, settings); renderTrain(); });
-$('#goal-minus').addEventListener('click', () => { settings.goal = Math.max(5, settings.goal - 5); save(KEY.settings, settings); renderTrain(); });
+$('#goal-plus').addEventListener('click', () => { haptic(6); settings.goal = Math.min(500, settings.goal + 5); save(KEY.settings, settings); renderTrain(); });
+$('#goal-minus').addEventListener('click', () => { haptic(6); settings.goal = Math.max(5, settings.goal - 5); save(KEY.settings, settings); renderTrain(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && running()) setWake(true); });
 
 /* ---------- Kalender ---------- */
 let calMonth = new Date(); calMonth.setDate(1);
 let selDay = dateKey(new Date());
 $('#cal-weekdays').innerHTML = WD.map(d => `<span>${d}</span>`).join('');
-$('#cal-prev').addEventListener('click', () => { calMonth.setMonth(calMonth.getMonth() - 1); renderCalendar(); });
-$('#cal-next').addEventListener('click', () => { calMonth.setMonth(calMonth.getMonth() + 1); renderCalendar(); });
+function shiftMonth(n) {
+  calMonth.setMonth(calMonth.getMonth() + n); haptic(6); renderCalendar();
+  if (!reduceMotion.matches) $('#cal-grid').animate([{ opacity: 0, transform: `translateX(${n * 28}px)` }, { opacity: 1, transform: 'none' }], { duration: 380, easing: 'cubic-bezier(.32,.72,0,1)' });
+}
+$('#cal-prev').addEventListener('click', () => shiftMonth(-1));
+$('#cal-next').addEventListener('click', () => shiftMonth(1));
 
 function renderCalendar() {
   const y = calMonth.getFullYear(), m = calMonth.getMonth();
@@ -165,10 +199,10 @@ function renderCalendar() {
   for (let d = 1; d <= days; d++) {
     const k = `${y}-${pad(m + 1)}-${pad(d)}`, v = totals.get(k) || 0;
     const lvl = v ? Math.min(4, Math.ceil(v / max * 4)) : 0;
-    html += `<button class="day ${lvl ? 'l' + lvl : ''} ${k === today ? 'today' : ''} ${k === selDay ? 'sel' : ''}" data-k="${k}">${d}${v ? `<small>${v}</small>` : ''}</button>`;
+    html += `<button class="day ${lvl ? 'l' + lvl : ''} ${k === today ? 'today' : ''} ${k === selDay ? 'sel' : ''}" data-k="${k}" aria-label="${d}. ${MONTHS[m]}${v ? `, ${v} Liegestütze` : ''}"><span class="n">${d}</span>${v ? `<small>${v}</small>` : ''}</button>`;
   }
   $('#cal-grid').innerHTML = html;
-  $$('#cal-grid .day[data-k]').forEach(b => b.addEventListener('click', () => { selDay = b.dataset.k; renderCalendar(); }));
+  $$('#cal-grid .day[data-k]').forEach(b => b.addEventListener('click', () => { selDay = b.dataset.k; haptic(6); renderCalendar(); }));
 
   const inMonth = sessions.filter(s => s.date.startsWith(`${y}-${pad(m + 1)}-`));
   const reps = inMonth.reduce((a, s) => a + s.reps, 0);
@@ -180,20 +214,19 @@ function renderDayDetail() {
   const list = sessions.filter(s => s.date === selDay).sort((a, b) => a.id - b.id);
   const d = parseKey(selDay);
   const title = d.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
-  let body;
-  if (!list.length) body = '<div class="muted">Kein Training an diesem Tag.</div>';
-  else {
-    const sum = list.reduce((a, s) => a + s.reps, 0);
-    body = list.map(s => `<div class="session"><div><div class="reps">${s.reps} <span class="muted" style="font-size:14px;font-weight:600">Wdh.</span></div>
-      <div class="meta">${new Date(s.id).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr · ${fmtTime(s.dur)} min · ${fmtNum(s.dur ? s.reps / (s.dur / 60) : 0, 1)}/min</div></div>
-      <button data-del="${s.id}">Löschen</button></div>`).join('') +
-      (list.length > 1 ? `<div class="meta muted" style="padding-top:8px">Summe: <b style="color:var(--text)">${sum}</b></div>` : '');
-  }
-  $('#day-detail').innerHTML = `<h3 style="margin-bottom:8px">${esc(title)}</h3>${body}`;
+  const sum = list.reduce((a, s) => a + s.reps, 0);
+  const rows = list.length ? list.map(s => `<button class="row session" data-del="${s.id}" aria-label="Einheit mit ${s.reps} Wiederholungen, Optionen">
+      <span><span class="reps">${s.reps} <small>Wdh.</small></span><br>
+      <span class="meta">${new Date(s.id).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr · ${fmtTime(s.dur)} min · ${fmtNum(s.dur ? s.reps / (s.dur / 60) : 0, 1)}/min</span></span>
+      <svg class="ico"><use href="#i-more"/></svg></button>`).join('')
+    : '<div class="empty-row">Kein Training an diesem Tag.</div>';
+  $('#day-detail').innerHTML = `<h3 class="day-title">${esc(title)}</h3><div class="list">${rows}</div>` +
+    (list.length > 1 ? `<p class="list-foot">Summe: <b style="color:var(--label)">${sum}</b> Wiederholungen</p>` : '');
   $$('#day-detail [data-del]').forEach(b => b.addEventListener('click', () => {
-    if (!confirm('Diese Einheit löschen?')) return;
-    sessions = sessions.filter(s => s.id !== Number(b.dataset.del));
-    save(KEY.sessions, sessions); renderCalendar();
+    const s = sessions.find(x => x.id === Number(b.dataset.del));
+    actionSheet({ title: `${s.reps} Wiederholungen`, actions: [{ label: 'Einheit löschen', danger: true, fn: () => {
+      sessions = sessions.filter(x => x.id !== s.id); save(KEY.sessions, sessions); renderCalendar(); renderTodayTotal();
+    } }] });
   }));
 }
 
@@ -203,62 +236,70 @@ function niceMax(v) {
   const p = Math.pow(10, Math.floor(Math.log10(v))), n = v / p;
   return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p;
 }
-/** pts: [{label, value, tip, avg?}]; type: 'bar' | 'line' */
+/** pts: [{label, value, tip, avg?}]; type: 'bar' | 'line' – Farben kommen aus CSS (System-Farben) */
 function drawChart(el, pts, { type = 'bar', tickEvery = 5 } = {}) {
-  if (!pts.length || pts.every(p => !p.value)) { el.innerHTML = '<div class="empty-note">Noch keine Daten – starte dein erstes Training! 💪</div>'; return; }
-  const W = 600, H = 230, L = 34, R = 8, T = 12, B = 26;
+  el.classList.remove('has-sel');
+  if (!pts.length || pts.every(p => !p.value)) {
+    el.innerHTML = '<div class="empty-note"><svg class="ico"><use href="#i-chart"/></svg>Noch keine Daten – starte dein erstes Training.</div>'; return;
+  }
+  const W = 600, H = 230, L = 6, R = 30, T = 34, B = 26;
   const iw = W - L - R, ih = H - T - B;
   const max = niceMax(Math.max(...pts.map(p => Math.max(p.value, p.avg || 0))));
   const step = iw / pts.length, X = i => L + step * (i + .5), Y = v => T + ih - v / max * ih;
-  let s = `<svg viewBox="0 0 ${W} ${H}" role="img"><defs>
-    <linearGradient id="gb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7a45"/><stop offset="1" stop-color="#ff3d71"/></linearGradient></defs>`;
-  for (let i = 0; i <= 4; i++) {
+  const total = pts.reduce((a, p) => a + p.value, 0);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Diagramm, Summe ${total} Wiederholungen, höchster Wert ${Math.max(...pts.map(p => p.value))}">`;
+  for (let i = 0; i <= 4; i++) { // Y-Achse rechts, wie in Apple Charts
     const v = max / 4 * i, y = Y(v);
-    s += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text x="${L - 6}" y="${y + 4}" text-anchor="end">${Math.round(v)}</text>`;
+    s += `<line class="grid" x1="${L}" x2="${W - R + 4}" y1="${y}" y2="${y}"/><text x="${W - R + 8}" y="${y + 4}">${Math.round(v)}</text>`;
   }
-  pts.forEach((p, i) => {
-    if (i % tickEvery === 0 || i === pts.length - 1 && tickEvery === 1)
-      s += `<text x="${X(i)}" y="${H - 7}" text-anchor="middle">${esc(p.label)}</text>`;
-  });
+  pts.forEach((p, i) => { if (i % tickEvery === 0) s += `<text x="${X(i)}" y="${H - 7}" text-anchor="middle">${esc(p.label)}</text>`; });
+  s += `<line class="rule" id="rule" x1="0" x2="0" y1="${T}" y2="${T + ih}"/>`;
   if (type === 'bar') {
-    const bw = Math.max(3, step * .68);
+    const bw = Math.max(3, step * .66);
     pts.forEach((p, i) => {
       const h = p.value / max * ih;
-      s += `<rect data-tip="${esc(p.tip)}" data-x="${X(i) / W}" data-y="${Y(p.value) / H}" x="${X(i) - bw / 2}" y="${T + ih - h}" width="${bw}" height="${Math.max(h, p.value ? 2 : 0)}" rx="${Math.min(5, bw / 2)}" fill="url(#gb)" opacity="${p.value ? 1 : 0}"/>
-        <rect data-tip="${esc(p.tip)}" data-x="${X(i) / W}" data-y="${Y(p.value) / H}" x="${X(i) - step / 2}" y="${T}" width="${step}" height="${ih}" fill="transparent"/>`;
+      if (p.value) s += `<rect class="bar" data-i="${i}" x="${X(i) - bw / 2}" y="${T + ih - h}" width="${bw}" height="${Math.max(h, 2)}" rx="${Math.min(4, bw / 2)}"/>`;
     });
-    const line = pts.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(p.avg).toFixed(1)}`).join('');
-    s += `<path d="${line}" fill="none" stroke="#7fd6ff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+    s += `<path class="trend" d="${pts.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(p.avg).toFixed(1)}`).join('')}"/>`;
   } else {
     const line = pts.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(p.value).toFixed(1)}`).join('');
-    s += `<path d="${line} L${X(pts.length - 1)} ${T + ih} L${X(0)} ${T + ih}Z" fill="url(#gb)" opacity=".16"/>
-      <path d="${line}" fill="none" stroke="url(#gb)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>`;
-    if (pts.length > 1) { // lineare Trendlinie
-      const n = pts.length, xs = pts.map((_, i) => i), my = pts.reduce((a, p) => a + p.value, 0) / n, mx = (n - 1) / 2;
-      const den = xs.reduce((a, x) => a + (x - mx) ** 2, 0) || 1;
-      const k = xs.reduce((a, x, i) => a + (x - mx) * (pts[i].value - my), 0) / den, b = my - k * mx;
-      s += `<line x1="${X(0)}" y1="${Y(Math.max(0, b))}" x2="${X(n - 1)}" y2="${Y(Math.max(0, b + k * (n - 1)))}" stroke="#7fd6ff" stroke-width="2.5" stroke-dasharray="6 6" stroke-linecap="round"/>`;
+    s += `<path class="area" d="${line} L${X(pts.length - 1)} ${T + ih} L${X(0)} ${T + ih}Z"/><path class="lineacc" d="${line}"/>`;
+    if (pts.length > 1) {
+      const n = pts.length, my = total / n, mx = (n - 1) / 2;
+      const den = pts.reduce((a, _, i) => a + (i - mx) ** 2, 0) || 1;
+      const k = pts.reduce((a, p, i) => a + (i - mx) * (p.value - my), 0) / den, b = my - k * mx;
+      s += `<line class="trend" stroke-dasharray="6 6" x1="${X(0)}" y1="${Y(Math.max(0, b))}" x2="${X(n - 1)}" y2="${Y(Math.max(0, b + k * (n - 1)))}"/>`;
     }
-    pts.forEach((p, i) => {
-      s += `<circle data-tip="${esc(p.tip)}" data-x="${X(i) / W}" data-y="${Y(p.value) / H}" cx="${X(i)}" cy="${Y(p.value)}" r="${pts.length > 25 ? 4 : 5.5}" fill="#0b0f1a" stroke="#ff7a45" stroke-width="3"/>`;
-    });
+    pts.forEach((p, i) => { s += `<circle class="pt" data-i="${i}" cx="${X(i)}" cy="${Y(p.value)}" r="${pts.length > 25 ? 3.5 : 5}"/>`; });
   }
   el.innerHTML = s + '</svg><div class="tip"></div>';
-  const tip = $('.tip', el);
-  const show = e => {
-    const t = e.target.closest('[data-tip]'); if (!t) return;
-    tip.textContent = t.dataset.tip;
-    tip.style.left = (t.dataset.x * 100) + '%'; tip.style.top = (t.dataset.y * $('svg', el).clientHeight) + 'px';
-    tip.style.opacity = 1;
+
+  // Scrubbing: Finger über das Diagramm ziehen zeigt Werte (Rule Mark + Callout)
+  const svg = $('svg', el), tip = $('.tip', el), rule = $('#rule', el);
+  let hideT;
+  const select = e => {
+    const r = svg.getBoundingClientRect();
+    const i = Math.max(0, Math.min(pts.length - 1, Math.floor(((e.clientX - r.left) / r.width * W - L) / step)));
+    rule.setAttribute('x1', X(i)); rule.setAttribute('x2', X(i)); rule.style.opacity = 1;
+    $$('.bar', el).forEach(b => b.classList.toggle('on', +b.dataset.i === i));
+    el.classList.add('has-sel');
+    tip.textContent = pts[i].tip;
+    tip.style.left = Math.max(14, Math.min(86, X(i) / W * 100)) + '%';
+    tip.classList.add('show'); clearTimeout(hideT);
+    if (select.last !== i) { haptic(4); select.last = i; }
   };
-  el.addEventListener('pointerdown', show); el.addEventListener('pointermove', show);
-  el.addEventListener('pointerleave', () => { tip.style.opacity = 0; });
+  const hide = () => { hideT = setTimeout(() => { tip.classList.remove('show'); rule.style.opacity = 0; el.classList.remove('has-sel'); select.last = -1; }, 1400); };
+  svg.addEventListener('pointerdown', e => { svg.setPointerCapture(e.pointerId); select(e); });
+  svg.addEventListener('pointermove', e => { if (e.buttons || e.pointerType === 'mouse') select(e); });
+  svg.addEventListener('pointerup', hide); svg.addEventListener('pointercancel', hide); svg.addEventListener('pointerleave', hide);
 }
 
 /* ---------- Statistik ---------- */
 let range = 'days';
 $$('#range-seg button').forEach(b => b.addEventListener('click', () => {
-  range = b.dataset.r; $$('#range-seg button').forEach(x => x.classList.toggle('on', x === b)); renderStats();
+  range = b.dataset.r; haptic(6);
+  $$('#range-seg button').forEach(x => x.classList.toggle('on', x === b));
+  $('#range-seg').style.setProperty('--i', $$('#range-seg button').indexOf(b)); renderStats();
 }));
 
 function movingAvg(vals, w) {
@@ -316,13 +357,13 @@ function renderStats() {
   const { cur, best: bestStreak } = streaks(totals);
   const w0 = sumRange(totals, addDays(today, -6), 7), w1 = sumRange(totals, addDays(today, -13), 7);
   const delta = w1 ? Math.round((w0 - w1) / w1 * 100) : null;
-  const deltaHtml = delta === null ? '' : `<div class="d ${delta >= 0 ? 'up' : 'down'}">${delta >= 0 ? '▲' : '▼'} ${Math.abs(delta)} % ggü. Vorwoche</div>`;
+  const deltaHtml = delta === null ? '' : `<div class="d ${delta >= 0 ? 'up' : 'down'}">${delta >= 0 ? '↑' : '↓'} ${Math.abs(delta)} % ggü. Vorwoche</div>`;
   $('#kpis').innerHTML = [
-    [fmtNum(total), 'Liegestütze gesamt', ''],
+    [fmtNum(total), 'Gesamt', ''],
     [fmtNum(w0), 'Letzte 7 Tage', deltaHtml],
-    [best, 'Bestleistung je Einheit', ''],
-    [`${cur} 🔥`, 'Aktuelle Serie (Tage)', `<div class="d muted">Rekord: ${bestStreak}</div>`],
-  ].map(([v, l, d]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div>${d}</div>`).join('');
+    [best, 'Bestleistung', ''],
+    [cur, 'Serie in Tagen', `<div class="d muted">Rekord: ${bestStreak}</div>`],
+  ].map(([v, l, d]) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div>${d}</div>`).join('');
 
   const { pts, tickEvery } = buildSeries();
   drawChart($('#chart-main'), pts, { type: 'bar', tickEvery });
@@ -343,20 +384,23 @@ function renderStats() {
     const dayCount = new Set(sessions.map(s => s.date)).size;
     const perDay = total / dayCount;
     txt = `<b>Ø ${fmtNum(avgOf(sorted), 1)} Wdh.</b> pro Einheit, <b>${fmtNum(perDay, 1)}</b> pro Trainingstag. ` +
-      (diff > 0 ? `Die zweite Hälfte deiner Einheiten liegt <b class="up">${diff} % über</b> der ersten – starker Fortschritt! 🚀`
+      (diff > 0 ? `Die zweite Hälfte deiner Einheiten liegt <b class="up">${diff} % über</b> der ersten – starker Fortschritt.`
         : diff < 0 ? `Zuletzt lagst du <b class="down">${Math.abs(diff)} %</b> unter deinem früheren Schnitt – bleib dran, Pausen gehören dazu.`
           : 'Deine Leistung ist stabil. Zeit, das Ziel etwas anzuheben?');
   }
-  $('#insight').innerHTML = `<h3 style="margin-bottom:6px">Auswertung</h3><div>${txt}</div>`;
+  $('#insight').innerHTML = `<h3>Auswertung</h3><p>${txt}</p>`;
 }
 
 /* ---------- Einstellungen & Daten ---------- */
 const dlg = $('#dlg-settings');
 $('#btn-settings').addEventListener('click', () => {
-  $('#opt-sound').checked = settings.sound; $('#opt-wake').checked = settings.wake; dlg.showModal();
+  $('#opt-sound').checked = settings.sound; $('#opt-haptic').checked = settings.haptic; $('#opt-wake').checked = settings.wake; dlg.showModal();
 });
-$('#opt-sound').addEventListener('change', e => { settings.sound = e.target.checked; save(KEY.settings, settings); });
-$('#opt-wake').addEventListener('change', e => { settings.wake = e.target.checked; save(KEY.settings, settings); if (!settings.wake) setWake(false); });
+$('#dlg-close').addEventListener('click', () => dlg.close());
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+$('#opt-sound').addEventListener('change', e => { settings.sound = e.target.checked; save(KEY.settings, settings); haptic(8); });
+$('#opt-haptic').addEventListener('change', e => { settings.haptic = e.target.checked; save(KEY.settings, settings); haptic(8); });
+$('#opt-wake').addEventListener('change', e => { settings.wake = e.target.checked; save(KEY.settings, settings); haptic(8); if (!settings.wake) setWake(false); });
 $('#btn-export').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify({ version: 1, sessions }, null, 2)], { type: 'application/json' });
   const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `liegestuetze-${dateKey(new Date())}.json` });
@@ -374,11 +418,10 @@ $('#file-import').addEventListener('change', async e => {
   } catch { toast('Datei konnte nicht gelesen werden'); }
   e.target.value = '';
 });
-$('#btn-wipe').addEventListener('click', () => {
-  if (confirm('Wirklich ALLE gespeicherten Trainingsdaten löschen?')) {
-    sessions = []; save(KEY.sessions, sessions); renderTodayTotal(); toast('Alle Daten gelöscht');
-  }
-});
+$('#btn-wipe').addEventListener('click', () => actionSheet({
+  title: 'Alle Daten löschen?', message: 'Dies kann nicht rückgängig gemacht werden. Exportiere deine Daten vorher.',
+  actions: [{ label: 'Alle Daten löschen', danger: true, fn: () => { sessions = []; save(KEY.sessions, sessions); renderTodayTotal(); renderCalendar(); toast('Alle Daten gelöscht'); } }]
+}));
 
 /* ---------- Start ---------- */
 if (running()) tick = setInterval(renderTimer, 250);
