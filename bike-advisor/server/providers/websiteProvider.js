@@ -75,15 +75,19 @@ export class WebsiteProvider {
     return scored.sort((a, b) => b[0] - a[0]).map((x) => x[1]);
   }
 
-  parsePage(html, url, src) {
+  /** `why` (optional) erhält bei Ablehnung den Grund – für check-source und Logs. */
+  parsePage(html, url, src, why = {}) {
     const meta = extractProductMeta(html, url);
-    if (!meta.found || !meta.name) return null;
+    why.meta = { structured: meta.structured, name: meta.name, brand: meta.brand, amount: meta.amount, breadcrumb: meta.breadcrumb };
+    if (!meta.found || !meta.name) { why.reason = html.length < 2000 ? `Seite fast leer (${html.length} Zeichen) – vermutlich per JavaScript nachgeladen oder Bot-Schutz` : 'weder Produkt-Strukturdaten (JSON-LD) noch og:title gefunden – Seite wird vermutlich per JavaScript gerendert'; return null; }
     const text = htmlToText(html);
     const { specs, extracted } = extractSpecs(text);
-    const cls = classify(`${meta.name} ${url} ${meta.breadcrumb}`, !!(specs.battery?.wh || specs.motor?.brand));
-    if (!cls) return null; // Typ nicht sicher bestimmbar → nicht raten
+    const hasMotor = !!(specs.battery?.wh || specs.motor?.brand);
+    // Erst enge Hinweise (Name/URL/Rubrik), dann Beschreibung und Seitenanfang – nie raten, wenn nichts passt
+    const cls = classify(`${meta.name} ${url} ${meta.breadcrumb}`, hasMotor) ?? classify(`${meta.description} ${text.slice(0, 1500)}`, hasMotor);
+    if (!cls) { why.reason = 'Fahrradtyp nicht erkennbar (kein Typ-Stichwort wie Trekking/Gravel/MTB/City in Name, URL, Rubrik, Beschreibung)'; return null; }
     const brand = src.brand ?? meta.brand;
-    if (!brand) return null;
+    if (!brand) { why.reason = 'Marke unbekannt (kein "brand" in den Strukturdaten; bei Herstellerseiten in sources.json "brand" setzen)'; return null; }
     const year = (meta.name + ' ' + url).match(/\b(20[12]\d)\b/)?.[1];
     const raw = {
       brand, model: meta.name.replace(new RegExp('^' + brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*', 'i'), '').slice(0, 120) || meta.name,
@@ -92,7 +96,7 @@ export class WebsiteProvider {
       ...specs, sources: [url],
     };
     const { ok, bike } = normalizeBike(raw, { provider: this.id });
-    if (!ok) return null;
+    if (!ok) { why.reason = 'Pflichtfelder fehlen (Produkt-URL/Typ/Marke/Modell)'; return null; }
     const core = ['price.amount', ...(bike.drive !== 'classic' ? ['battery.wh'] : []), 'weightKg', 'brakes.type'];
     const have = core.filter((k) => k === 'price.amount' ? bike.price.amount != null : extracted.includes(k)).length;
     bike.verification.status = meta.structured && have === core.length ? 'verified' : 'partial';
@@ -106,7 +110,7 @@ export class WebsiteProvider {
     const { sources, maxPages = 24 } = await this.loadSources();
     const active = sources.filter((s) => s.enabled !== false);
     const perSource = Math.max(3, Math.ceil(maxPages / Math.max(1, active.length)));
-    const notes = []; const bikes = new Map();
+    const notes = []; const bikes = new Map(); const rejected = [];
     await Promise.all(active.map(async (src) => {
       try {
         onProgress(`${src.label}: Sitemap lesen …`);
@@ -115,13 +119,16 @@ export class WebsiteProvider {
         let n = 0;
         for (const u of urls) {
           try {
-            const bike = this.parsePage(await this.fetcher.get(u), u, src);
+            const why = {};
+            const bike = this.parsePage(await this.fetcher.get(u), u, src, why);
+            if (!bike) rejected.push(why.reason);
             if (bike) { const prev = bikes.get(bike.id); if (!prev || bike.verification.status === 'verified') bikes.set(bike.id, bike); }
           } catch (e) { if (e instanceof RobotsError) { notes.push(`${src.label}: ${e.message}`); break; } }
           onProgress(`${src.label}: ${++n}/${urls.length} Seiten geprüft`);
         }
       } catch (e) { notes.push(e instanceof RobotsError ? `${src.label}: robots.txt untersagt das Auslesen – Quelle übersprungen.` : `${src.label}: ${e.message}`); }
     }));
+    if (!bikes.size && rejected.length) { const top = [...new Set(rejected)].slice(0, 3).join(' | '); notes.push(`Seiten gefunden, aber nicht auswertbar: ${top}`); }
     if (!bikes.size) notes.push(`Keine Modelle aus den Websites extrahiert (gesucht: ${spec.uses.map((u) => TYPE_LABEL[u.type]).join(', ')}). Quellen mit „npm run check-source“ prüfen.`);
     return { bikes: [...bikes.values()], notes };
   }

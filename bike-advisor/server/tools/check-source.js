@@ -14,11 +14,17 @@ console.log(`robots.txt: Sitemaps ${robots.sitemaps.length ? robots.sitemaps.joi
 const urls = await p.sitemapUrls(src).catch((e) => { console.log('✗ Sitemap:', e.message); return []; });
 console.log(`Sitemap-URLs: ${urls.length}`);
 const spec = { uses: [{ type: 'trekking', weight: 3 }, { type: 'gravel', weight: 3 }, { type: 'mtb', weight: 3 }, { type: 'city', weight: 3 }], brandsPreferred: [], electric: false };
-const cand = p.rankUrls(urls, spec, src).slice(0, 3);
-console.log(`Produkt-Kandidaten: ${cand.length}`);
+const cand = p.rankUrls(urls, spec, src).slice(0, 5);
+console.log(`Produkt-Kandidaten (nach URL-Filter): ${cand.length}`);
+if (urls.length && !cand.length) console.log('  Beispiel-URLs aus der Sitemap:\n   ' + urls.slice(0, 5).join('\n   '));
 for (const u of cand) {
+  console.log(`\n→ ${u}`);
   try {
-    const bike = p.parsePage(await fetcher.get(u), u, { ...src, brand: null });
-    console.log(bike ? `✓ ${u}\n   ${bike.brand} ${bike.model} | ${bike.type} | ${bike.price.amount ?? 'kein Preis'} € | extrahiert: ${bike.verification.extractedFields.join(', ') || '–'}` : `– ${u}: keine auswertbaren Produktdaten`);
-  } catch (e) { console.log(`✗ ${u}: ${e.message}`); }
+    const html = await fetcher.get(u);
+    const why = {};
+    const bike = p.parsePage(html, u, { ...src, brand: null }, why);
+    console.log(`   Seitengröße: ${html.length} Zeichen | Strukturdaten (JSON-LD Product): ${why.meta?.structured ? 'ja' : 'NEIN'} | Name: ${why.meta?.name ?? '–'} | Marke: ${why.meta?.brand ?? '–'} | Preis: ${why.meta?.amount ?? '–'}`);
+    console.log(bike ? `   ✓ erkannt: ${bike.brand} ${bike.model} | ${bike.type} | ${bike.price.amount ?? 'kein Preis'} € | extrahiert: ${bike.verification.extractedFields.join(', ') || '–'}` : `   ✗ abgelehnt: ${why.reason}`);
+  } catch (e) { console.log(`   ✗ Abruf fehlgeschlagen: ${e.message}`); }
 }
+console.log('\nHinweis: HTTP 403/429 = Seite sperrt Bots; "fast leer"/"JavaScript" = Daten werden erst im Browser geladen (so nicht auslesbar).');
