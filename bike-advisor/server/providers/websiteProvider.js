@@ -16,7 +16,7 @@ const KEYWORDS = {
 const BIKE_WORDS = /(bike|rad\b|rennrad|gravel|mtb|mountain|trekking|citybike|pedelec|fully|hardtail|crossbike)/i;
 const ACCESSORY = /(helm|schloss|pedal|reifen|sattel|lenker|griff|kette|bremsscheibe|bremsbel|schutzblech|ersatz|zubeh|tasche|korb|pumpe|werkzeug|beleuchtung|licht|handschuh|trikot|hose|schuh|jacke|brille|kindersitz|anhaenger|anhänger|akku-|ladeger|display|gutschein|service|gabel-|laufrad|felge|schlauch|kassette|kurbel)/i;
 // Redaktionelle/Service-Seiten sind keine Produkte (Blog, Ratgeber, Magazin, Hilfe …)
-const EDITORIAL = /(blog|ratgeber|magazin|magazine|news|guide|hilfe|help|support|service|stor(y|ies)|content|events?|about|ueber-uns|karriere|jobs|faq|kontakt|contact|tipps|tips|vergleich|test(bericht)?s?|marken|brands|stores?|haendler|retailer|impressum|agb|datenschutz|newsletter|gutschein|finanzierung|leasing|jobrad|sale-?info)/i;
+const EDITORIAL = /(?:^|[-_/])(blog|ratgeber|magazin|magazine|news|guide|hilfe|help|support|service|stor(y|ies)|content|events?|about|ueber-uns|karriere|jobs|faq|kontakt|contact|tipps|tips|vergleich|tests?|testbericht|marken|brands|stores?|haendler|retailer|impressum|agb|datenschutz|newsletter|gutschein|finanzierung|leasing|jobrad|sale-?info)(?=[-_/.]|$)/i;
 const MAX_URLS = 60000;
 
 export function loc(xml) { return [...xml.matchAll(/<loc>\s*(?:<!\[CDATA\[)?\s*([^<\]\s]+)\s*(?:\]\]>)?\s*<\/loc>/gi)].map((m) => m[1].replace(/&amp;/g, '&')); }
