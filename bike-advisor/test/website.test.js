@@ -101,3 +101,11 @@ test('UserStore + API: geräteübergreifende Ablage, PIN-Schutz', async () => {
   } finally { server.close(); }
   assert.throws(() => UserStore.sanitize([]), /Ungültig/);
 });
+
+test('URL-Ranking: Blog-/Ratgeberseiten raus, Produktseiten mit Artikelnummer vorn', () => {
+  const p = new WebsiteProvider({ sourcesFile: '/x', siteDelayMs: 0 });
+  const urls = ['https://s.test/de-de/blog-content/mtb-news/mountainbike-oder-trekking-bike/b1.html', 'https://s.test/de-de/ratgeber/trekking-bike-kaufen', 'https://s.test/de-de/trekking-bikes/trekkingrad/pathlite/pathlite-7/3351.html', 'https://s.test/de-de/zubehoer/trekking-bike-schloss/1.html'];
+  const ranked = p.rankUrls(urls, { uses: [{ type: 'trekking', weight: 5 }], brandsPreferred: [], electric: false }, { origin: 'https://s.test', includePaths: ['/de-de/'] });
+  assert.deepEqual(ranked, ['https://s.test/de-de/trekking-bikes/trekkingrad/pathlite/pathlite-7/3351.html']);
+  assert.equal(p.parsePage('<html><head><meta property="og:title" content="Ratgeber"></head></html>', 'https://s.test/x', { brand: 'T' }, {}), null);
+});

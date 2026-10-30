@@ -15,6 +15,8 @@ const KEYWORDS = {
 };
 const BIKE_WORDS = /(bike|rad\b|rennrad|gravel|mtb|mountain|trekking|citybike|pedelec|fully|hardtail|crossbike)/i;
 const ACCESSORY = /(helm|schloss|pedal|reifen|sattel|lenker|griff|kette|bremsscheibe|bremsbel|schutzblech|ersatz|zubeh|tasche|korb|pumpe|werkzeug|beleuchtung|licht|handschuh|trikot|hose|schuh|jacke|brille|kindersitz|anhaenger|anhänger|akku-|ladeger|display|gutschein|service|gabel-|laufrad|felge|schlauch|kassette|kurbel)/i;
+// Redaktionelle/Service-Seiten sind keine Produkte (Blog, Ratgeber, Magazin, Hilfe …)
+const EDITORIAL = /(blog|ratgeber|magazin|magazine|news|guide|hilfe|help|support|service|stor(y|ies)|content|events?|about|ueber-uns|karriere|jobs|faq|kontakt|contact|tipps|tips|vergleich|test(bericht)?s?|marken|brands|stores?|haendler|retailer|impressum|agb|datenschutz|newsletter|gutschein|finanzierung|leasing|jobrad|sale-?info)/i;
 const MAX_URLS = 60000;
 
 export function loc(xml) { return [...xml.matchAll(/<loc>\s*(?:<!\[CDATA\[)?\s*([^<\]\s]+)\s*(?:\]\]>)?\s*<\/loc>/gi)].map((m) => m[1].replace(/&amp;/g, '&')); }
@@ -64,15 +66,18 @@ export class WebsiteProvider {
       let p; try { p = new URL(u); } catch { continue; }
       if (src.includePaths?.length && !src.includePaths.some((x) => p.pathname.startsWith(x))) continue;
       const path = decodeURIComponent(p.pathname).toLowerCase();
-      if (ACCESSORY.test(path) || !BIKE_WORDS.test(path)) continue;
+      if (ACCESSORY.test(path) || EDITORIAL.test(path) || !BIKE_WORDS.test(path)) continue;
       let s = 0;
       for (const k of kw) if (path.includes(k)) s += 3;
       if (spec.electric && /e-?bike|pedelec|\be-|emtb/.test(path)) s += 2; else if (!spec.electric && /e-?bike|pedelec/.test(path)) s -= 4;
       for (const b of brandWords) if (b && (path.includes(b) || p.host.replace(/[^a-z0-9]/g, '').includes(b))) s += 2;
-      if (path.split('/').filter(Boolean).length < 2) s -= 2; // Rubrikseiten
+      const segs = path.split('/').filter(Boolean);
+      if (segs.length < 2) s -= 2; // Rubrikseiten
+      if (/\/\d{3,}(\.html?)?$/.test(path) || /\/(p|produkt|product|artikel)\/|\d{4,}\.html?$/.test(path)) s += 3; // typische Produktseiten-Muster (Artikelnummer)
+      if (segs.length >= 4) s += 1; // tiefe Pfade sind eher Produkte als Rubriken
       if (s > 0) scored.push([s, u]);
     }
-    return scored.sort((a, b) => b[0] - a[0]).map((x) => x[1]);
+    return [...new Set(scored.sort((a, b) => b[0] - a[0]).map((x) => x[1]))];
   }
 
   /** `why` (optional) erhält bei Ablehnung den Grund – für check-source und Logs. */
@@ -80,6 +85,7 @@ export class WebsiteProvider {
     const meta = extractProductMeta(html, url);
     why.meta = { structured: meta.structured, name: meta.name, brand: meta.brand, amount: meta.amount, breadcrumb: meta.breadcrumb };
     if (!meta.found || !meta.name) { why.reason = html.length < 2000 ? `Seite fast leer (${html.length} Zeichen) – vermutlich per JavaScript nachgeladen oder Bot-Schutz` : 'weder Produkt-Strukturdaten (JSON-LD) noch og:title gefunden – Seite wird vermutlich per JavaScript gerendert'; return null; }
+    if (!meta.structured && meta.amount == null) { why.reason = 'keine Produktseite (weder Produkt-Strukturdaten noch Preis gefunden)'; return null; }
     const text = htmlToText(html);
     const { specs, extracted } = extractSpecs(text);
     const hasMotor = !!(specs.battery?.wh || specs.motor?.brand);
@@ -114,15 +120,16 @@ export class WebsiteProvider {
     await Promise.all(active.map(async (src) => {
       try {
         onProgress(`${src.label}: Sitemap lesen …`);
-        const urls = this.rankUrls(await this.sitemapUrls(src), spec, src).slice(0, perSource);
+        const urls = this.rankUrls(await this.sitemapUrls(src), spec, src).slice(0, perSource * 3);
         if (!urls.length) { notes.push(`${src.label}: keine passenden Produktseiten über die Sitemap gefunden.`); return; }
-        let n = 0;
+        let n = 0, found = 0;
         for (const u of urls) {
+          if (found >= perSource) break;
           try {
             const why = {};
             const bike = this.parsePage(await this.fetcher.get(u), u, src, why);
             if (!bike) rejected.push(why.reason);
-            if (bike) { const prev = bikes.get(bike.id); if (!prev || bike.verification.status === 'verified') bikes.set(bike.id, bike); }
+            if (bike) { found++; const prev = bikes.get(bike.id); if (!prev || bike.verification.status === 'verified') bikes.set(bike.id, bike); }
           } catch (e) { if (e instanceof RobotsError) { notes.push(`${src.label}: ${e.message}`); break; } }
           onProgress(`${src.label}: ${++n}/${urls.length} Seiten geprüft`);
         }
