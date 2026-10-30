@@ -1,0 +1,17 @@
+{
+  "_comment": "TEST-FIXTURE: frei erfundene Testdaten ausschließlich für automatische Tests. Keine realen Produkte!",
+  "bikes": [
+    { "brand": "Testmarke", "model": "Fixture E-Trekking A", "year": 2026, "type": "etrekking", "drive": "ebike", "url": "https://example.test/a", "lastVerified": "2999-01-01",
+      "price": { "amount": 2800 }, "frameSizes": ["S", "M", "L"], "weightKg": 26, "maxSystemWeightKg": 150,
+      "motor": { "brand": "Bosch", "torqueNm": 85, "concept": "mid" }, "battery": { "wh": 750, "removable": true },
+      "drivetrain": { "type": "chain", "gears": 10 }, "brakes": { "type": "hydraulic" }, "suspension": { "type": "fork" },
+      "features": { "rack": true, "fenders": true, "lights": true, "kickstand": true } },
+    { "brand": "Testmarke", "model": "Fixture E-Trekking B", "year": 2026, "type": "etrekking", "drive": "ebike", "url": "https://example.test/b", "lastVerified": "2999-01-01",
+      "price": { "amount": 2500 }, "frameSizes": ["M"], "weightKg": 25, "motor": { "brand": "Bosch", "torqueNm": 65 }, "battery": { "wh": 400, "removable": false },
+      "drivetrain": { "type": "hub", "gears": 8 }, "brakes": { "type": "mechanical" }, "suspension": { "type": "fork" },
+      "features": { "rack": false, "fenders": true, "lights": true } },
+    { "brand": "Testmarke", "model": "Fixture Rennrad", "year": 2026, "type": "road", "drive": "classic", "url": "https://example.test/c", "lastVerified": "2999-01-01",
+      "price": { "amount": 2400 }, "frameSizes": ["M"], "weightKg": 8.4, "drivetrain": { "type": "chain", "gears": 22 }, "brakes": { "type": "hydraulic" }, "suspension": { "type": "none" } },
+    { "brand": "Ohne", "model": "Ungültig ohne URL", "type": "road" }
+  ]
+}
