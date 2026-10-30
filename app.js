@@ -5,13 +5,17 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const MONTHS = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 const WD = ['Mo','Di','Mi','Do','Fr','Sa','So'];
-const KEY = { sessions: 'pushups.sessions', active: 'pushups.active', settings: 'pushups.settings' };
+const KEY = { sessions: 'pushups.sessions', active: 'pushups.active', settings: 'pushups.settings', deleted: 'pushups.deleted', sync: 'pushups.sync' };
 
 /* ---------- Storage ---------- */
 const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch { return d; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
 let sessions = load(KEY.sessions, []);
+let deleted = load(KEY.deleted, {});            // id -> Löschzeitpunkt (damit Löschungen auf alle Geräte wirken)
+let syncCfg = Object.assign({ token: '', gistId: '', last: 0 }, load(KEY.sync, {}));
+/** Speichert Einheiten lokal und stößt – falls verbunden – die Synchronisierung an. */
+function persist() { save(KEY.sessions, sessions); save(KEY.deleted, deleted); scheduleSync(); }
 let settings = Object.assign({ sound: true, haptic: true, wake: true, goal: 20 }, load(KEY.settings, {}));
 let active = Object.assign({ reps: 0, acc: 0, runStart: null }, load(KEY.active, {}));
 
@@ -128,7 +132,7 @@ function finish() {
   pause();
   const now = new Date();
   sessions.push({ id: now.getTime(), date: dateKey(now), reps: active.reps, dur: Math.round(active.acc / 1000) });
-  save(KEY.sessions, sessions);
+  persist();
   const r = active.reps;
   active = { reps: 0, acc: 0, runStart: null }; persistActive();
   renderTrain(); renderTodayTotal();
@@ -225,7 +229,7 @@ function renderDayDetail() {
   $$('#day-detail [data-del]').forEach(b => b.addEventListener('click', () => {
     const s = sessions.find(x => x.id === Number(b.dataset.del));
     actionSheet({ title: `${s.reps} Wiederholungen`, actions: [{ label: 'Einheit löschen', danger: true, fn: () => {
-      sessions = sessions.filter(x => x.id !== s.id); save(KEY.sessions, sessions); renderCalendar(); renderTodayTotal();
+      sessions = sessions.filter(x => x.id !== s.id); deleted[s.id] = Date.now(); persist(); renderCalendar(); renderTodayTotal();
     } }] });
   }));
 }
@@ -394,7 +398,7 @@ function renderStats() {
 /* ---------- Einstellungen & Daten ---------- */
 const dlg = $('#dlg-settings');
 $('#btn-settings').addEventListener('click', () => {
-  $('#opt-sound').checked = settings.sound; $('#opt-haptic').checked = settings.haptic; $('#opt-wake').checked = settings.wake; dlg.showModal();
+  $('#opt-sound').checked = settings.sound; $('#opt-haptic').checked = settings.haptic; $('#opt-wake').checked = settings.wake; renderSyncUI(); dlg.showModal();
 });
 $('#dlg-close').addEventListener('click', () => dlg.close());
 dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
@@ -414,16 +418,95 @@ $('#file-import').addEventListener('change', async e => {
     const ok = (data.sessions || []).filter(s => s && /^\d{4}-\d\d-\d\d$/.test(s.date) && Number.isFinite(+s.reps));
     const ids = new Set(sessions.map(s => s.id)); let n = 0;
     for (const s of ok) if (!ids.has(s.id)) { sessions.push({ id: +s.id || Date.now() + n, date: s.date, reps: +s.reps, dur: +s.dur || 0 }); n++; }
-    save(KEY.sessions, sessions); renderTodayTotal(); toast(`${n} Einheiten importiert`);
+    persist(); renderTodayTotal(); toast(`${n} Einheiten importiert`);
   } catch { toast('Datei konnte nicht gelesen werden'); }
   e.target.value = '';
 });
 $('#btn-wipe').addEventListener('click', () => actionSheet({
   title: 'Alle Daten löschen?', message: 'Dies kann nicht rückgängig gemacht werden. Exportiere deine Daten vorher.',
-  actions: [{ label: 'Alle Daten löschen', danger: true, fn: () => { sessions = []; save(KEY.sessions, sessions); renderTodayTotal(); renderCalendar(); toast('Alle Daten gelöscht'); } }]
+  actions: [{ label: 'Alle Daten löschen', danger: true, fn: () => { sessions.forEach(x => { deleted[x.id] = Date.now(); }); sessions = []; persist(); renderTodayTotal(); renderCalendar(); toast('Alle Daten gelöscht'); } }]
 }));
+
+
+/* ---------- Synchronisierung (privater GitHub Gist) ---------- */
+const GIST_FILE = 'pushups.json', GIST_DESC = 'Liegestütz-Tracker Daten';
+let syncing = false, syncTimer = null, syncState = { msg: '', err: false };
+const api = async (path, opts = {}) => {
+  const r = await fetch('https://api.github.com' + path, { ...opts, headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${syncCfg.token}`, 'Content-Type': 'application/json', ...opts.headers } });
+  if (!r.ok) { const e = new Error(r.status); e.status = r.status; throw e; }
+  return r.status === 204 ? null : r.json();
+};
+const saveSyncCfg = () => save(KEY.sync, syncCfg);
+const isValidSession = x => x && Number.isFinite(+x.id) && /^\d{4}-\d\d-\d\d$/.test(x.date) && Number.isFinite(+x.reps);
+
+/** Vereinigt lokale und entfernte Daten; Löschvermerke gewinnen. */
+function mergeData(remote) {
+  const tomb = { ...(remote.deleted || {}), ...deleted };
+  const map = new Map();
+  for (const x of [...(remote.sessions || []), ...sessions]) if (isValidSession(x) && !(x.id in tomb)) map.set(+x.id, { id: +x.id, date: x.date, reps: +x.reps, dur: +x.dur || 0 });
+  return { sessions: [...map.values()].sort((a, b) => a.id - b.id), deleted: tomb };
+}
+async function findOrCreateGist() {
+  if (syncCfg.gistId) return syncCfg.gistId;
+  const list = await api('/gists?per_page=100');
+  const hit = list.find(g => g.files && g.files[GIST_FILE]);
+  if (hit) return (syncCfg.gistId = hit.id);
+  const g = await api('/gists', { method: 'POST', body: JSON.stringify({ description: GIST_DESC, public: false, files: { [GIST_FILE]: { content: JSON.stringify({ version: 2, sessions, deleted }) } } }) });
+  return (syncCfg.gistId = g.id);
+}
+async function syncNow(manual = false) {
+  if (!syncCfg.token || syncing) return;
+  if (!navigator.onLine) { setSyncState('Offline – wird später abgeglichen', false); return; }
+  syncing = true; setSyncState('Synchronisiere …', false);
+  try {
+    const id = await findOrCreateGist();
+    let gist = await api('/gists/' + id);
+    const file = gist.files[GIST_FILE];
+    let remote = {};
+    if (file) { try { remote = JSON.parse(file.truncated ? await (await fetch(file.raw_url)).text() : file.content); } catch {} }
+    const m = mergeData(remote);
+    const changedLocal = JSON.stringify(m.sessions) !== JSON.stringify([...sessions].sort((a, b) => a.id - b.id));
+    const norm = x => JSON.stringify([(x.sessions || []).map(s => s.id).sort(), Object.keys(x.deleted || {}).sort()]);
+    const changedRemote = norm(m) !== norm(remote);
+    sessions = m.sessions; deleted = m.deleted; save(KEY.sessions, sessions); save(KEY.deleted, deleted);
+    if (changedRemote) await api('/gists/' + id, { method: 'PATCH', body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify({ version: 2, sessions, deleted }) } } }) });
+    syncCfg.last = Date.now(); saveSyncCfg();
+    setSyncState('', false);
+    if (changedLocal) { renderTodayTotal(); renderCalendar(); if ($('#view-stats').classList.contains('active')) renderStats(); if (!manual) toast('Daten synchronisiert'); }
+    if (manual) toast('Synchronisiert');
+  } catch (e) {
+    if (e.status === 401 || e.status === 403) setSyncState('Token ungültig oder ohne Berechtigung', true);
+    else if (e.status === 404) { syncCfg.gistId = ''; saveSyncCfg(); setSyncState('Gist nicht gefunden – bitte erneut synchronisieren', true); }
+    else setSyncState('Keine Verbindung – wird später erneut versucht', true);
+  } finally { syncing = false; renderSyncUI(); }
+}
+function scheduleSync() { if (!syncCfg.token) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(), 1500); }
+function setSyncState(msg, err) { syncState = { msg, err }; renderSyncUI(); }
+
+function renderSyncUI() {
+  const on = !!syncCfg.token;
+  $('#sync-off').hidden = on; $('#sync-on').hidden = !on;
+  const last = syncCfg.last ? new Date(syncCfg.last).toLocaleString('de-DE', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'noch nie';
+  const st = $('#sync-status');
+  st.textContent = syncState.msg || `Zuletzt: ${last}`; st.style.color = syncState.err ? 'var(--red)' : '';
+}
+$('#btn-sync-connect').addEventListener('click', async () => {
+  const t = $('#sync-token').value.trim();
+  if (!/^(ghp_|github_pat_|gho_)[\w]+$/.test(t)) return toast('Das sieht nicht nach einem GitHub-Token aus');
+  syncCfg = { token: t, gistId: '', last: 0 }; saveSyncCfg(); $('#sync-token').value = '';
+  await syncNow(true);
+  if (syncState.err) { syncCfg.token = ''; saveSyncCfg(); renderSyncUI(); }
+});
+$('#btn-sync-now').addEventListener('click', () => syncNow(true));
+$('#btn-sync-off').addEventListener('click', () => actionSheet({
+  title: 'Synchronisierung trennen?', message: 'Die Daten auf diesem Gerät bleiben erhalten. Online gespeicherte Daten werden nicht gelöscht.',
+  actions: [{ label: 'Trennen', danger: true, fn: () => { syncCfg = { token: '', gistId: '', last: 0 }; saveSyncCfg(); setSyncState('', false); } }]
+}));
+addEventListener('online', () => syncNow());
+document.addEventListener('visibilitychange', () => { if (!document.hidden) syncNow(); });
+setInterval(() => { if (!document.hidden) syncNow(); }, 120000);
 
 /* ---------- Start ---------- */
 if (running()) tick = setInterval(renderTimer, 250);
-renderTrain(); renderTodayTotal();
+renderTrain(); renderTodayTotal(); renderSyncUI(); syncNow();
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});

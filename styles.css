@@ -248,3 +248,9 @@ dialog .list-title:first-of-type{margin-top:4px}
 @media (max-width:743px){
   dialog{width:100%;max-width:none;margin:auto 0 0;border-radius:26px 26px 0 0}
 }
+
+.row.col{display:block;color:var(--label2);font-size:.88rem;padding:12px 16px}
+a.row{text-decoration:none}
+.field{width:100%;min-height:36px;border:0;background:transparent;color:var(--label);font:inherit;outline:0;-webkit-user-select:text;user-select:text}
+.field::placeholder{color:var(--label3)}
+.muted-end{color:var(--label2);font-size:.82rem;text-align:right}

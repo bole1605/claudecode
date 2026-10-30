@@ -1,4 +1,4 @@
-const CACHE = 'pushups-v4';
+const CACHE = 'pushups-v5';
 const ASSETS = ['./', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/home-icon-180.png'];
 
@@ -12,7 +12,7 @@ self.addEventListener('activate', e => {
 });
 // Netzwerk zuerst (immer die neueste Version), Cache nur als Offline-Fallback
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
+  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return; // API-Aufrufe nie cachen
   e.respondWith(fetch(e.request).then(res => {
     const copy = res.clone();
     caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});

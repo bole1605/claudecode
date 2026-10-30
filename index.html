@@ -140,6 +140,21 @@
     <label class="row"><span>Haptisches Feedback</span><input type="checkbox" class="switch" id="opt-haptic"></label>
     <label class="row"><span>Bildschirm anlassen</span><input type="checkbox" class="switch" id="opt-wake"></label>
   </div>
+  <div class="list-title">Synchronisierung</div>
+  <div class="list">
+    <div id="sync-off">
+      <div class="row col"><span>Verbinde einen privaten GitHub-Gist, damit iPhone und iPad dieselben Einträge haben.</span></div>
+      <a class="row link" href="https://github.com/settings/tokens/new?scopes=gist&description=Liegestuetze-Sync" target="_blank" rel="noopener">1. Token bei GitHub erstellen</a>
+      <div class="row"><input id="sync-token" class="field" type="password" placeholder="2. Token hier einfügen" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+      <button class="row link" id="btn-sync-connect">3. Verbinden</button>
+    </div>
+    <div id="sync-on" hidden>
+      <div class="row"><span>Verbunden mit GitHub</span><span class="muted-end" id="sync-status"></span></div>
+      <button class="row link" id="btn-sync-now">Jetzt synchronisieren</button>
+      <button class="row link danger" id="btn-sync-off">Trennen</button>
+    </div>
+  </div>
+  <p class="list-foot">Die Daten liegen in einem geheimen Gist (nur per Link erreichbar). Auf jedem Gerät denselben Token einfügen.</p>
   <div class="list-title">Daten</div>
   <div class="list">
     <button class="row link" id="btn-export">Daten exportieren</button>
@@ -149,7 +164,7 @@
   <div class="list" style="margin-top:22px">
     <button class="row link danger center" id="btn-wipe">Alle Daten löschen</button>
   </div>
-  <p class="list-foot">Deine Trainingsdaten werden ausschließlich auf diesem Gerät gespeichert.</p>
+  <p class="list-foot">Deine Trainingsdaten liegen auf diesem Gerät und werden, falls verbunden, mit deinem Gist abgeglichen.</p>
 </dialog>
 
 <script src="app.js"></script>
