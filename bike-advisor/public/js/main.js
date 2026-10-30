@@ -5,7 +5,7 @@ import { resultsView } from './views/results.js';
 import { compareView } from './views/compare.js';
 import { wishlistView, savedView } from './views/lists.js';
 import { initAdvisor } from './components/advisor.js';
-import { subscribe, wishlist, compare } from './store.js';
+import { syncInit, subscribe, wishlist, compare } from './store.js';
 
 const app = document.getElementById('app');
 const nav = (hash) => { if (location.hash === hash) route(); else location.hash = hash; };
@@ -43,5 +43,7 @@ function updateChrome() {
 subscribe(updateChrome);
 addEventListener('hashchange', () => { route(); updateChrome(); });
 initAdvisor(document.getElementById('advisor-root'));
+updateChrome();
+await Promise.race([syncInit(), new Promise((r) => setTimeout(r, 3000))]);
 updateChrome();
 route();

@@ -1,10 +1,14 @@
 import http from 'node:http';
+import { createHash } from 'node:crypto';
+const h256 = (x) => createHash('sha256').update(x).digest();
+const timingSafeEqual = (a, b) => { const x = h256(a), y = h256(b); let d = 0; for (let i = 0; i < x.length; i++) d |= x[i] ^ y[i]; return d === 0; };
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { loadConfig, ROOT } from './config.js';
 import { sendJson, readJson, serveStatic, rateLimiter } from './http.js';
 import { createProviders } from './providers/index.js';
 import { SearchService } from './services/searchService.js';
+import { UserStore } from './services/userStore.js';
 import { AdvisorService } from './services/advisorService.js';
 import { validateAnswers } from '../shared/validate.js';
 import { DEFAULT_BRANDS, mergeBrands } from '../shared/brands.js';
@@ -19,14 +23,22 @@ export async function createApp(overrides = {}) {
   const providers = overrides.providers ?? createProviders(config, brands, overrides.fetch);
   const search = new SearchService(providers, config);
   const advisor = new AdvisorService(config, overrides.fetch);
+  const store = new UserStore(config.userDataFile);
   const searchLimit = rateLimiter(8, 10 * 60_000), advisorLimit = rateLimiter(40, 10 * 60_000);
+
+  const pinOk = (req) => !config.appPin || (typeof req.headers['x-app-pin'] === 'string' && timingSafeEqual(req.headers['x-app-pin'], config.appPin));
 
   const handler = async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     const ip = req.socket.remoteAddress ?? 'x';
     try {
       if (url.pathname.startsWith('/api/')) {
-        if (req.method === 'GET' && url.pathname === '/api/health') return sendJson(res, 200, { providers: await search.status(), advisor: advisor.available });
+        if (req.method === 'GET' && url.pathname === '/api/health') return sendJson(res, 200, { pinRequired: !!config.appPin, ...(pinOk(req) ? { providers: await search.status(), advisor: advisor.available } : {}) });
+        if (!pinOk(req)) return sendJson(res, 401, { error: 'PIN erforderlich', pinRequired: true });
+        if (url.pathname === '/api/store') {
+          if (req.method === 'GET') return sendJson(res, 200, await store.read());
+          if (req.method === 'PUT') { const b = await readJson(req, 2_100_000); const r = await store.write(b.data, Number(b.updatedAt) || Date.now()); return sendJson(res, 200, { updatedAt: r.updatedAt }); }
+        }
         if (req.method === 'GET' && url.pathname === '/api/brands') return sendJson(res, 200, { brands: await loadBrands(config.brandsFile) });
         if (req.method === 'POST' && url.pathname === '/api/search') {
           if (!searchLimit(ip)) return sendJson(res, 429, { error: 'Zu viele Suchanfragen. Bitte später erneut versuchen.' });
@@ -67,5 +79,8 @@ export async function createApp(overrides = {}) {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const { server, config } = await createApp();
-  server.listen(config.port, () => console.log(`Bike Advisor läuft auf http://localhost:${config.port}`));
+  server.listen(config.port, config.host, () => {
+    console.log(`KonfiRad läuft auf http://localhost:${config.port} (Host ${config.host})`);
+    if (config.host !== '127.0.0.1' && config.host !== 'localhost' && !config.appPin) console.warn('WARNUNG: Zugriff im Netzwerk ohne APP_PIN – bitte APP_PIN in .env setzen.');
+  });
 }

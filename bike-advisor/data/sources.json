@@ -1,0 +1,11 @@
+{
+  "_hinweis": "Websites, aus denen KonfiRad kostenlos Modelle liest (nur persönliche Nutzung, robots.txt wird respektiert, gedrosselt, 24 h Cache). Ob eine Seite brauchbare Sitemaps/Strukturdaten liefert, prüfe mit: npm run check-source -- <origin>. Eigene Quellen einfach ergänzen; 'brand' nur bei reinen Herstellerseiten setzen, 'includePaths' optional zur Länder-/Bereichsfilterung.",
+  "maxPages": 24,
+  "sources": [
+    { "id": "canyon", "label": "Canyon", "origin": "https://www.canyon.com", "brand": "Canyon", "includePaths": ["/de-de/"], "enabled": true },
+    { "id": "rose", "label": "Rose Bikes", "origin": "https://www.rosebikes.de", "brand": "Rose", "enabled": true },
+    { "id": "cube", "label": "Cube", "origin": "https://www.cube.eu", "brand": "Cube", "enabled": true },
+    { "id": "bike-discount", "label": "Bike-Discount", "origin": "https://www.bike-discount.de", "enabled": true },
+    { "id": "bike24", "label": "Bike24", "origin": "https://www.bike24.de", "enabled": true }
+  ]
+}

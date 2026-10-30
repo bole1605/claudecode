@@ -24,6 +24,13 @@ export function loadConfig(env = process.env) {
     maxSearchRequests: Math.min(Number(e.BIKE_SEARCH_MAX_REQUESTS) || 3, 6),
     cacheTtlMs: (Number(e.BIKE_CACHE_TTL_MIN) || 360) * 60_000,
     catalogDir: e.BIKE_CATALOG_DIR || path.join(ROOT, 'data', 'catalog'),
+    sourcesFile: e.BIKE_SOURCES_FILE || path.join(ROOT, 'data', 'sources.json'),
+    siteCacheDir: e.BIKE_SITE_CACHE_DIR || path.join(ROOT, 'data', 'cache'),
+    siteDelayMs: Number(e.BIKE_SITE_DELAY_MS) || 1200,
+    siteUserAgent: e.BIKE_USER_AGENT || 'KonfiRadBot/0.1 (persönliche Kaufberatung; lokal)',
+    host: e.HOST || '127.0.0.1',
+    appPin: e.APP_PIN || '',
+    userDataFile: e.BIKE_USER_DATA || path.join(ROOT, 'data', 'user', 'store.json'),
     brandsFile: e.BIKE_BRANDS_FILE || path.join(ROOT, 'data', 'brands.extra.json'),
   };
 }

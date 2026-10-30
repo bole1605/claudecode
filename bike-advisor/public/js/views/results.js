@@ -18,7 +18,7 @@ function loading(root, lines) {
 function unavailable(root, r) {
   mount(root, h('div', { class: 'container narrow' }, h('div', { class: 'panel' },
     h('h2', null, 'Keine Datenquelle verfügbar'),
-    h('p', null, 'Es wurden bewusst keine Ergebnisse simuliert. Damit die Suche echte, aktuelle Modelle findet, muss mindestens eine Quelle aktiv sein:'),
+    h('p', null, 'Es wurden bewusst keine Ergebnisse simuliert. Damit die Suche echte, aktuelle Modelle findet, muss mindestens eine Quelle aktiv sein (kostenlos: Websites in data/sources.json):'),
     h('ul', null, (r.providers ?? []).map((p) => h('li', null, h('strong', null, p.label), ': ', p.ok ? 'verfügbar' : p.reason))),
     h('p', { class: 'help' }, 'Siehe README → „Datenquellen einrichten“.'),
     h('a', { class: 'btn ghost', href: '#/configure' }, '← Zurück zum Konfigurator'))));

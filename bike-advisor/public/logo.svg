@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="#0071e3" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="KonfiRad: Fahrrad im Einkaufswagen">
+  <!-- Einkaufswagen -->
+  <path d="M3 10h8l9 36h33l6-20H14.5"/>
+  <circle cx="26" cy="55.5" r="3"/><circle cx="47" cy="55.5" r="3"/>
+  <!-- Fahrrad -->
+  <circle cx="27" cy="36" r="7"/><circle cx="46" cy="36" r="7"/>
+  <path d="M27 36h9l-2.5-15L27 36M33.5 21h10L36 36M43.5 21l2.5 15M33.5 21v-2.5M30.5 18.5h6M43.5 21l-1-4.5h4.5"/>
+</svg>

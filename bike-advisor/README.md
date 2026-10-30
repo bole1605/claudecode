@@ -1,25 +1,33 @@
-# Radwerk – Fahrrad-Konfigurator & Empfehlungsplattform
+# KonfiRad – Fahrrad-Konfigurator & Empfehlungsplattform
 
 Mehrstufiger, dynamischer Fragebogen → Live-Marktsuche → transparenter Matching-Score (0–100 %) → Ergebnisse mit Begründung, Vergleich, Wunschliste, gespeicherten Suchen und KI-Berater.
 
 ## Starten
 ```bash
 cd bike-advisor
-cp .env.example .env      # ANTHROPIC_API_KEY eintragen (nur serverseitig)
+cp .env.example .env      # optional: ANTHROPIC_API_KEY (nur für KI-Berater/KI-Websuche)
 npm start                 # http://localhost:3000
 npm test                  # Node-Testrunner, keine Abhängigkeiten
 ```
 Voraussetzung: Node ≥ 20, kein `npm install` nötig.
 
-## Datenquellen einrichten (keine erfundenen Daten!)
-Die App simuliert **nie** Suchergebnisse. Ohne aktive Quelle zeigt sie eine klare Meldung.
+## Datenquellen (keine erfundenen Daten!)
+KonfiRad simuliert **nie** Suchergebnisse. Es gibt drei austauschbare Quellen, die parallel laufen:
 
-| Provider | Aktivierung | Verhalten |
-|---|---|---|
-| `claude-web` – Live-Websuche | `ANTHROPIC_API_KEY` | Claude recherchiert per Web-Search-Tool auf Hersteller-/Händlerseiten und liefert strukturierte JSON-Daten. Jede Produkt-URL wird gegen die tatsächlich gefundenen Suchtreffer geprüft: nur dann „Verifiziert“, sonst „Teilweise bestätigt“/„Nicht verifiziert“. Unbekannte Felder bleiben `null` und erscheinen als „nicht verifiziert“. |
-| `catalog` – kuratierter Katalog | JSON-Dateien in `data/catalog/` | Vom Betreiber geprüfte Modelle (Pflichtfeld `lastVerified`; älter als 60 Tage = „veraltet“). Siehe `data/catalog/README.md`. |
+| Provider | Kosten | Aktivierung | Verhalten |
+|---|---|---|---|
+| `website` – Hersteller-/Händlerseiten | **kostenlos** | `data/sources.json` (5 Seiten vorbelegt) | robots.txt → Sitemap → passende Produktseiten → Preis/Name/Bild aus strukturierten Seitendaten (JSON-LD), Technik per Textanalyse. Gedrosselt (1,2 s/Seite), 24 h Festplatten-Cache, nur persönliche Nutzung. Technikdaten sind als „automatisch extrahiert“ markiert; Mehrdeutiges bleibt „nicht verifiziert“. |
+| `catalog` – kuratierter Katalog | kostenlos | JSON in `data/catalog/` | Nur vom Betreiber geprüfte Modelle (`lastVerified` Pflicht). |
+| `claude-web` – Websuche per KI | API-Kosten | `ANTHROPIC_API_KEY` | Optional, breiter und genauer; Produkt-URLs werden gegen echte Suchtreffer geprüft. Gleiche Anthropic-Key aktiviert den KI-Berater. |
 
-Weitere Quellen (Händler-APIs, Affiliate-Feeds): neue Klasse in `server/providers/` mit `isAvailable()` und `search(spec)`, Registrierung in `providers/index.js`. Hersteller erweitern: `data/brands.extra.json` (Array von Namen) oder direkt im UI.
+**Wichtig zur kostenlosen Quelle:** Ich konnte sie nur gegen einen lokalen Test-Shop prüfen (die Entwicklungsumgebung hat keinen Internetzugang). Ob eine echte Seite brauchbare Sitemaps/Strukturdaten liefert, prüfst du so:
+```bash
+npm run check-source -- https://www.canyon.com
+```
+Die Ausgabe zeigt Sitemap-Größe, Produkt-Kandidaten und was extrahiert wurde. Funktioniert eine Seite nicht (oder untersagt `robots.txt` das Auslesen), setze sie in `data/sources.json` auf `"enabled": false` oder ergänze eigene Websites.
+
+## Geräteübergreifend nutzen
+Wunschliste, gespeicherte Suchen, Entwurf und letzte Ergebnisse liegen serverseitig in `data/user/store.json` und werden automatisch synchronisiert (letzter Schreiber gewinnt). Für Handy/Tablet im Heimnetz in `.env`: `HOST=0.0.0.0` und **unbedingt** `APP_PIN=…`; dann `http://<IP-deines-Rechners>:3000` öffnen.
 
 ## Architektur
 ```

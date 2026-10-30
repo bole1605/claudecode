@@ -11,12 +11,12 @@ let brandsCache = null;
 export async function configureView(root, nav) {
   const state = draft.get();
   let { answers, step } = state;
-  let maxReached = Math.max(step, Number(sessionStorage.getItem('radwerk.max') ?? step));
+  let maxReached = Math.max(step, Number(sessionStorage.getItem('konfirad.max') ?? step));
   brandsCache ??= await api.brands().then((r) => r.brands).catch(() => null);
   const ctx = { brands: brandsCache ?? ['Cube', 'Trek', 'Specialized', 'Canyon'] };
   let showErrors = false;
 
-  const persist = () => { draft.set(answers, step); try { sessionStorage.setItem('radwerk.max', String(maxReached)); } catch { /* ignore */ } };
+  const persist = () => { draft.set(answers, step); try { sessionStorage.setItem('konfirad.max', String(maxReached)); } catch { /* ignore */ } };
 
   function onChange(field, value, silent) {
     setPath(answers, field.id, value);

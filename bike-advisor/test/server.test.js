@@ -10,7 +10,7 @@ import { ClaudeWebProvider } from '../server/providers/claudeWebProvider.js';
 const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
 async function boot(overrides = {}) {
-  const { server, config } = await createApp({ config: { catalogDir: fixtures, anthropicKey: '', ...overrides.config }, ...overrides });
+  const { server, config } = await createApp({ config: { catalogDir: fixtures, sourcesFile: '/nonexistent.json', anthropicKey: '', ...overrides.config }, ...overrides });
   await new Promise((r) => server.listen(0, r));
   return { base: `http://localhost:${server.address().port}`, close: () => server.close(), config };
 }
@@ -35,7 +35,7 @@ test('Suche mit Katalog liefert bewertete Ergebnisse, Fail-Bikes unten', async (
 });
 
 test('Ohne Datenquelle: keine simulierten Ergebnisse', async () => {
-  const { base, close } = await boot({ config: { catalogDir: '/nonexistent' } });
+  const { base, close } = await boot({ config: { catalogDir: '/nonexistent', sourcesFile: '/nonexistent.json' } });
   try {
     const { jobId } = await (await fetch(`${base}/api/search`, { method: 'POST', body: JSON.stringify({ answers: valid() }) })).json();
     const r = await poll(base, jobId);

@@ -1,9 +1,35 @@
 // Persistenz im Browser (localStorage) hinter einer kleinen Schnittstelle – später durch Server/Account-Speicher ersetzbar.
 import { defaultAnswers } from '/shared/questionnaire.js';
+import { api } from './api.js';
 
-const KEYS = { draft: 'radwerk.draft', saved: 'radwerk.saved', wishlist: 'radwerk.wishlist', brands: 'radwerk.brands', results: 'radwerk.results' };
+const KEYS = { draft: 'konfirad.draft', saved: 'konfirad.saved', wishlist: 'konfirad.wishlist', brands: 'konfirad.brands', results: 'konfirad.results' };
 const read = (k, fallback) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; } catch { return fallback; } };
-const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
+const SYNC_KEYS = { draft: KEYS.draft, saved: KEYS.saved, wishlist: KEYS.wishlist, brands: KEYS.brands, results: KEYS.results };
+const STAMP = 'konfirad.updatedAt';
+let pushTimer;
+const write = (k, v, { sync = true } = {}) => {
+  try { localStorage.setItem(k, JSON.stringify(v)); } catch { return false; }
+  if (sync) { try { localStorage.setItem(STAMP, String(Date.now())); } catch { /* ignore */ } schedulePush(); }
+  return true;
+};
+
+// ---- Geräteübergreifende Synchronisation mit dem KonfiRad-Server (letzter Schreiber gewinnt) ----
+function schedulePush() { clearTimeout(pushTimer); pushTimer = setTimeout(() => push().catch(() => {}), 800); }
+async function push() {
+  const data = Object.fromEntries(Object.entries(SYNC_KEYS).map(([name, key]) => [name, read(key, name === 'saved' || name === 'wishlist' || name === 'brands' ? [] : null)]));
+  await api.putStore(data, Number(localStorage.getItem(STAMP)) || Date.now());
+}
+export async function syncInit() {
+  try {
+    const remote = await api.getStore();
+    const local = Number(localStorage.getItem(STAMP)) || 0;
+    if ((remote.updatedAt ?? 0) > local) {
+      for (const [name, key] of Object.entries(SYNC_KEYS)) if (remote.data?.[name] !== undefined) localStorage.setItem(key, JSON.stringify(remote.data[name]));
+      localStorage.setItem(STAMP, String(remote.updatedAt));
+    } else if (local > (remote.updatedAt ?? 0)) await push();
+    return true;
+  } catch { return false; } // Server nicht erreichbar → lokal weiterarbeiten
+}
 
 const listeners = new Set();
 export const subscribe = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };

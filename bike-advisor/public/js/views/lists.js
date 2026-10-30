@@ -29,7 +29,7 @@ export function savedView(root, nav) {
       h('div', null, h('strong', null, s.name), h('small', null, ` · ${new Date(s.savedAt).toLocaleString('de-DE')}`)),
       h('div', { class: 'cta' },
         h('button', { class: 'btn primary small', type: 'button', onClick: () => { loadSaved(s); nav('#/configure'); } }, 'Fortsetzen'),
-        h('button', { class: 'btn ghost small', type: 'button', onClick: () => exportJson(s, `radwerk-${s.name.replace(/\W+/g, '-')}.json`) }, 'Exportieren'),
+        h('button', { class: 'btn ghost small', type: 'button', onClick: () => exportJson(s, `konfirad-${s.name.replace(/\W+/g, '-')}.json`) }, 'Exportieren'),
         h('button', { class: 'btn ghost small', type: 'button', onClick: () => { saved.remove(s.id); savedView(root, nav); } }, 'Löschen'))))),
     h('button', { class: 'btn ghost', type: 'button', onClick: () => fileInput.click() }, 'Suche importieren (JSON)'), fileInput));
 }
