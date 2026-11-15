@@ -14,6 +14,18 @@ Bildschirmzeit-APIs (FamilyControls, DeviceActivity, ManagedSettings). Alle Date
 | Eigener Sperrbildschirm | Shield-Extension, passend zum Grund (Limit, Nacht, Bewusster Start) |
 | Nutzungsanzeige | „Heute: 23 Min“ über eine Report-Extension (bleibt in der iOS-Sandbox) |
 | Instagram-Feed | Anleitung zu Instagrams eigener Ansicht „Folge ich“ |
+| **Browser (neu)** | Instagram & YouTube im eingebauten Browser: Reels, Entdecken und Shorts werden ausgeblendet, Links dorthin blockiert, Start in „Folge ich“, eigenes Tageslimit |
+
+## Browser-Modus (Reels/Shorts ausblenden)
+Die Instagram-/YouTube-App selbst lässt sich auf iOS nicht verändern. Der Browser-Tab öffnet deshalb die **Webseiten** (instagram.com,
+m.youtube.com) in einer `WKWebView` und schleust beim Laden CSS/JavaScript ein (`App/Views/FeedSites.swift`): Elemente ausblenden (`display:none`),
+Klicks und Verlaufswechsel auf `/reels`, `/explore`, `/shorts` abfangen, Shorts als normales Video öffnen.
+Die Anmeldung erfolgt direkt auf der Seite; Fokus liest keine Inhalte aus und sendet nichts. Wichtig:
+- Der Ansatz ist eine **Schlussfolgerung** aus offenen Projekten; die Funktionsweise von SociaLite selbst konnte nicht eingesehen werden.
+- Instagram/YouTube ändern ihr Layout oft – die Selektoren müssen gelegentlich nachgezogen werden. `/?variant=following` (Folge-ich-Feed) bitte auf dem Gerät prüfen.
+- Snapchat Spotlight ist **nicht** umgesetzt.
+- Die Zeit im Browser zählt **nicht** zu den Screen-Time-Limits der Instagram-App; dafür gibt es ein eigenes Browser-Tageslimit. Wer die Original-App behält, kann Reels dort weiter öffnen – am besten löschen und nur den Browser nutzen.
+- Risiko im App Review (Guideline 4.2 „Mindestfunktionalität“ / 5.2) und in den Nutzungsbedingungen von Instagram/YouTube; vor Veröffentlichung prüfen.
 
 ## Wichtig: Instagram „nur Gefolgte“
 iOS erlaubt es keiner App, den Inhalt einer anderen App zu filtern, und Instagram bietet dafür keine Schnittstelle ohne

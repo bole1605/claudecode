@@ -7,8 +7,10 @@ struct RootView: View {
         TabView {
             NavigationStack { HomeView() }
                 .tabItem { Label("Limits", systemImage: "hourglass") }
+            FeedBrowserView()
+                .tabItem { Label("Browser", systemImage: "safari") }
             NavigationStack { InstagramFeedView() }
-                .tabItem { Label("Instagram-Feed", systemImage: "person.2.fill") }
+                .tabItem { Label("Folge ich", systemImage: "person.2.fill") }
             NavigationStack { SettingsView() }
                 .tabItem { Label("Einstellungen", systemImage: "gearshape") }
         }
