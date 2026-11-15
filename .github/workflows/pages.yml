@@ -1,0 +1,51 @@
+name: Pages veröffentlichen
+
+# Veröffentlicht beide Web-Apps aus diesem Repo:
+#   /          Liegestütz-Tracker (Dateien im Hauptverzeichnis)
+#   /garmin/   Garmin Dashboard (Ordner garmin-dashboard)
+# Persönliche Daten (garmin-dashboard/data/garmin-data.json) werden bewusst NICHT veröffentlicht.
+on:
+  push:
+    branches: [claude/pushup-tracker-app-e0952e]
+    paths:
+      - 'garmin-dashboard/**'
+      - 'index.html'
+      - 'app.js'
+      - 'styles.css'
+      - 'sw.js'
+      - 'manifest.webmanifest'
+      - 'icons/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Seite zusammenstellen
+        run: |
+          mkdir -p _site/garmin
+          cp -r index.html app.js styles.css sw.js manifest.webmanifest icons _site/
+          cp -r garmin-dashboard/. _site/garmin/
+          rm -f _site/garmin/data/garmin-data.json
+          rm -rf _site/garmin/docs
+          touch _site/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

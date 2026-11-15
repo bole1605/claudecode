@@ -23,9 +23,15 @@ Die App speichert alles **lokal im Browser**. Datenquellen (⚙ „Daten“):
 
 `data/garmin-data.json` steht in `.gitignore`, damit Gesundheitsdaten nicht im Repository landen. Auf jedem Gerät die Datei einmal importieren.
 
+## Veröffentlichung (GitHub Pages)
+Der Ablauf `.github/workflows/pages.yml` veröffentlicht bei jedem Push auf den Hauptzweig beide Apps:
+- `https://bole1605.github.io/claudecode/` – Liegestütz-Tracker
+- `https://bole1605.github.io/claudecode/garmin/` – Garmin Dashboard
+
+Einmalig nötig: Repo → *Settings → Pages → Build and deployment → Source: **GitHub Actions***. Die Datei `data/garmin-data.json` wird dabei nie veröffentlicht; die Daten kommen über die Daten-URL (privates Repo) oder per Import.
+
 ## Nutzen
-Per HTTPS veröffentlichen (z. B. GitHub Pages, Ordner `garmin-dashboard`) und:
-- **Windows:** in Edge/Chrome öffnen → „App installieren“.
-- **iPad/iPhone:** Safari → Teilen → „Zum Home-Bildschirm“.
+- **Windows:** Adresse in Edge/Chrome öffnen → „App installieren“.
+- **iPad/iPhone:** Adresse in Safari öffnen → Teilen → „Zum Home-Bildschirm“.
 
 Lokal testen: `cd garmin-dashboard && python3 -m http.server 8000` → http://localhost:8000
