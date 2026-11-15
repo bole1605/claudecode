@@ -1,22 +1,28 @@
-/* Start, Navigation, Import/Export, Einstellungen */
+/* Start, Navigation, Import/Export, automatische Aktualisierung, Einstellungen */
 'use strict';
 
 const PAGES = { today: ['Heute', renderToday], review: ['Rückblick', renderReview], train: ['Training', renderTrain] };
 App.page = (location.hash.slice(1) in PAGES) ? location.hash.slice(1) : 'today';
 App.fcMode = 'plan'; App.range = '8w';
 
+const toast = (t, ms = 2800) => { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), ms); };
+
 function render() {
   destroyCharts();
   const view = $('#view'); window.scrollTo({ top: 0 });
   $$('.nav [data-page]').forEach(b => b.dataset.page === App.page ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
-  if (!App.data) { view.innerHTML = emptyHtml(); bindEmpty(); return; }
-  try { PAGES[App.page][1](view); } catch (e) { console.error(e); view.innerHTML = `<div class="banner warn"><b>Anzeigefehler:</b> ${esc(e.message)}</div>`; }
+  if (!App.data) { view.innerHTML = emptyHtml(); bindEmpty(); } else {
+    try { PAGES[App.page][1](view); } catch (e) { console.error(e); view.innerHTML = `<div class="banner">${sym('warn')}<div><b>Anzeigefehler:</b> ${esc(e.message)}</div></div>`; }
+  }
+  $('#nb-title').textContent = PAGES[App.page][0]; onScroll(); updateStale();
 }
 function go(p) { App.page = p; history.replaceState(null, '', '#' + p); render(); }
+const onScroll = () => $('#navbar').classList.toggle('scrolled', window.scrollY > 36);
+function updateStale() { const b = $('#badge-stale'); if (b) b.hidden = !(App.data && diffDays(realToday(), App.data.asOf) >= 1); }
 
 function emptyHtml() {
-  return `<div class="empty"><h1>Willkommen 👋</h1><p>Noch keine Garmin-Daten geladen. Importiere die Datei <b>garmin-data.json</b> (von Claude erstellt) oder einen CSV-Export deiner Aktivitäten aus Garmin Connect.</p>
-  <p><button class="btn primary" id="e-import">Daten importieren</button></p></div>`;
+  return `<div class="empty">${badge('wave', 'blue')}<h1 class="t-large">Willkommen</h1><p>Noch keine Garmin-Daten geladen. Importiere die Datei <b>garmin-data.json</b> oder einen CSV-Export deiner Aktivitäten aus Garmin Connect.</p>
+  <button class="btn primary" id="e-import">Daten importieren</button></div>`;
 }
 function bindEmpty() { $('#e-import')?.addEventListener('click', openSettings); }
 
@@ -60,26 +66,72 @@ function exportData() {
   a.href = URL.createObjectURL(blob); a.download = 'garmin-data.json'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
 }
 
-/* ---------- Einstellungen ---------- */
+/* ---------- Automatische Aktualisierung ----------
+   Quelle (in dieser Reihenfolge): eigene Daten-URL aus den Einstellungen, sonst die Datei data/garmin-data.json neben der App.
+   Eine Daten-URL kann eine normale https-Adresse sein oder  github:besitzer/repo/pfad/datei.json[@branch]  (privates Repo + Lese-Token). */
+const SYNC = { busy: false, last: null, err: null, timer: null, lastKind: null };
+async function fetchRemote() {
+  const url = (App.prefs.syncUrl || '').trim(), tok = (App.prefs.syncToken || '').trim();
+  if (url) {
+    let u = url; const headers = {};
+    const m = url.match(/^github:([^/]+)\/([^/]+)\/(.+?)(?:@(.+))?$/i);
+    if (m) { u = `https://api.github.com/repos/${m[1]}/${m[2]}/contents/${m[3]}${m[4] ? '?ref=' + encodeURIComponent(m[4]) : ''}`; headers.Accept = 'application/vnd.github.raw+json'; }
+    if (tok) headers.Authorization = 'Bearer ' + tok;
+    const r = await fetch(u, { headers, cache: 'no-store' });
+    if (!r.ok) throw new Error(r.status === 404 ? 'Datei nicht gefunden (404)' : r.status === 401 || r.status === 403 ? 'Zugriff verweigert – Token prüfen' : 'HTTP ' + r.status);
+    SYNC.lastKind = 'url'; return await r.json();
+  }
+  const r = await fetch('data/garmin-data.json?_=' + Date.now(), { cache: 'no-store' });
+  if (!r.ok) return null; SYNC.lastKind = 'file'; return await r.json();
+}
+async function refreshData({ manual = false } = {}) {
+  if (SYNC.busy) return; SYNC.busy = true; $('#btn-refresh').classList.add('spin');
+  try {
+    const raw = await fetchRemote(); SYNC.last = new Date(); SYNC.err = null; const hadData = !!App.data;
+    if (!raw) { if (manual) toast('Keine Datenquelle eingerichtet – siehe „Daten“'); }
+    else if (!App.data || (raw.generated || '') > (App.data.generated || '')) { setData(raw); const keep = window.scrollY; render(); window.scrollTo({ top: keep }); if (hadData) toast('Daten aktualisiert'); }
+    else if (manual) toast('Daten sind aktuell');
+  } catch (e) { SYNC.err = e.name === 'TypeError' ? 'Keine Verbindung' : e.message; if (manual) toast('Aktualisierung fehlgeschlagen: ' + SYNC.err, 4000); }
+  finally { SYNC.busy = false; $('#btn-refresh').classList.remove('spin'); updateStale(); const s = $('#sync-status'); if (s) s.textContent = syncText(); }
+}
+const syncText = () => SYNC.err ? `Fehler: ${SYNC.err}` : SYNC.last ? `Zuletzt geprüft um ${SYNC.last.toTimeString().slice(0, 5)} Uhr${App.data?.generated ? ` · Datenstand ${App.data.generated.slice(0, 16).replace('T', ', ')} Uhr` : ''}` : 'Noch nicht geprüft';
+function startAutoRefresh() {
+  clearInterval(SYNC.timer); SYNC.timer = setInterval(() => { if (!document.hidden) refreshData(); }, 15 * 60 * 1000);
+}
+
+/* ---------- Einstellungen (Sheet) ---------- */
 function openSettings() {
   const d = $('#dlg'), D = App.data, P = D?.profile || {};
-  d.innerHTML = `<h2>Daten & Einstellungen</h2>
-    <p class="sub">${D ? `Geladen: ${D.acts.length} Aktivitäten, ${D.daily.length} Tage (bis ${fmtDate(D.asOf)}).${D.source ? ' Quelle: ' + esc(D.source) : ''}` : 'Noch keine Daten.'}</p>
-    <p><label class="btn primary" style="display:inline-block">Datei importieren<input id="imp" type="file" accept=".json,.csv,application/json,text/csv" hidden></label>
-    <span class="sub"> JSON (garmin-data.json) oder Aktivitäten-CSV aus Garmin Connect</span></p>
-    <div class="status" id="imp-msg" role="status"></div>
-    ${D ? `<div class="row" style="margin:10px 0"><label class="f">Max. Herzfrequenz<input type="number" id="s-hrmax" value="${P.hrMax}" min="120" max="230"></label><label class="f">Schrittziel<input type="number" id="s-steps" value="${P.stepGoal}" min="1000" step="500"></label></div>` : ''}
-    <div class="row" style="margin:10px 0"><label class="f">Darstellung<select id="s-theme"><option value="auto">Automatisch</option><option value="light">Hell</option><option value="dark">Dunkel</option></select></label></div>
-    <div class="row" style="margin-top:14px"><button class="btn" id="s-export" ${D ? '' : 'disabled'}>Daten exportieren</button><button class="btn" id="s-reset" ${D ? '' : 'disabled'}>Alle Daten löschen</button><button class="btn" id="s-close" style="margin-left:auto">Schließen</button></div>
-    <p class="help" style="margin-top:12px">Alle Daten bleiben in diesem Browser (lokal). Auf einem anderen Gerät importierst du dieselbe Datei erneut.</p>`;
+  d.innerHTML = `<div class="sheet-head"><span></span><h2>Daten</h2><button class="done" id="s-close">Fertig</button></div>
+  <div class="sheet-body">
+    <div class="group"><h3>Datenstand</h3>
+      <p class="sub">${D ? `${D.acts.length} Aktivitäten, ${D.daily.length} Tage (bis ${fmtDate(D.asOf)}).${D.source ? ' Quelle: ' + esc(D.source) : ''}` : 'Noch keine Daten geladen.'}</p>
+      <div><label class="btn primary">${sym('download')}Datei importieren<input id="imp" type="file" accept=".json,.csv,application/json,text/csv" hidden></label></div>
+      <p class="help">JSON (garmin-data.json) oder Aktivitäten-CSV aus Garmin Connect.</p><div class="status" id="imp-msg" role="status"></div></div>
+    <div class="group"><h3>Automatisch aktualisieren</h3>
+      <p class="help">Die App prüft beim Öffnen, beim Zurückkehren und alle 15 Minuten, ob eine neuere Datei bereitliegt. Garmin selbst erlaubt Apps keinen direkten Zugriff – die Datei muss von einer Quelle kommen, die sie aktuell hält.</p>
+      <label class="f">Daten-URL (optional)<input type="url" id="s-url" placeholder="https://…/garmin-data.json oder github:besitzer/repo/datei.json" value="${esc(App.prefs.syncUrl || '')}" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <label class="f">Zugriffstoken (nur für private Quellen)<input type="password" id="s-token" placeholder="GitHub-Token mit Lesezugriff" value="${esc(App.prefs.syncToken || '')}" autocomplete="off"></label>
+      <div class="row"><button class="btn" id="s-check">${sym('refresh')}Jetzt prüfen</button></div>
+      <div class="status" id="sync-status">${esc(syncText())}</div>
+      <p class="help">Das Token bleibt nur auf diesem Gerät. Verwende ein Token mit ausschließlich Lesezugriff auf genau ein privates Repository. Ohne Daten-URL sucht die App nach <i>data/garmin-data.json</i> neben sich.</p></div>
+    ${D ? `<div class="group"><h3>Profil</h3><div class="row"><label class="f">Max. Herzfrequenz<input type="number" id="s-hrmax" value="${P.hrMax}" min="120" max="230" inputmode="numeric"></label><label class="f">Schrittziel<input type="number" id="s-steps" value="${P.stepGoal}" min="1000" step="500" inputmode="numeric"></label></div></div>` : ''}
+    <div class="group"><h3>Darstellung</h3><label class="f">Erscheinungsbild<select id="s-theme"><option value="auto">Automatisch (wie das Gerät)</option><option value="light">Hell</option><option value="dark">Dunkel</option></select></label></div>
+    <div class="group"><h3>Verwalten</h3><div class="row"><button class="btn gray" id="s-export" ${D ? '' : 'disabled'}>${sym('share')}Daten exportieren</button><button class="btn danger" id="s-reset" ${D ? '' : 'disabled'}>Alle Daten löschen</button></div>
+      <p class="help">Alle Daten bleiben in diesem Browser. Auf einem anderen Gerät importierst du dieselbe Datei oder richtest dieselbe Daten-URL ein.</p></div>
+  </div>`;
   $('#s-theme').value = App.prefs.theme || 'auto';
   $('#imp').addEventListener('change', e => e.target.files[0] && importFile(e.target.files[0]));
   $('#s-theme').addEventListener('change', e => { App.prefs.theme = e.target.value; savePrefs(); applyTheme(); render(); });
   $('#s-export')?.addEventListener('click', exportData);
   $('#s-reset')?.addEventListener('click', () => { if (confirm('Wirklich alle gespeicherten Daten in diesem Browser löschen?')) { try { localStorage.removeItem(KEY); } catch { } App.data = null; d.close(); render(); } });
-  const upd = () => { if (!D) return; P.hrMax = +$('#s-hrmax').value || P.hrMax; P.stepGoal = +$('#s-steps').value || P.stepGoal; const raw = rawFromState(); lsSet(KEY, raw); };
+  const saveSync = () => { App.prefs.syncUrl = $('#s-url').value.trim(); App.prefs.syncToken = $('#s-token').value.trim(); savePrefs(); };
+  $('#s-url').addEventListener('change', saveSync); $('#s-token').addEventListener('change', saveSync);
+  $('#s-check').addEventListener('click', async () => { saveSync(); $('#sync-status').textContent = 'Prüfe …'; await refreshData({ manual: true }); });
+  const upd = () => { if (!D) return; P.hrMax = +$('#s-hrmax').value || P.hrMax; P.stepGoal = +$('#s-steps').value || P.stepGoal; lsSet(KEY, rawFromState()); };
   $('#s-hrmax')?.addEventListener('change', () => { upd(); computeDerived(); render(); }); $('#s-steps')?.addEventListener('change', () => { upd(); render(); });
   $('#s-close').addEventListener('click', () => d.close());
+  d.addEventListener('click', e => { if (e.target === d) d.close(); }, { once: true });
   d.showModal();
 }
 function applyTheme() { const t = App.prefs.theme; if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; }
@@ -87,15 +139,18 @@ function applyTheme() { const t = App.prefs.theme; if (t === 'light' || t === 'd
 /* ---------- Start ---------- */
 async function boot() {
   applyTheme();
+  $$('[data-sym]').forEach(el => { el.outerHTML = sym(el.dataset.sym); });
   $$('.nav [data-page]').forEach(b => b.addEventListener('click', () => go(b.dataset.page)));
   $$('[data-open-settings]').forEach(b => b.addEventListener('click', openSettings));
+  $('#btn-refresh').addEventListener('click', () => refreshData({ manual: true }));
+  window.addEventListener('scroll', onScroll, { passive: true });
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => App.data && render());
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && (!SYNC.last || Date.now() - SYNC.last > 5 * 60 * 1000)) refreshData(); });
   const stored = lsGet(KEY, null);
-  let fileRaw = null;
-  try { const r = await fetch('data/garmin-data.json', { cache: 'no-cache' }); if (r.ok) fileRaw = await r.json(); } catch { }
-  const pick = fileRaw && (!stored || (fileRaw.generated || '') > (stored.generated || '')) ? fileRaw : stored;
-  if (pick) { try { setData(pick, pick === fileRaw); } catch (e) { console.warn(e); } }
+  if (stored) { try { setData(stored, false); } catch (e) { console.warn(e); } }
   render();
+  await refreshData();          // beim Start: Quelle prüfen und ggf. aktualisieren
+  startAutoRefresh();
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => { });
 }
 boot();

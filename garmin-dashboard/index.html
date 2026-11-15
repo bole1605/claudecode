@@ -6,12 +6,13 @@
 <title>Garmin Dashboard</title>
 <meta name="description" content="Persönliches Garmin-Dashboard: Tageswerte, Rückblicke, Trainingsvorschläge und Routenplaner für Komoot">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Garmin">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="format-detection" content="telephone=no">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -21,19 +22,28 @@
 <body>
 <div class="app">
   <nav class="nav" aria-label="Hauptnavigation">
-    <div class="brand">Garmin Dashboard<small>Training · Erholung · Routen</small></div>
-    <button data-page="today"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2.5-6 4 12 2.5-6H21"/></svg><span>Heute</span></button>
-    <button data-page="review"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><span>Rückblick</span></button>
-    <button data-page="train"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.5-6-11a6 6 0 0 1 12 0c0 5.500-6 11-6 11z"/><circle cx="12" cy="10" r="2.200"/></svg><span>Training</span></button>
-    <div class="nav-foot"><button data-open-settings><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M19 7h1M4 12h3M13 12h7M4 17h11"/><circle cx="16" cy="7" r="2.500"/><circle cx="10" cy="12" r="2.500"/><circle cx="18" cy="17" r="2.500"/></svg><span>Daten</span></button></div>
-    <button data-open-settings class="nav-mobile-settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M19 7h1M4 12h3M13 12h7M4 17h11"/><circle cx="16" cy="7" r="2.500"/><circle cx="10" cy="12" r="2.500"/><circle cx="18" cy="17" r="2.500"/></svg><span>Daten</span></button>
+    <div class="brand">Garmin<small>Training · Erholung · Routen</small></div>
+    <button data-page="today"><span data-sym="today"></span><span>Heute</span></button>
+    <button data-page="review"><span data-sym="review"></span><span>Rückblick</span></button>
+    <button data-page="train"><span data-sym="train"></span><span>Training</span></button>
   </nav>
-  <main id="view" aria-live="polite"></main>
+  <div class="shell">
+    <header class="navbar" id="navbar">
+      <div class="nb-title" id="nb-title" aria-hidden="true"></div>
+      <div class="nb-end" style="margin-left:auto">
+        <button class="icon-btn" id="btn-refresh" aria-label="Daten aktualisieren" title="Daten aktualisieren"><span data-sym="refresh"></span></button>
+        <button class="icon-btn" data-open-settings aria-label="Daten und Einstellungen" title="Daten und Einstellungen"><span data-sym="sliders"></span><i class="dot-badge" id="badge-stale" hidden></i></button>
+      </div>
+    </header>
+    <main id="view" aria-live="polite"></main>
+  </div>
 </div>
-<dialog id="dlg"></dialog>
+<dialog id="dlg" aria-label="Daten und Einstellungen"></dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 <noscript>Diese App benötigt JavaScript.</noscript>
 <script src="vendor/chart.umd.js"></script>
 <script src="vendor/leaflet.js"></script>
+<script src="js/icons.js"></script>
 <script src="js/core.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/pages.js"></script>

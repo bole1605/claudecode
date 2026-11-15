@@ -33,14 +33,15 @@ const fmtPace = spk => { if (!spk || !isFinite(spk)) return '–'; const m = Mat
 
 /* ---------- Sportarten ---------- */
 const SPORTS = {
-  run: { label: 'Laufen', group: 'Laufen', icon: '🏃' },
-  road: { label: 'Rennrad', group: 'Rad', icon: '🚴' },
-  mtb: { label: 'Mountainbike', group: 'Rad', icon: '🚵' },
-  gravel: { label: 'Gravelbike', group: 'Rad', icon: '🚴' },
-  walk: { label: 'Gehen', group: 'Andere', icon: '🚶' },
-  str: { label: 'Kraft', group: 'Andere', icon: '🏋️' },
-  other: { label: 'Sonstiges', group: 'Andere', icon: '⚡' }
+  run: { label: 'Laufen', group: 'Laufen', icon: 'run' },
+  road: { label: 'Rennrad', group: 'Rad', icon: 'bike' },
+  mtb: { label: 'Mountainbike', group: 'Rad', icon: 'bike' },
+  gravel: { label: 'Gravelbike', group: 'Rad', icon: 'bike' },
+  walk: { label: 'Gehen', group: 'Andere', icon: 'walk' },
+  str: { label: 'Kraft', group: 'Andere', icon: 'dumbbell' },
+  other: { label: 'Sonstiges', group: 'Andere', icon: 'bolt' }
 };
+const sportBadge = sp => badge(SPORTS[sp].icon, SPORTS[sp].group === 'Laufen' ? 'run' : SPORTS[sp].group === 'Rad' ? 'rad' : 'andere');
 function sportOf(type) {
   const t = (type || '').toLowerCase();
   if (/run|jog|lauf/.test(t)) return 'run';

@@ -1,6 +1,6 @@
 /* Service Worker: Netzwerk zuerst (immer aktuell), Cache als Offline-Fallback. Karten/Routing laufen direkt ohne SW. */
-const CACHE = 'garmin-dashboard-v1';
-const SHELL = ['./', 'index.html', 'styles.css', 'manifest.webmanifest', 'js/core.js', 'js/charts.js', 'js/pages.js', 'js/route.js', 'js/main.js',
+const CACHE = 'garmin-dashboard-v2';
+const SHELL = ['./', 'index.html', 'styles.css', 'manifest.webmanifest', 'js/icons.js', 'js/core.js', 'js/charts.js', 'js/pages.js', 'js/route.js', 'js/main.js',
   'vendor/chart.umd.js', 'vendor/leaflet.js', 'vendor/leaflet.css', 'vendor/images/marker-icon.png', 'vendor/images/marker-icon-2x.png', 'vendor/images/marker-shadow.png',
   'vendor/images/layers.png', 'vendor/images/layers-2x.png', 'icons/icon.svg', 'icons/icon-192.png', 'icons/apple-touch-icon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });

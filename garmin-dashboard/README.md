@@ -13,6 +13,9 @@ Installierbare Web-App (PWA) für **Windows (Edge/Chrome)** sowie **iPad/iPhone 
 - Routing über BRouter (Fallback OSRM) auf OpenStreetMap-Karten, Höhenprofil, geschätzte Dauer.
 - **GPX-Export** (Download oder „Teilen …“ → Komoot). Komoot hat keine offene Import-Schnittstelle – der Weg läuft über die GPX-Datei.
 
+## Automatische Aktualisierung
+Die App prüft beim Öffnen, beim Zurückkehren und alle 15 Minuten, ob eine neuere `garmin-data.json` bereitliegt (Feld `generated`), und zeigt neue Werte sofort an. Quelle: Daten-URL aus ⚙ „Daten“ (https-Adresse oder `github:besitzer/repo/pfad.json` mit Lese-Token für ein **privates** Repo), sonst `data/garmin-data.json` neben der App. Das Befüllen der Quelle übernimmt ein Aktualisierer außerhalb der App – Garmin erlaubt Apps keinen direkten Zugriff.
+
 ## Daten
 Die App speichert alles **lokal im Browser**. Datenquellen (⚙ „Daten“):
 - `garmin-data.json` (Format siehe `data/garmin-data.json`, wird von Claude aus Garmin Connect erzeugt),

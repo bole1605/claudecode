@@ -183,7 +183,7 @@ function saveRoute() {
 }
 function drawSaved() {
   const box = $('#rt-saved'); if (!box) return;
-  box.innerHTML = RT.saved.length ? RT.saved.map(r => `<div class="it"><span>${esc(r.name)} · ↑${nf(r.up)} m</span><span><button class="btn small" data-load="${r.id}">Laden</button> <button class="btn small" data-del="${r.id}" aria-label="Löschen">✕</button></span></div>`).join('') : '<span class="sub">Noch keine gespeicherten Routen.</span>';
+  box.innerHTML = RT.saved.length ? RT.saved.map(r => `<div class="it"><span>${esc(r.name)} · ↑${nf(r.up)} m</span><span><button class="btn small" data-load="${r.id}">Laden</button> <button class="btn small gray" data-del="${r.id}" aria-label="Route löschen">${sym('close')}</button></span></div>`).join('') : '<span class="sub">Noch keine gespeicherten Routen.</span>';
   $$('[data-load]', box).forEach(b => b.addEventListener('click', () => { const r = RT.saved.find(x => x.id == b.dataset.load); RT.sport = r.sport; RT.route = { coords: r.coords, via: 'gespeichert', ...analyse(r.coords) }; RT.start = r.coords[0].slice(0, 2); RT.wps = []; RT.mode = 'manual'; RT.closeLoop = false; syncControls(); drawRoute(); setStatus('Gespeicherte Route geladen.'); }));
   $$('[data-del]', box).forEach(b => b.addEventListener('click', () => { RT.saved = RT.saved.filter(x => x.id != b.dataset.del); lsSet(ROUTES, RT.saved); drawSaved(); }));
 }
@@ -212,28 +212,28 @@ function renderRoutes(el) {
   const pre = App.routePrefill; App.routePrefill = null;
   if (pre) { RT.sport = pre.sport === 'str' ? 'run' : (RT_SPORTS[pre.sport] ? pre.sport : 'run'); RT.mode = RT.mode === 'manual' ? 'loop' : RT.mode; RT.target = pre.min && RT_SPORTS[RT.sport] && RT.sport !== 'run' ? { type: 'min', value: pre.min } : { type: 'km', value: pre.km || 10 }; RT.route = null; }
   el.innerHTML = `<div class="route-grid">
-    <div class="panel card" style="grid-column:auto">
-      <div><div class="sub" style="margin-bottom:4px">Sportart</div><div class="seg">${Object.entries(RT_SPORTS).map(([k, v]) => `<button data-sport="${k}">${v.label}</button>`).join('')}</div></div>
-      <div><div class="sub" style="margin-bottom:4px">Art der Route</div><div class="seg"><button data-mode="loop">Rundkurs</button><button data-mode="out">Hin &amp; zurück</button><button data-mode="manual">Selbst zeichnen</button></div></div>
-      <div id="rt-auto"><div class="sub" style="margin-bottom:4px">Vorgabe</div>
+    <div class="panel card" style="grid-column:auto;align-self:start">
+      <div><div class="sublabel">Sportart</div><div class="seg">${Object.entries(RT_SPORTS).map(([k, v]) => `<button data-sport="${k}">${v.label}</button>`).join('')}</div></div>
+      <div><div class="sublabel">Art der Route</div><div class="seg"><button data-mode="loop">Rundkurs</button><button data-mode="out">Hin &amp; zurück</button><button data-mode="manual">Selbst zeichnen</button></div></div>
+      <div id="rt-auto"><div class="sublabel">Vorgabe</div>
         <div class="row"><div class="seg"><button data-tt2="km">Strecke</button><button data-tt2="min">Zeit</button></div>
           <label class="f" style="flex:1;min-width:90px"><span class="sr">Wert</span><span style="display:flex;gap:6px;align-items:center"><input id="rt-val" type="number" min="1" max="400" step="1" inputmode="decimal" style="width:90px"><b id="rt-unit">km</b></span></label></div>
         <div class="sub" id="rt-guess" style="margin-top:6px"></div></div>
       <div id="rt-manual" hidden class="help">Tippe auf die Karte, um Punkte zu setzen. Punkte lassen sich ziehen; langer Druck/Rechtsklick auf einen Punkt entfernt ihn.
         <label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="rt-close"> zurück zum Start (Rundkurs schließen)</label>
         <div class="row" style="margin-top:8px"><button class="btn small" id="rt-undo">Letzten Punkt entfernen</button></div></div>
-      <div><div class="sub" style="margin-bottom:4px">Startpunkt</div>
-        <div class="row"><input type="search" id="rt-q" placeholder="Ort oder Adresse" style="flex:1;min-width:140px"><button class="btn" id="rt-find">Suchen</button><button class="btn" id="rt-loc" title="Meinen Standort verwenden">📍</button></div>
+      <div><div class="sublabel">Startpunkt</div>
+        <div class="row"><input type="search" id="rt-q" placeholder="Ort oder Adresse" style="flex:1;min-width:140px"><button class="btn gray" id="rt-find">${sym('search')}Suchen</button><button class="btn gray" id="rt-loc" title="Meinen Standort verwenden" aria-label="Meinen Standort verwenden">${sym('locate')}</button></div>
         <div id="rt-hits" class="saved" style="margin-top:6px"></div></div>
-      <div class="row"><button class="btn primary" id="rt-go">Route berechnen</button><button class="btn" id="rt-alt">Andere Variante</button><button class="btn" id="rt-clear">Zurücksetzen</button></div>
+      <div class="row"><button class="btn primary" id="rt-go">Route berechnen</button><button class="btn gray" id="rt-alt">${sym('refresh')}Variante</button><button class="btn gray" id="rt-clear">Zurücksetzen</button></div>
       <div class="status" id="rt-status" role="status"></div>
       <div class="stats" id="rt-stats"></div>
       <div class="chart short"><canvas id="rt-prof" role="img" aria-label="Höhenprofil"></canvas></div>
-      <div class="row"><button class="btn primary" id="rt-gpx">GPX für Komoot</button><button class="btn" id="rt-share">Teilen …</button><button class="btn" id="rt-save">Speichern</button></div>
+      <div class="row"><button class="btn primary" id="rt-gpx">${sym('download')}GPX für Komoot</button><button class="btn" id="rt-share">${sym('share')}Teilen</button><button class="btn gray" id="rt-save">${sym('bookmark')}Sichern</button></div>
       <div class="help"><b>In Komoot laden</b> – Komoot hat keine offene Schnittstelle, deshalb läuft es über die GPX-Datei:
         <ol><li><b>iPhone/iPad:</b> „Teilen …“ → <i>Komoot</i> wählen (alternativ: GPX laden, in <i>Dateien</i> antippen → Teilen → Komoot).</li>
         <li><b>Windows:</b> „GPX für Komoot“ drücken, dann auf <a href="https://www.komoot.com/plan" target="_blank" rel="noopener">komoot.com/plan</a> die Datei importieren bzw. ins Planer-Fenster ziehen. Menünamen können sich bei Komoot ändern.</li></ol></div>
-      <div><div class="sub" style="margin-bottom:6px">Gespeicherte Routen</div><div class="saved" id="rt-saved"></div></div>
+      <div><div class="sublabel">Gespeicherte Routen</div><div class="saved" id="rt-saved"></div></div>
     </div>
     <div><div id="map" role="application" aria-label="Karte"></div><p class="note">Kartendaten © OpenStreetMap-Mitwirkende · Routing: BRouter (Profile: Laufen/Wandern, Gravel, MTB, Rennrad). Erstmaliges Laden braucht Internet.</p></div>
   </div>`;

@@ -8,7 +8,7 @@ const SPORT_COLOR = { Laufen: () => SERIES(0), Rad: () => SERIES(1), Andere: () 
 function destroyCharts() { Charts.all.forEach(c => { try { c.destroy(); } catch { } }); Charts.all = []; }
 
 function baseOptions({ unit = '', legend = false, decimals = 0, yMin, yMax, stacked = false, xTicks = 6, tipExtra } = {}) {
-  const text2 = cv('--text-2'), muted = cv('--muted'), grid = cv('--grid'), surface = cv('--surface'), text = cv('--text');
+  const text2 = cv('--label-2'), muted = cv('--label-2'), grid = cv('--grid'), surface = cv('--card'), text = cv('--label');
   return {
     responsive: true, maintainAspectRatio: false, animation: false,
     interaction: { mode: 'index', intersect: false },
@@ -16,7 +16,7 @@ function baseOptions({ unit = '', legend = false, decimals = 0, yMin, yMax, stac
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: surface, titleColor: text, bodyColor: text2, borderColor: grid, borderWidth: 1, padding: 10, boxPadding: 4, usePointStyle: true,
+        backgroundColor: surface, titleColor: text, bodyColor: text2, borderColor: cv('--sep'), borderWidth: 1, padding: 12, cornerRadius: 12, boxPadding: 4, usePointStyle: true, titleFont: { weight: '600' },
         filter: it => it.raw != null,
         callbacks: {
           label: c => { const v = c.parsed.y; if (v == null) return null; return ` ${c.dataset.label}: ${nf(v, decimals)}${unit ? ' ' + unit : ''}`; },
@@ -25,8 +25,8 @@ function baseOptions({ unit = '', legend = false, decimals = 0, yMin, yMax, stac
       }
     },
     scales: {
-      x: { stacked, grid: { display: false }, border: { color: cv('--axis') }, ticks: { color: muted, font: { size: 11 }, maxTicksLimit: xTicks, maxRotation: 0 } },
-      y: { stacked, min: yMin, max: yMax, grid: { color: grid }, border: { display: false }, ticks: { color: muted, font: { size: 11 }, maxTicksLimit: 6, callback: v => nf(v, decimals) } }
+      x: { stacked, grid: { display: false }, border: { color: cv('--sep') }, ticks: { color: muted, font: { size: 11.5 }, maxTicksLimit: xTicks, maxRotation: 0 } },
+      y: { position: 'right', stacked, min: yMin, max: yMax, grid: { color: grid }, border: { display: false }, ticks: { color: muted, font: { size: 11.5 }, maxTicksLimit: 6, callback: v => nf(v, decimals) } }
     }
   };
 }
@@ -48,7 +48,7 @@ function mount(canvas, config) {
 function lineChart(canvas, labels, series, o = {}) {
   const ds = series.map((s, i) => ({
     label: s.label, data: s.data, borderColor: typeof s.color === 'number' ? SERIES(s.color) : s.color, backgroundColor: typeof s.color === 'number' ? SERIES(s.color) : s.color,
-    borderWidth: s.width || 2, borderDash: s.dash ? [6, 5] : [], pointRadius: s.points ? 3 : 0, pointHoverRadius: 5, pointBorderColor: cv('--surface'), pointBorderWidth: 2,
+    borderWidth: s.width || 2, borderDash: s.dash ? [6, 5] : [], pointRadius: s.points ? 3 : 0, pointHoverRadius: 5, pointBorderColor: cv('--card'), pointBorderWidth: 2,
     tension: 0.25, spanGaps: true, fill: s.fill ? 'origin' : false, order: s.order ?? i
   }));
   const opt = baseOptions(o);
@@ -62,7 +62,7 @@ function barChart(canvas, labels, series, o = {}) {
     type: s.type || 'bar', label: s.label, data: s.data,
     backgroundColor: typeof s.color === 'number' ? SERIES(s.color) : s.color, borderColor: typeof s.color === 'number' ? SERIES(s.color) : s.color,
     borderRadius: s.type === 'line' ? 0 : 4, borderSkipped: stacked ? false : 'bottom', maxBarThickness: 28,
-    ...(stacked ? { borderColor: cv('--surface'), borderWidth: 2 } : {}),
+    ...(stacked ? { borderColor: cv('--card'), borderWidth: 2 } : {}),
     ...(s.type === 'line' ? { borderWidth: 2, pointRadius: 0, borderDash: s.dash ? [6, 5] : [], tension: 0, stepped: false, order: -1 } : {}),
     ...(s.colors ? { backgroundColor: s.colors } : {})
   }));
