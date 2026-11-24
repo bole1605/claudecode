@@ -120,7 +120,10 @@ document.addEventListener('click', e => {
 // --- Versteckte Verwaltung: Titel oben links 2 Sekunden gedrückt halten
 let hold = null;
 const cancelHold = () => { clearTimeout(hold); hold = null; };
-$('#title').addEventListener('pointerdown', () => { cancelHold(); hold = setTimeout(openAdmin, 2000); });
+$('#title').addEventListener('pointerdown', () => { cancelHold(); hold = setTimeout(openAdmin, 1500); });
+// Alternative, falls das Gedrückthalten nicht klappt: 5× schnell auf den Titel tippen
+let taps = [];
+$('#title').addEventListener('pointerdown', () => { const n = Date.now(); taps = taps.filter(t => n - t < 2500); taps.push(n); if (taps.length >= 5) { taps = []; cancelHold(); openAdmin(); } });
 ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => $('#title').addEventListener(ev, cancelHold));
 $('#title').addEventListener('contextmenu', e => e.preventDefault());
 
@@ -168,4 +171,9 @@ async function exportFile() {
 }
 
 build();
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
+  // Neue Version sofort übernehmen: einmal neu laden, sobald ein neuer Service Worker die Kontrolle bekommt
+  let had = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (had) location.reload(); had = true; });
+}
