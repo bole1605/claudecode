@@ -147,7 +147,7 @@ function buildEdit() {
 
 function update() {
   if (editing) return;
-  const s = stand(), c = cart(), { perS, rev, cnt } = sold(), per = perS[state.stand] || {};
+  const s = stand(), c = cart(), { perS } = sold(), per = perS[state.stand] || {};
   for (const it of items(s)) {
     const n = c[it.id] || 0;
     const b = document.querySelector(`[data-count="${it.id}"]`);
@@ -165,8 +165,6 @@ function update() {
   $('#bon-sum').textContent = euro(t);
   $('#pay').disabled = $('#clear').disabled = t === 0;
   $('#pay').textContent = t ? `Bezahlen · ${euro(t)}` : 'Bezahlen';
-  $('#total').textContent = euro(rev[state.stand] || 0);
-  $('#total-count').textContent = `${cnt[state.stand] || 0} Artikel verkauft`;
 }
 
 // --- Schnelles Tippen: Artikel landet schon beim Aufsetzen des Fingers auf dem Bon
