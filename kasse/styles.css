@@ -211,3 +211,7 @@ body.editing .bon,body.editing .bottom{display:none}
 .pay-qr img.qr,.pv img.qr{display:block;margin:0 auto;image-rendering:pixelated;image-rendering:crisp-edges;max-width:100%;height:auto;background:#fff;border-radius:8px}
 .pv img.qr{margin:8px 0}
 .qr-url{margin:6px 0 0;font-size:12px}
+
+/* ---- v14: Kassenstand ---- */
+.sale-cash{font-size:15px;margin:2px 0;font-variant-numeric:tabular-nums}.sale-cash b{font-size:16px}
+#cash-card .btn{margin-top:12px}

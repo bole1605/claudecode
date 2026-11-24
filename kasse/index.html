@@ -14,14 +14,14 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=13">
+<link rel="stylesheet" href="styles.css?v=14">
 </head>
 <body>
 <div class="app">
   <header class="top">
     <h1 id="title">Kasse</h1>
     <div class="segmented" role="tablist" aria-label="Stand wählen" id="tabs"></div>
-    <div class="top-spacer"><span class="ver">v13</span></div>
+    <div class="top-spacer"><span class="ver">v14</span></div>
   </header>
 
   <div class="edit-bar" id="edit-bar" hidden></div>
@@ -107,6 +107,7 @@
     <button class="btn primary" id="admin-close">Fertig</button>
   </header>
   <div class="page-body">
+    <section class="card" id="cash-card"></section>
     <section class="card" id="admin-summary"></section>
     <section class="card" id="vat-summary" hidden></section>
     <section class="card switch-card">
@@ -197,7 +198,7 @@
 <div id="toast" class="toast" hidden></div>
 <pre id="print-area"></pre>
 
-<script src="qrcode.js?v=13"></script>
-<script src="app.js?v=13"></script>
+<script src="qrcode.js?v=14"></script>
+<script src="app.js?v=14"></script>
 </body>
 </html>
