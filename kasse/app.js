@@ -39,7 +39,7 @@ const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const PALETTE = ['#FF9F0A', '#34C759', '#30B0C7', '#FF3B30', '#AF52DE', '#5856D6', '#FF2D55', '#007AFF'];
 
-let state = { stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, paypal: '' };
+let state = { stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, paypal: '', receipt: { on: true, name: '', addr: '', tax: '', foot: 'Vielen Dank für Ihren Einkauf!' } };
 try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
 let STANDS, ALL = {};
 function setCatalog(c) {
@@ -241,7 +241,7 @@ function key(k) {
 function book() {
   const total = cartTotal(), pp = method === 'paypal', g = pp ? total : parse(given); if (g === null || g < total) return;
   state.sales.push({ method, n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: { ...cart() }, info: snap(cart()), total, given: g, change: g - total, void: false });
-  state.cart[state.stand] = {}; save(); update(); $('#pay-dlg').close(); buzz();
+  state.cart[state.stand] = {}; save(); update(); $('#pay-dlg').close(); buzz(); showToast(state.sales[state.sales.length - 1]);
 }
 
 // --- Bestätigungsdialog
@@ -286,6 +286,7 @@ function openAdmin() { hold = null; buzz(); pwDialog(state.pw ? 'enter' : 'set')
 function showAdmin() { renderAdmin(); $('#admin').hidden = false; document.body.classList.add('noscroll'); }
 function hideAdminKeep() { $('#admin').hidden = true; document.body.classList.remove('noscroll'); }
 function hideAdmin() { hideAdminKeep(); build(); }
+const fmtTS = t => new Date(t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
 const fmtT = t => new Date(t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 const lineText = s => Object.entries(s.lines).map(([id, n]) => `${n}× ${itemName(s, id)}`).join(', ');
 const standIds = () => { const ids = STANDS.map(s => s.id); state.sales.forEach(s => { if (!ids.includes(s.stand)) ids.push(s.stand); }); return ids; };
@@ -293,6 +294,7 @@ const payTotals = () => state.sales.reduce((o, s) => { if (!s.void) o[s.method =
 function renderAdmin() {
   const { rev, cnt, gr, grS } = sold();
   $('#vat-toggle').checked = state.vat.on;
+  $('#rc-toggle').checked = state.receipt.on;
   $('#paypal-state').textContent = state.paypal ? `Hinterlegt: ${state.paypal}` : 'Noch kein Link hinterlegt.';
   $('#paypal-off').hidden = !state.paypal;
   const pv = state.paypal ? paypalUrl(1000) : '';
@@ -313,12 +315,13 @@ function renderAdmin() {
   $('#sales-list').innerHTML = list.length ? list.map(s => `
     <div class="sale${s.void ? ' void' : ''}">
       <div class="sale-main">
-        <div class="sale-head"><b>#${s.n}</b> · ${fmtT(s.t)} · ${esc(labelOf(s.stand))}${s.method === 'paypal' ? ' · <span class="tag pp">PayPal</span>' : ''}${s.void ? ' · <span class="tag">storniert</span>' : ''}</div>
+        <div class="sale-head"><b>#${s.n}</b> · ${fmtTS(s.t)} · ${esc(labelOf(s.stand))}${s.method === 'paypal' ? ' · <span class="tag pp">PayPal</span>' : ''}${s.void ? ' · <span class="tag">storniert</span>' : ''}</div>
         <div class="sale-lines">${esc(lineText(s))}</div>
         <div class="sale-pay">${s.note ? esc(s.note) : s.method === 'paypal' ? 'Bezahlt mit PayPal' : `Gegeben ${euro(s.given)} · Rückgeld ${euro(s.change)}`}${state.vat.on ? ` · MwSt ${euro(saleVat(s))}` : ''}</div>
       </div>
       <b class="sale-sum">${euro(s.total)}</b>
-      <button class="btn ${s.void ? '' : 'destructive'}" data-void="${s.n}">${s.void ? 'Storno aufheben' : 'Stornieren'}</button>
+      <div class="sale-btns">${state.receipt.on ? `<button class="btn" data-pdf="${s.n}">PDF</button><button class="btn" data-print="${s.n}">Drucken</button>` : ''}
+      <button class="btn ${s.void ? '' : 'destructive'}" data-void="${s.n}">${s.void ? 'Storno aufheben' : 'Stornieren'}</button></div>
     </div>`).join('') : '<p class="empty">Noch keine Buchungen.</p>';
 }
 
@@ -343,7 +346,7 @@ async function exportFile() {
   rows.push(row(['', 'GESAMT (dieses Gerät)', '', '', num(all)]), row(['', 'davon Bar', '', '', num(payTotals().bar)]), row(['', 'davon PayPal', '', '', num(payTotals().paypal)]), row(['Stand der Daten', stamp]));
   if (V) { rows.push('', row(['Mehrwertsteuer', 'Satz', 'Brutto (€)', 'Netto (€)', 'MwSt (€)'])); for (const r of Object.keys(gr).sort((x, y) => x - y)) rows.push(row(['', pct(r), num(gr[r]), num(gr[r] - vatPart(gr[r], +r)), num(vatPart(gr[r], +r))])); const T = vatText(gr); rows.push(row(['', 'GESAMT', num(all), num(T.net), num(T.vat)])); }
   rows.push('', row(['Bon-Nr.', 'Zeit', 'Stand', 'Artikel', 'Summe (€)', 'Gegeben (€)', 'Rückgeld (€)', 'Status', 'Zahlart'].concat(V ? ['MwSt (€)'] : [])));
-  for (const s of state.sales) rows.push(row([s.n, fmtT(s.t), labelOf(s.stand), lineText(s), num(s.total), num(s.given), num(s.change), s.void ? 'storniert' : 'gültig', s.method === 'paypal' ? 'PayPal' : 'Bar'].concat(V ? [num((() => { const g = {}; for (const [id, n] of Object.entries(s.lines)) { const pr = s.info && s.info[id] ? s.info[id].price : ALL[id] ? ALL[id].price : 0, r = vatOf(s.info, id); g[r] = (g[r] || 0) + n * pr; } return vatText(g).vat; })())] : [])));
+  for (const s of state.sales) rows.push(row([s.n, fmtTS(s.t), labelOf(s.stand), lineText(s), num(s.total), num(s.given), num(s.change), s.void ? 'storniert' : 'gültig', s.method === 'paypal' ? 'PayPal' : 'Bar'].concat(V ? [num((() => { const g = {}; for (const [id, n] of Object.entries(s.lines)) { const pr = s.info && s.info[id] ? s.info[id].price : ALL[id] ? ALL[id].price : 0, r = vatOf(s.info, id); g[r] = (g[r] || 0) + n * pr; } return vatText(g).vat; })())] : [])));
   const name = `kasse-${stamp.replace(' ', '-').replace(':', '')}.csv`;
   const file = new File(['\ufeff' + rows.join('\r\n')], name, { type: 'text/csv' });
   try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Kasse' }); return; } }
@@ -437,7 +440,11 @@ document.addEventListener('click', async e => {
   const t = e.target.closest('button'); if (!t) return;
   const D = t.dataset;
   if (D.edit || D.newitem || D.newgroup !== undefined || D.gren || D.gdel || D.gup || D.gdown || D.addstand !== undefined || D.renamestand !== undefined || D.delstand !== undefined || D.editdone !== undefined) return editAction(t);
-  if (t.id === 'vat-toggle') return;
+  if (t.id === 'vat-toggle' || t.id === 'rc-toggle') return;
+  if (D.pdf) { sharePdf(+D.pdf); return; }
+  if (D.print) { printBon(+D.print); return; }
+  if (t.id === 'toast-x') { $('#toast').hidden = true; return; }
+  if (t.id === 'rc-head') { openReceiptHead(); return; }
   if (D.method) { method = D.method; payUpdate(); return; }
   if (t.id === 'paypal-link') {
     const n = await promptText('PayPal-Link einfügen', state.paypal || '', 'https://paypal.me/DeinName');
@@ -475,6 +482,104 @@ document.addEventListener('click', async e => {
   else if (t.id === 'restore' && state.backup) { state.sales = state.backup.sales; state.seq = state.backup.seq; state.backup = null; save(); renderAdmin(); }
 });
 $('#pay-dlg').addEventListener('cancel', () => {}); // Esc schließt wie Abbrechen
+
+// --- Bons: Zeitstempel, PDF und Druck
+const WIN = { '€': 0x80, '‚': 0x82, '„': 0x84, '…': 0x85, '‘': 0x91, '’': 0x92, '“': 0x93, '”': 0x94, '–': 0x96, '—': 0x97 };
+const enc = s => [...s.replace(/ | /g, ' ')].map(c => WIN[c] !== undefined ? String.fromCharCode(WIN[c]) : c.charCodeAt(0) < 256 ? c : '?').join('');
+function wrapText(t, n) {
+  const out = []; let cur = '';
+  for (let w of String(t).split(/\s+/).filter(Boolean)) {
+    while (w.length > n) { if (cur) { out.push(cur); cur = ''; } out.push(w.slice(0, n)); w = w.slice(n); }
+    if (!cur) cur = w; else if ((cur + ' ' + w).length <= n) cur += ' ' + w; else { out.push(cur); cur = w; }
+  }
+  if (cur) out.push(cur); return out.length ? out : [''];
+}
+const money = c => euro(c).replace(/ | /g, ' ');
+function receiptLines(s) {
+  const N = 36, L = [], R = state.receipt;
+  const l = (t, b) => L.push({ t, b: !!b });
+  const c = (t, b) => l(' '.repeat(Math.max(0, Math.floor((N - t.length) / 2))) + t, b);
+  const hr = ch => l((ch || '-').repeat(N));
+  const lr = (left, right, b) => { const w = wrapText(left, Math.max(8, N - right.length - 1)); w.forEach((x, i) => l(i === w.length - 1 ? x.padEnd(N - right.length) + right : x, b)); };
+  if (R.name) wrapText(R.name, N).forEach(x => c(x, true));
+  String(R.addr || '').split(/\n|;/).map(x => x.trim()).filter(Boolean).forEach(x => wrapText(x, N).forEach(y => c(y)));
+  if (R.tax) c(R.tax);
+  if (R.name || R.addr || R.tax) hr();
+  if (s.void) { c('*** STORNIERT ***', true); }
+  c('BON NR. ' + String(s.n).padStart(4, '0'), true);
+  const d = new Date(s.t);
+  l('Datum:  ' + d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }));
+  l('Uhrzeit: ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+  l('Stand:  ' + labelOf(s.stand));
+  hr();
+  const g = {};
+  for (const [id, n] of Object.entries(s.lines)) {
+    const pr = s.info && s.info[id] ? s.info[id].price : ALL[id] ? ALL[id].price : 0, r = vatOf(s.info, id);
+    lr(`${n}x ${itemName(s, id)}`, money(n * pr));
+    if (n > 1) l(`   à ${money(pr)}`);
+    g[r] = (g[r] || 0) + n * pr;
+  }
+  hr(); lr('SUMME', money(s.total), true);
+  if (s.method === 'paypal') lr('Bezahlt mit PayPal', money(s.total));
+  else if (!s.note) { lr('Bar gegeben', money(s.given)); lr('Rückgeld', money(s.change)); }
+  if (state.vat.on) {
+    hr(); l('Enthaltene MwSt.:'); const T = vatText(g);
+    Object.entries(g).sort((x, y) => x[0] - y[0]).forEach(([r, x]) => lr(`  MwSt ${pct(r)} (brutto ${money(x)})`, money(vatPart(x, +r))));
+    lr('  Netto gesamt', money(T.net));
+  }
+  hr(); l('Gedruckt: ' + new Date().toLocaleString('de-DE'));
+  if (R.foot) { l(''); wrapText(R.foot, N).forEach(x => c(x)); }
+  if (s.void) { l(''); c('*** STORNIERT ***', true); }
+  return L;
+}
+function makePdf(lines) {
+  const FS = 9, LH = 12.5, M = 14, W = 227, H = Math.max(120, lines.length * LH + 2 * M);
+  const esc2 = s => s.replace(/[\\()]/g, m => '\\' + m);
+  const content = lines.map((l, i) => `BT /${l.b ? 'F2' : 'F1'} ${FS} Tf ${M} ${(H - M - FS - i * LH).toFixed(2)} Td (${esc2(enc(l.t))}) Tj ET`).join('\n');
+  let out = '%PDF-1.4\n'; const offs = [];
+  const add = (n, body) => { offs[n] = out.length; out += `${n} 0 obj\n${body}\nendobj\n`; };
+  add(1, '<< /Type /Catalog /Pages 2 0 R >>'); add(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+  add(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H.toFixed(2)}] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>`);
+  add(4, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+  add(5, '<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>');
+  add(6, '<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold /Encoding /WinAnsiEncoding >>');
+  const x = out.length;
+  out += 'xref\n0 7\n0000000000 65535 f \n' + [1, 2, 3, 4, 5, 6].map(n => String(offs[n]).padStart(10, '0') + ' 00000 n \n').join('') + `trailer\n<< /Size 7 /Root 1 0 R >>\nstartxref\n${x}\n%%EOF`;
+  const u = new Uint8Array(out.length); for (let i = 0; i < out.length; i++) u[i] = out.charCodeAt(i) & 255; return u;
+}
+async function sharePdf(n) {
+  const s = state.sales.find(x => x.n === n); if (!s) return;
+  const d = new Date(s.t), p = k => String(k).padStart(2, '0');
+  const name = `bon-${String(n).padStart(4, '0')}-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.pdf`;
+  const file = new File([makePdf(receiptLines(s))], name, { type: 'application/pdf' });
+  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: `Bon ${n}` }); return; } }
+  catch (err) { if (err.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 8000);
+}
+function printBon(n) {
+  const s = state.sales.find(x => x.n === n); if (!s) return;
+  $('#print-area').textContent = receiptLines(s).map(l => l.t).join('\n');
+  window.print();
+}
+let toastTimer = null;
+function showToast(s) {
+  if (!state.receipt.on || !s) return;
+  $('#toast').innerHTML = `<span>Bon #${s.n} gebucht · ${new Date(s.t).toLocaleTimeString('de-DE')}</span><button data-pdf="${s.n}">PDF</button><button data-print="${s.n}">Drucken</button><button id="toast-x" aria-label="Schließen">✕</button>`;
+  $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 12000);
+}
+function openReceiptHead() {
+  const R = state.receipt;
+  $('#r-name').value = R.name; $('#r-addr').value = R.addr; $('#r-tax').value = R.tax; $('#r-foot').value = R.foot;
+  $('#rc-dlg').showModal();
+}
+$('#rc-form').addEventListener('submit', e => {
+  e.preventDefault();
+  Object.assign(state.receipt, { name: $('#r-name').value.trim(), addr: $('#r-addr').value.trim(), tax: $('#r-tax').value.trim(), foot: $('#r-foot').value.trim() });
+  save(); $('#rc-dlg').close();
+});
+$('#r-cancel').addEventListener('click', () => $('#rc-dlg').close());
+$('#rc-toggle').addEventListener('change', e => { state.receipt.on = e.target.checked; save(); renderAdmin(); });
 
 $('#vat-toggle').addEventListener('change', e => { state.vat.on = e.target.checked; save(); renderAdmin(); });
 
