@@ -14,14 +14,14 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=9">
+<link rel="stylesheet" href="styles.css?v=10">
 </head>
 <body>
 <div class="app">
   <header class="top">
     <h1 id="title">Kasse</h1>
     <div class="segmented" role="tablist" aria-label="Stand wählen" id="tabs"></div>
-    <div class="top-spacer"><span class="ver">v9</span></div>
+    <div class="top-spacer"><span class="ver">v10</span></div>
   </header>
 
   <div class="edit-bar" id="edit-bar" hidden></div>
@@ -102,6 +102,11 @@
     <section class="card" id="admin-summary"></section>
     <section class="card" id="vat-summary" hidden></section>
     <section class="card switch-card">
+      <label class="switch-row"><span><b>Bons (PDF &amp; Druck)</b><small>Nach dem Verbuchen erscheint „PDF“ und „Drucken“. Jeder Bon trägt Nummer, Datum und Uhrzeit mit Sekunden.</small></span>
+      <input type="checkbox" role="switch" id="rc-toggle"></label>
+      <button class="btn" id="rc-head">Bon-Kopf und Fußzeile festlegen</button>
+    </section>
+    <section class="card switch-card">
       <label class="switch-row"><span><b>Mehrwertsteuer-Rechner</b><small>Zeigt die in den Bruttopreisen enthaltene MwSt. am Bon, hier in der Verwaltung und in der Datei.</small></span>
       <input type="checkbox" role="switch" id="vat-toggle"></label>
     </section>
@@ -122,6 +127,20 @@
     <section class="card" id="sales-list"></section>
   </div>
 </div>
+
+<dialog id="rc-dlg" class="form-dlg">
+  <form id="rc-form">
+    <h2>Bon-Kopf und Fußzeile</h2>
+    <label>Name des Veranstalters / Vereins<input id="r-name" autocomplete="off"></label>
+    <label>Adresse (mehrere Zeilen mit Semikolon trennen)<input id="r-addr" autocomplete="off" placeholder="Musterstraße 1; 41061 Mönchengladbach"></label>
+    <label>Steuernummer oder USt-IdNr. (optional)<input id="r-tax" autocomplete="off" placeholder="Steuernr.: 123/456/78901"></label>
+    <label>Fußzeile<input id="r-foot" autocomplete="off"></label>
+    <div class="dlg-actions">
+      <button type="button" class="btn" id="r-cancel">Abbrechen</button>
+      <button type="submit" class="btn primary">Speichern</button>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="item-dlg" class="form-dlg">
   <form id="item-form">
@@ -163,7 +182,10 @@
   </form>
 </dialog>
 
-<script src="qrcode.js?v=9"></script>
-<script src="app.js?v=9"></script>
+<div id="toast" class="toast" hidden></div>
+<pre id="print-area"></pre>
+
+<script src="qrcode.js?v=10"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>
