@@ -51,12 +51,22 @@ function setCatalog(c) {
 }
 setCatalog(Array.isArray(state.catalog) && state.catalog.length ? state.catalog : clone(DEFAULT_STANDS));
 let editing = false;
+if (state.paypal) state.paypal = normalizeLink(state.paypal); // alte, fehlerhaft gespeicherte Links reparieren
 // MwSt.: Preise sind Bruttopreise. Vorschlagswerte (bitte prüfen!): Speisen 7 %, Getränke und Karten 19 %. Je Produkt änderbar.
 const vatOf = (info, id) => info && info[id] && typeof info[id].vat === 'number' ? info[id].vat : (ALL[id] ? ALL[id].vat : 7);
 const vatPart = (gross, r) => Math.round(gross * r / (100 + r));
 const pct = r => String(r).replace('.', ',') + ' %';
 const vatText = gr => { const e = Object.entries(gr).sort((a, b) => a[0] - b[0]); const v = e.reduce((s, [r, g]) => s + vatPart(g, +r), 0), g = e.reduce((s, [, x]) => s + x, 0);
   return { vat: v, net: g - v, text: `Netto ${euro(g - v)} · ` + e.map(([r, x]) => `MwSt ${pct(r)}: ${euro(vatPart(x, +r))}`).join(' · ') }; };
+// PayPal-Link bereinigen: doppeltes https://, fehlendes https://, Text um den Link herum, Leerzeichen
+function normalizeLink(raw) {
+  let s = String(raw || '').trim();
+  const m = s.match(/https?:\/\/\S+/i);
+  if (m) s = m[0];
+  s = s.replace(/^(https?:\/\/)+https?:?\/\//i, 'https://');
+  if (!/^https?:\/\//i.test(s)) s = 'https://' + s.replace(/^\/+/, '');
+  try { const u = new URL(s); return /^https?:$/.test(u.protocol) && u.hostname.includes('.') ? u.href : ''; } catch (e) { return ''; }
+}
 const snap = lines => Object.fromEntries(Object.keys(lines).filter(id => ALL[id]).map(id => [id, { name: ALL[id].name, price: ALL[id].price, vat: ALL[id].vat }]));
 const labelOf = id => { const s = STANDS.find(x => x.id === id); if (s) return s.label; const k = state.sales.find(x => x.stand === id); return (k && k.sl) || 'Gelöschte Seite'; };
 const itemName = (s, id) => (s.info && s.info[id] ? s.info[id].name : ALL[id] ? ALL[id].name : 'Gelöschter Artikel');
@@ -190,11 +200,12 @@ let given = '', method = 'bar';
 const parse = s => { if (!s) return null; const v = parseFloat(s.replace(',', '.')); return isNaN(v) ? null : Math.round(v * 100); };
 function paypalUrl(total) {
   try {
-    const u = new URL(state.paypal), seg = u.pathname.split('/').filter(Boolean);
+    const u = new URL(normalizeLink(state.paypal)), seg = u.pathname.split('/').filter(Boolean);
     if (/(^|\.)paypal\.me$/i.test(u.hostname) && seg.length === 1) return `${u.origin}/${seg[0]}/${(total / 100).toFixed(2)}EUR`; // Betrag wird eingetragen
     return u.href;
   } catch (e) { return ''; }
 }
+function qrSvg(url) { try { const qr = qrcode(0, 'M'); qr.addData(url); qr.make(); return qr.createSvgTag({ scalable: true, margin: 2 }); } catch (e) { return ''; } }
 function payUpdate() {
   const total = cartTotal(), g = parse(given), ch = $('#p-change'), pp = method === 'paypal';
   $('#p-total').textContent = euro(total);
@@ -204,8 +215,7 @@ function payUpdate() {
   $('#p-ok').textContent = pp ? 'PayPal-Zahlung erhalten · Verbuchen' : 'Verbuchen';
   if (pp) {
     const url = state.paypal ? paypalUrl(total) : '';
-    let svg = '';
-    if (url) { try { const qr = qrcode(0, 'M'); qr.addData(url); qr.make(); svg = qr.createSvgTag({ scalable: true, margin: 2 }); } catch (e) {} }
+    const svg = url ? qrSvg(url) : '';
     $('#p-qr-img').innerHTML = svg || '<p class="err">Kein gültiger PayPal-Link hinterlegt.<br>Bitte in der Verwaltung festlegen.</p>';
     $('#p-ok').disabled = false; return;
   }
@@ -253,7 +263,7 @@ let pwMode = null;
 function pwDialog(mode) {
   pwMode = mode;
   $('#pw-title').textContent = mode === 'enter' ? 'Passwort eingeben' : mode === 'set' ? 'Passwort festlegen' : 'Neues Passwort';
-  $('#pw-text').textContent = mode === 'enter' ? 'Die Verwaltung ist geschützt.' : 'Mindestens 4 Zeichen. Bitte gut merken – ohne Passwort gibt es keinen Zugang zu Storno und Zurücksetzen.';
+  $('#pw-text').textContent = mode === 'enter' ? 'Die Verwaltung ist geschützt.' : 'Mindestens 4 Zeichen (Buchstaben und Zahlen möglich). Bitte gut merken – ohne Passwort gibt es keinen Zugang zu Storno und Zurücksetzen.';
   $('#pw-input').value = ''; $('#pw-err').textContent = '';
   $('#pw-dlg').showModal(); setTimeout(() => $('#pw-input').focus(), 50);
 }
@@ -285,6 +295,8 @@ function renderAdmin() {
   $('#vat-toggle').checked = state.vat.on;
   $('#paypal-state').textContent = state.paypal ? `Hinterlegt: ${state.paypal}` : 'Noch kein Link hinterlegt.';
   $('#paypal-off').hidden = !state.paypal;
+  const pv = state.paypal ? paypalUrl(1000) : '';
+  $('#paypal-preview').innerHTML = pv ? `<div class="pv">${qrSvg(pv)}</div><small class="muted">Vorschau des QR-Codes (Beispiel 10,00 €):<br>${esc(pv)}<br>Scanne ihn einmal mit dem Handy und prüfe den Empfänger.</small>` : '';
   $('#vat-summary').hidden = !state.vat.on;
   if (state.vat.on) {
     const rates = Object.keys(gr).sort((x, y) => x - y), T = vatText(gr);
@@ -341,9 +353,9 @@ async function exportFile() {
 }
 
 // --- Bearbeitungsmodus: Produkte, Unterkategorien und Seiten
-function promptText(title, value = '') {
+function promptText(title, value = '', placeholder = '') {
   return new Promise(res => {
-    $('#t-title').textContent = title; $('#t-input').value = value; $('#t-err').textContent = '';
+    $('#t-title').textContent = title; $('#t-input').value = value; $('#t-input').placeholder = placeholder; $('#t-err').textContent = '';
     const d = $('#text-dlg'); d.returnValue = ''; d.showModal(); setTimeout(() => $('#t-input').focus(), 50);
     const f = $('#text-form'), done = ok => { f.onsubmit = null; $('#t-cancel').onclick = null; d.close(); res(ok ? $('#t-input').value.trim() : null); };
     f.onsubmit = e => { e.preventDefault(); if (!$('#t-input').value.trim()) { $('#t-err').textContent = 'Bitte einen Namen eingeben'; return; } done(true); };
@@ -428,8 +440,8 @@ document.addEventListener('click', async e => {
   if (t.id === 'vat-toggle') return;
   if (D.method) { method = D.method; payUpdate(); return; }
   if (t.id === 'paypal-link') {
-    const n = await promptText('PayPal-Link (z. B. https://paypal.me/DeinName)', state.paypal || 'https://');
-    if (n) { try { const u = new URL(n); if (!/^https?:$/.test(u.protocol)) throw 0; state.paypal = u.href; save(); renderAdmin(); } catch (e) { await ask('Ungültiger Link', 'Bitte einen vollständigen Link mit https:// eingeben.', 'OK'); } }
+    const n = await promptText('PayPal-Link einfügen', state.paypal || '', 'https://paypal.me/DeinName');
+    if (n) { const u = normalizeLink(n); if (u) { state.paypal = u; save(); renderAdmin(); } else await ask('Link nicht erkannt', 'Bitte den Link so einfügen, wie ihn PayPal anzeigt, z. B. https://paypal.me/DeinName', 'OK'); }
     return;
   }
   if (t.id === 'paypal-off') { state.paypal = ''; save(); renderAdmin(); return; }
@@ -479,5 +491,5 @@ build();
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
   let had = !!navigator.serviceWorker.controller;
-  navigator.serviceWorker.addEventListener('controllerchange', () => { if (had) location.reload(); had = true; });
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !document.querySelector('dialog[open]') && $('#admin').hidden) location.reload(); had = true; });
 }

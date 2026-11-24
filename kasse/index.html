@@ -14,14 +14,14 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=8">
+<link rel="stylesheet" href="styles.css?v=9">
 </head>
 <body>
 <div class="app">
   <header class="top">
     <h1 id="title">Kasse</h1>
     <div class="segmented" role="tablist" aria-label="Stand wählen" id="tabs"></div>
-    <div class="top-spacer"><span class="ver">v8</span></div>
+    <div class="top-spacer"><span class="ver">v9</span></div>
   </header>
 
   <div class="edit-bar" id="edit-bar" hidden></div>
@@ -83,7 +83,7 @@
   <form id="pw-form">
     <h2 id="pw-title">Passwort</h2>
     <p id="pw-text"></p>
-    <input id="pw-input" type="password" inputmode="numeric" autocomplete="off" autocapitalize="off" placeholder="Passwort">
+    <input id="pw-input" type="password" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="Passwort">
     <p class="err" id="pw-err"></p>
     <div class="dlg-actions">
       <button type="button" class="btn" id="pw-cancel">Abbrechen</button>
@@ -106,6 +106,7 @@
       <input type="checkbox" role="switch" id="vat-toggle"></label>
     </section>
     <section class="card"><b>PayPal</b><small class="muted" id="paypal-state"></small>
+      <div id="paypal-preview"></div>
       <small class="muted">Der Link wird im QR-Code beim Bezahlen angezeigt. Bei einem paypal.me-Link wird der Betrag automatisch eingetragen.</small>
       <button class="btn destructive" id="paypal-off" hidden>PayPal-Link entfernen</button></section>
     <section class="card actions-card">
@@ -142,7 +143,7 @@
 <dialog id="text-dlg" class="form-dlg">
   <form id="text-form">
     <h2 id="t-title"></h2>
-    <input id="t-input" autocomplete="off">
+    <input id="t-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">
     <p class="err" id="t-err"></p>
     <div class="dlg-actions">
       <button type="button" class="btn" id="t-cancel">Abbrechen</button>
@@ -162,7 +163,7 @@
   </form>
 </dialog>
 
-<script src="qrcode.js?v=8"></script>
-<script src="app.js?v=8"></script>
+<script src="qrcode.js?v=9"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>
