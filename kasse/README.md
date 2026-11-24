@@ -10,6 +10,7 @@ Einfaches Kassensystem als installierbare Web-App (PWA) für iPad und Android-Ta
 - **MwSt.-Rechner** (in der Verwaltung ein-/ausschaltbar): Preise gelten als Brutto; je Produkt ist der Satz (0/7/19 %) einstellbar. Zeigt die enthaltene MwSt. am Bon, in der Verwaltung und in der CSV-Datei. Vorgabe: Speisen 7 %, Getränke/Karten 19 % – bitte prüfen.
 - **PayPal:** Beim Bezahlen „PayPal“ wählen → QR-Code zum Scannen (Link in der Verwaltung festlegen; bei paypal.me wird der Betrag eingetragen). Die Buchung wird als „PayPal“ vermerkt, Zahlarten stehen in Verwaltung und CSV.
 - **Bons:** Jede Buchung hat Nummer sowie Datum und Uhrzeit (mit Sekunden). Nach dem Verbuchen erscheint „PDF“ / „Drucken“, später auch pro Buchung in der Verwaltung. Kopf (Name, Adresse, Steuernummer) und Fußzeile legst du in der Verwaltung fest; der Bon-Dienst lässt sich dort ausschalten.
+- **Trinkgeld** (bei Barzahlung, in der Verwaltung abschaltbar): beim Bezahlen „Trinkgeld“ antippen und eingeben oder Schnelltasten (+0,50 / +1 / +2 € / Rest). Das Rückgeld wird danach berechnet. Trinkgeld zählt nicht zu den Einnahmen und steht getrennt in Verwaltung, Bon und CSV.
 - Stand fest einstellen: `…/kasse/#burger` (oder `#crepes`, `#karten`) als Home-Bildschirm-Link anlegen.
 - Daten liegen lokal im jeweiligen Gerät (`localStorage`), je Tablet separat.
 
