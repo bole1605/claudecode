@@ -40,7 +40,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const PALETTE = ['#FF9F0A', '#34C759', '#30B0C7', '#FF3B30', '#AF52DE', '#5856D6', '#FF2D55', '#007AFF'];
 
 const RC_DEFAULT = { name: 'Evangelische Kirchengemeinde Kleinglattbach', addr: 'Kirchstraße 15; 71665 Vaihingen an der Enz', foot: 'Vielen Dank, Guten Appetit & frohe Weihnachten!' };
-let state = { rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
+let state = { rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppAmount: true, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
 try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
 let STANDS, ALL = {};
 function setCatalog(c) {
@@ -205,7 +205,7 @@ const parse = s => { if (!s) return null; const v = parseFloat(s.replace(',', '.
 function paypalUrl(total) {
   try {
     const u = new URL(normalizeLink(state.paypal)), seg = u.pathname.split('/').filter(Boolean);
-    if (/(^|\.)paypal\.me$/i.test(u.hostname) && seg.length === 1) return `${u.origin}/${seg[0]}/${(total / 100).toFixed(2)}EUR`; // Betrag wird eingetragen
+    if (state.ppAmount && /(^|\.)paypal\.me$/i.test(u.hostname) && seg.length === 1) return `${u.origin}/${seg[0]}/${total % 100 === 0 ? total / 100 : (total / 100).toFixed(2)}EUR`; // Betrag wird eingetragen
     return u.href;
   } catch (e) { return ''; }
 }
@@ -343,8 +343,9 @@ function renderAdmin() {
   $('#tip-toggle').checked = state.tip.on;
   $('#paypal-state').textContent = state.paypal ? `Hinterlegt: ${state.paypal}` : 'Noch kein Link hinterlegt.';
   $('#paypal-off').hidden = !state.paypal;
+  $('#pp-amount').checked = state.ppAmount;
   const pv = state.paypal ? paypalUrl(1000) : '';
-  $('#paypal-preview').innerHTML = pv ? `<div class="pv">${qrImg(pv, 200)}</div><small class="muted">Vorschau des QR-Codes (Beispiel 10,00 €):<br>${esc(pv)}<br>Scanne ihn einmal mit dem Handy und prüfe den Empfänger.</small>` : '';
+  $('#paypal-preview').innerHTML = pv ? `<div class="pv">${qrImg(pv, 200)}</div><small class="muted">Vorschau des QR-Codes (Beispiel 10,00 €):<br>${esc(pv)}<br>Scanne ihn einmal mit dem Handy und prüfe den Empfänger.</small><a class="btn" href="${esc(pv)}" target="_blank" rel="noopener">Link zum Testen öffnen</a>` : '';
   $('#vat-summary').hidden = !state.vat.on;
   if (state.vat.on) {
     const rates = Object.keys(gr).sort((x, y) => x - y), T = vatText(gr);
@@ -493,6 +494,7 @@ document.addEventListener('click', async e => {
   const t = e.target.closest('button'); if (!t) return;
   const D = t.dataset;
   if (D.edit || D.newitem || D.newgroup !== undefined || D.gren || D.gdel || D.gup || D.gdown || D.addstand !== undefined || D.renamestand !== undefined || D.delstand !== undefined || D.editdone !== undefined) return editAction(t);
+  if (t.id === 'pp-amount') return;
   if (t.id === 'vat-toggle' || t.id === 'rc-toggle' || t.id === 'tip-toggle') return;
   if (D.pdf) { sharePdf(+D.pdf); return; }
   if (D.print) { printBon(+D.print); return; }
@@ -643,6 +645,7 @@ $('#rc-form').addEventListener('submit', e => {
   save(); $('#rc-dlg').close();
 });
 $('#r-cancel').addEventListener('click', () => $('#rc-dlg').close());
+$('#pp-amount').addEventListener('change', e => { state.ppAmount = e.target.checked; save(); renderAdmin(); });
 $('#tip-toggle').addEventListener('change', e => { state.tip.on = e.target.checked; save(); renderAdmin(); });
 $('#rc-toggle').addEventListener('change', e => { state.receipt.on = e.target.checked; save(); renderAdmin(); });
 
