@@ -14,14 +14,14 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=6">
+<link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body>
 <div class="app">
   <header class="top">
     <h1 id="title">Kasse</h1>
     <div class="segmented" role="tablist" aria-label="Stand wählen" id="tabs"></div>
-    <div class="top-spacer"><span class="ver">v6</span></div>
+    <div class="top-spacer"><span class="ver">v7</span></div>
   </header>
 
   <div class="edit-bar" id="edit-bar" hidden></div>
@@ -31,6 +31,7 @@
     <aside class="bon" aria-label="Aktueller Bon">
       <h2>Bon</h2>
       <ul id="bon-lines"></ul>
+      <div class="bon-vat" id="bon-vat"></div>
       <div class="bon-total"><span>Summe</span><b id="bon-sum">0,00 €</b></div>
       <button class="btn primary" id="pay" disabled>Bezahlen</button>
       <button class="btn destructive" id="clear" disabled>Bon leeren</button>
@@ -90,6 +91,11 @@
   </header>
   <div class="page-body">
     <section class="card" id="admin-summary"></section>
+    <section class="card" id="vat-summary" hidden></section>
+    <section class="card switch-card">
+      <label class="switch-row"><span><b>Mehrwertsteuer-Rechner</b><small>Zeigt die in den Bruttopreisen enthaltene MwSt. am Bon, hier in der Verwaltung und in der Datei.</small></span>
+      <input type="checkbox" role="switch" id="vat-toggle"></label>
+    </section>
     <section class="card actions-card">
       <button class="btn primary" id="edit-mode">Bearbeitungsmodus (Produkte & Seiten)</button>
       <button class="btn" id="save">Zahlen speichern (Datei)</button>
@@ -110,6 +116,7 @@
     <label>Zusatz (optional, z. B. „0,5 l“)<input id="i-sub" autocomplete="off"></label>
     <label>Preis in €<input id="i-price" inputmode="decimal" autocomplete="off" placeholder="3,50"></label>
     <label>Unterkategorie<select id="i-group"></select></label>
+    <label>MwSt.-Satz (im Preis enthalten)<select id="i-vat"><option value="0">0 %</option><option value="7">7 %</option><option value="19">19 %</option></select></label>
     <p class="err" id="i-err"></p>
     <div class="dlg-actions">
       <button type="button" class="btn destructive" id="i-del">Löschen</button>
@@ -142,6 +149,6 @@
   </form>
 </dialog>
 
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
