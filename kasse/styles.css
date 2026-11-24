@@ -166,3 +166,11 @@ body.editing .bon,body.editing .bottom{display:none}
 .switch-row input{appearance:none;-webkit-appearance:none;flex:none;width:51px;height:31px;border-radius:16px;background:var(--fill);position:relative;transition:background .2s;margin:0}
 .switch-row input::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.3);transition:transform .2s}
 .switch-row input:checked{background:#34C759}.switch-row input:checked::after{transform:translateX(20px)}
+
+/* ---- v8: PayPal ---- */
+.pay-method{width:fit-content;margin:0 auto 16px}.pay-method button{min-width:130px}
+.pay-qr{text-align:center}.pay-qr svg{width:min(300px,100%);height:auto;background:#fff;border-radius:12px;padding:6px}
+.pay-qr p{margin:8px 0 0;font-size:14px;color:var(--label2)}
+.muted{display:block;color:var(--label2);font-size:14px;margin:2px 0 8px;word-break:break-all}
+.tag.pp{color:#003087;background:rgba(0,112,224,.14);padding:1px 8px;border-radius:8px}
+@media (prefers-color-scheme:dark){.tag.pp{color:#7CB8FF}}

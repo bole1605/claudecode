@@ -39,7 +39,7 @@ const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const PALETTE = ['#FF9F0A', '#34C759', '#30B0C7', '#FF3B30', '#AF52DE', '#5856D6', '#FF2D55', '#007AFF'];
 
-let state = { stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false } };
+let state = { stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, paypal: '' };
 try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
 let STANDS, ALL = {};
 function setCatalog(c) {
@@ -186,11 +186,29 @@ document.addEventListener('pointerdown', e => {
 });
 
 // --- Bezahlen / Wechselgeld
-let given = '';
+let given = '', method = 'bar';
 const parse = s => { if (!s) return null; const v = parseFloat(s.replace(',', '.')); return isNaN(v) ? null : Math.round(v * 100); };
+function paypalUrl(total) {
+  try {
+    const u = new URL(state.paypal), seg = u.pathname.split('/').filter(Boolean);
+    if (/(^|\.)paypal\.me$/i.test(u.hostname) && seg.length === 1) return `${u.origin}/${seg[0]}/${(total / 100).toFixed(2)}EUR`; // Betrag wird eingetragen
+    return u.href;
+  } catch (e) { return ''; }
+}
 function payUpdate() {
-  const total = cartTotal(), g = parse(given), ch = $('#p-change');
+  const total = cartTotal(), g = parse(given), ch = $('#p-change'), pp = method === 'paypal';
   $('#p-total').textContent = euro(total);
+  document.querySelectorAll('#p-method button').forEach(b => b.setAttribute('aria-selected', b.dataset.method === method));
+  ['#p-cash', '#p-given-l', '#p-given', '#p-change'].forEach(s => $(s).hidden = pp);
+  $('#p-qr').hidden = !pp;
+  $('#p-ok').textContent = pp ? 'PayPal-Zahlung erhalten · Verbuchen' : 'Verbuchen';
+  if (pp) {
+    const url = state.paypal ? paypalUrl(total) : '';
+    let svg = '';
+    if (url) { try { const qr = qrcode(0, 'M'); qr.addData(url); qr.make(); svg = qr.createSvgTag({ scalable: true, margin: 2 }); } catch (e) {} }
+    $('#p-qr-img').innerHTML = svg || '<p class="err">Kein gültiger PayPal-Link hinterlegt.<br>Bitte in der Verwaltung festlegen.</p>';
+    $('#p-ok').disabled = false; return;
+  }
   $('#p-given').textContent = given ? given + ' €' : '–';
   ch.className = 'change';
   if (g === null) ch.innerHTML = '<span class="cap">Rückgeld</span><b>–</b>';
@@ -198,7 +216,7 @@ function payUpdate() {
   else { ch.classList.add('short'); ch.innerHTML = `<span class="cap">Es fehlen</span><b>${euro(total - g)}</b>`; }
   $('#p-ok').disabled = g === null || g < total;
 }
-function openPay() { if (!cartTotal()) return; given = ''; payUpdate(); $('#pay-dlg').showModal(); }
+function openPay() { if (!cartTotal()) return; given = ''; method = 'bar'; payUpdate(); $('#pay-dlg').showModal(); }
 function key(k) {
   if (k === 'back') given = given.slice(0, -1);
   else if (k === ',') { if (!given.includes(',')) given = (given || '0') + ','; }
@@ -211,8 +229,8 @@ function key(k) {
   payUpdate();
 }
 function book() {
-  const g = parse(given), total = cartTotal(); if (g === null || g < total) return;
-  state.sales.push({ n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: { ...cart() }, info: snap(cart()), total, given: g, change: g - total, void: false });
+  const total = cartTotal(), pp = method === 'paypal', g = pp ? total : parse(given); if (g === null || g < total) return;
+  state.sales.push({ method, n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: { ...cart() }, info: snap(cart()), total, given: g, change: g - total, void: false });
   state.cart[state.stand] = {}; save(); update(); $('#pay-dlg').close(); buzz();
 }
 
@@ -261,27 +279,31 @@ function hideAdmin() { hideAdminKeep(); build(); }
 const fmtT = t => new Date(t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 const lineText = s => Object.entries(s.lines).map(([id, n]) => `${n}× ${itemName(s, id)}`).join(', ');
 const standIds = () => { const ids = STANDS.map(s => s.id); state.sales.forEach(s => { if (!ids.includes(s.stand)) ids.push(s.stand); }); return ids; };
+const payTotals = () => state.sales.reduce((o, s) => { if (!s.void) o[s.method === 'paypal' ? 'paypal' : 'bar'] += s.total; return o; }, { bar: 0, paypal: 0 });
 function renderAdmin() {
   const { rev, cnt, gr, grS } = sold();
   $('#vat-toggle').checked = state.vat.on;
+  $('#paypal-state').textContent = state.paypal ? `Hinterlegt: ${state.paypal}` : 'Noch kein Link hinterlegt.';
+  $('#paypal-off').hidden = !state.paypal;
   $('#vat-summary').hidden = !state.vat.on;
   if (state.vat.on) {
     const rates = Object.keys(gr).sort((x, y) => x - y), T = vatText(gr);
     $('#vat-summary').innerHTML = '<h3>Mehrwertsteuer (enthalten in den Bruttopreisen)</h3>' + (rates.length ? rates.map(r => `<div class="sum-row vat"><span>Satz ${pct(r)}</span><span>Brutto ${euro(gr[r])} · Netto ${euro(gr[r] - vatPart(gr[r], +r))}</span><b>${euro(vatPart(gr[r], +r))}</b></div>`).join('') + `<div class="sum-row total"><span>Gesamt MwSt</span><span>Brutto ${euro(Object.values(gr).reduce((s, x) => s + x, 0))} · Netto ${euro(T.net)}</span><b>${euro(T.vat)}</b></div>` : '<p class="empty">Noch keine Verkäufe.</p>');
   }
+  const pay = payTotals();
   $('#admin-summary').innerHTML = '<h3>Zwischenstand dieses Geräts</h3>' + standIds().map(id => {
     const k = state.sales.filter(x => x.stand === id), g = k.filter(x => !x.void).length, v = k.length - g;
     return `<div class="sum-row"><span>${esc(labelOf(id))}</span><span>${g} ${g === 1 ? 'Buchung' : 'Buchungen'} · ${cnt[id] || 0} Artikel${v ? ` · ${v} storniert` : ''}</span><b>${euro(rev[id] || 0)}</b></div>${state.vat.on && grS[id] ? `<div class="vat-sub">${vatText(grS[id]).text}</div>` : ''}`;
-  }).join('') + `<div class="sum-row total"><span>Gesamt</span><span></span><b>${euro(Object.values(rev).reduce((a, b) => a + b, 0))}</b></div>`;
+  }).join('') + `<div class="sum-row total"><span>Gesamt</span><span>Bar ${euro(pay.bar)} · PayPal ${euro(pay.paypal)}</span><b>${euro(Object.values(rev).reduce((a, b) => a + b, 0))}</b></div>`;
   $('#restore').hidden = !state.backup;
   const saleVat = s => { const g = {}; for (const [id, n] of Object.entries(s.lines)) { const pr = s.info && s.info[id] ? s.info[id].price : ALL[id] ? ALL[id].price : 0, r = vatOf(s.info, id); g[r] = (g[r] || 0) + n * pr; } return vatText(g).vat; };
   const list = [...state.sales].reverse();
   $('#sales-list').innerHTML = list.length ? list.map(s => `
     <div class="sale${s.void ? ' void' : ''}">
       <div class="sale-main">
-        <div class="sale-head"><b>#${s.n}</b> · ${fmtT(s.t)} · ${esc(labelOf(s.stand))}${s.void ? ' · <span class="tag">storniert</span>' : ''}</div>
+        <div class="sale-head"><b>#${s.n}</b> · ${fmtT(s.t)} · ${esc(labelOf(s.stand))}${s.method === 'paypal' ? ' · <span class="tag pp">PayPal</span>' : ''}${s.void ? ' · <span class="tag">storniert</span>' : ''}</div>
         <div class="sale-lines">${esc(lineText(s))}</div>
-        <div class="sale-pay">${s.note ? esc(s.note) : `Gegeben ${euro(s.given)} · Rückgeld ${euro(s.change)}`}${state.vat.on ? ` · MwSt ${euro(saleVat(s))}` : ''}</div>
+        <div class="sale-pay">${s.note ? esc(s.note) : s.method === 'paypal' ? 'Bezahlt mit PayPal' : `Gegeben ${euro(s.given)} · Rückgeld ${euro(s.change)}`}${state.vat.on ? ` · MwSt ${euro(saleVat(s))}` : ''}</div>
       </div>
       <b class="sale-sum">${euro(s.total)}</b>
       <button class="btn ${s.void ? '' : 'destructive'}" data-void="${s.n}">${s.void ? 'Storno aufheben' : 'Stornieren'}</button>
@@ -306,10 +328,10 @@ async function exportFile() {
     }
     rows.push(row([labelOf(sid), 'SUMME', '', '', num(rev[sid] || 0)].concat(V ? ['', num(vatText(grS[sid] || {}).vat)] : []))); all += rev[sid] || 0;
   }
-  rows.push(row(['', 'GESAMT (dieses Gerät)', '', '', num(all)]), row(['Stand der Daten', stamp]));
+  rows.push(row(['', 'GESAMT (dieses Gerät)', '', '', num(all)]), row(['', 'davon Bar', '', '', num(payTotals().bar)]), row(['', 'davon PayPal', '', '', num(payTotals().paypal)]), row(['Stand der Daten', stamp]));
   if (V) { rows.push('', row(['Mehrwertsteuer', 'Satz', 'Brutto (€)', 'Netto (€)', 'MwSt (€)'])); for (const r of Object.keys(gr).sort((x, y) => x - y)) rows.push(row(['', pct(r), num(gr[r]), num(gr[r] - vatPart(gr[r], +r)), num(vatPart(gr[r], +r))])); const T = vatText(gr); rows.push(row(['', 'GESAMT', num(all), num(T.net), num(T.vat)])); }
-  rows.push('', row(['Bon-Nr.', 'Zeit', 'Stand', 'Artikel', 'Summe (€)', 'Gegeben (€)', 'Rückgeld (€)', 'Status'].concat(V ? ['MwSt (€)'] : [])));
-  for (const s of state.sales) rows.push(row([s.n, fmtT(s.t), labelOf(s.stand), lineText(s), num(s.total), num(s.given), num(s.change), s.void ? 'storniert' : 'gültig'].concat(V ? [num((() => { const g = {}; for (const [id, n] of Object.entries(s.lines)) { const pr = s.info && s.info[id] ? s.info[id].price : ALL[id] ? ALL[id].price : 0, r = vatOf(s.info, id); g[r] = (g[r] || 0) + n * pr; } return vatText(g).vat; })())] : [])));
+  rows.push('', row(['Bon-Nr.', 'Zeit', 'Stand', 'Artikel', 'Summe (€)', 'Gegeben (€)', 'Rückgeld (€)', 'Status', 'Zahlart'].concat(V ? ['MwSt (€)'] : [])));
+  for (const s of state.sales) rows.push(row([s.n, fmtT(s.t), labelOf(s.stand), lineText(s), num(s.total), num(s.given), num(s.change), s.void ? 'storniert' : 'gültig', s.method === 'paypal' ? 'PayPal' : 'Bar'].concat(V ? [num((() => { const g = {}; for (const [id, n] of Object.entries(s.lines)) { const pr = s.info && s.info[id] ? s.info[id].price : ALL[id] ? ALL[id].price : 0, r = vatOf(s.info, id); g[r] = (g[r] || 0) + n * pr; } return vatText(g).vat; })())] : [])));
   const name = `kasse-${stamp.replace(' ', '-').replace(':', '')}.csv`;
   const file = new File(['\ufeff' + rows.join('\r\n')], name, { type: 'text/csv' });
   try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Kasse' }); return; } }
@@ -404,6 +426,13 @@ document.addEventListener('click', async e => {
   const D = t.dataset;
   if (D.edit || D.newitem || D.newgroup !== undefined || D.gren || D.gdel || D.gup || D.gdown || D.addstand !== undefined || D.renamestand !== undefined || D.delstand !== undefined || D.editdone !== undefined) return editAction(t);
   if (t.id === 'vat-toggle') return;
+  if (D.method) { method = D.method; payUpdate(); return; }
+  if (t.id === 'paypal-link') {
+    const n = await promptText('PayPal-Link (z. B. https://paypal.me/DeinName)', state.paypal || 'https://');
+    if (n) { try { const u = new URL(n); if (!/^https?:$/.test(u.protocol)) throw 0; state.paypal = u.href; save(); renderAdmin(); } catch (e) { await ask('Ungültiger Link', 'Bitte einen vollständigen Link mit https:// eingeben.', 'OK'); } }
+    return;
+  }
+  if (t.id === 'paypal-off') { state.paypal = ''; save(); renderAdmin(); return; }
   if (t.id === 'edit-mode') { hideAdminKeep(); editing = true; build(); return; }
   if (t.id === 'defaults') {
     if (await ask('Sortiment zurücksetzen?', 'Alle eigenen Seiten, Kategorien und Produkte werden durch das ursprüngliche Sortiment ersetzt. Bereits verbuchte Verkäufe bleiben erhalten.', 'Zurücksetzen')) { state.cart = {}; setCatalog(clone(DEFAULT_STANDS)); save(); build(); renderAdmin(); }
