@@ -174,3 +174,8 @@ body.editing .bon,body.editing .bottom{display:none}
 .muted{display:block;color:var(--label2);font-size:14px;margin:2px 0 8px;word-break:break-all}
 .tag.pp{color:#003087;background:rgba(0,112,224,.14);padding:1px 8px;border-radius:8px}
 @media (prefers-color-scheme:dark){.tag.pp{color:#7CB8FF}}
+
+/* ---- v9: Dialoge oben, damit die Tastatur sie nicht verdeckt; PayPal-Vorschau ---- */
+#pw-dlg,.form-dlg{margin:6vh auto auto}
+#pw-dlg input{font-size:20px}
+.pv svg{width:180px;height:180px;background:#fff;border-radius:10px;padding:4px;display:block;margin:8px 0}
