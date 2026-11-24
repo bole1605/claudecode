@@ -34,10 +34,20 @@
     </div>
     <div class="actions">
       <button class="btn" id="undo" disabled>↶ Letzten Verkauf zurücknehmen</button>
-      <button class="btn destructive" id="reset">Zurücksetzen</button>
     </div>
   </footer>
 </div>
+
+<dialog id="admin">
+  <h2>Verwaltung</h2>
+  <p id="admin-text"></p>
+  <div class="stack">
+    <button class="btn" id="save">Zahlen speichern (Datei)</button>
+    <button class="btn" id="restore" hidden>Letztes Zurücksetzen rückgängig machen</button>
+    <button class="btn destructive" id="reset">Zähler dieses Standes zurücksetzen …</button>
+    <button class="btn strong-blue" id="admin-close">Fertig</button>
+  </div>
+</dialog>
 
 <dialog id="confirm">
   <form method="dialog">

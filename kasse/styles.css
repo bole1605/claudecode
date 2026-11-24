@@ -31,7 +31,7 @@ main{flex:1;overflow:auto;padding:8px 24px 16px;-webkit-overflow-scrolling:touch
 .tile-wrap{position:relative}
 .tile{width:100%;min-height:175px;height:100%;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;gap:2px;
   text-align:left;padding:16px;border-radius:var(--r);background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.08);
-  border-top:6px solid var(--accent);transition:transform .08s,background .08s,filter .08s}
+  border-top:6px solid var(--accent);transition:transform .04s,filter .04s;-webkit-touch-callout:none}
 .grid.n2 .tile,.grid.n1 .tile{min-height:260px}.tile .name{padding-right:0}
 .tile:active{transform:scale(.97);filter:brightness(.93)}
 .tile .name{font-size:20px;font-weight:600;line-height:1.2;margin-top:auto;padding-top:64px}
@@ -64,3 +64,10 @@ dialog h2{margin:0 0 8px;font-size:20px}
 dialog p{margin:0 0 20px;color:var(--label2)}
 .dlg-actions{display:flex;gap:10px}.dlg-actions .btn{flex:1;min-height:50px}
 @media (max-width:700px){.top{grid-template-columns:1fr}.top h1,.top-spacer{display:none}.bottom{flex-direction:column;align-items:stretch}}
+
+.top h1{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.badge.pop{animation:pop .18s ease-out}
+@keyframes pop{0%{transform:scale(1.35)}100%{transform:scale(1)}}
+.stack{display:flex;flex-direction:column;gap:10px}.stack .btn{min-height:50px}.stack[hidden],.btn[hidden]{display:none}
+.btn.strong-blue{background:var(--blue);color:#fff}
+@media (prefers-reduced-motion:reduce){.badge.pop{animation:none}}
