@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=3">
+<link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body>
 <div class="app">
@@ -24,42 +24,98 @@
     <div class="top-spacer"></div>
   </header>
 
-  <main id="main"></main>
+  <div class="body">
+    <main id="main"></main>
+    <aside class="bon" aria-label="Aktueller Bon">
+      <h2>Bon</h2>
+      <ul id="bon-lines"></ul>
+      <div class="bon-total"><span>Summe</span><b id="bon-sum">0,00 €</b></div>
+      <button class="btn primary" id="pay" disabled>Bezahlen</button>
+      <button class="btn destructive" id="clear" disabled>Bon leeren</button>
+    </aside>
+  </div>
 
   <footer class="bottom">
-    <div class="total">
-      <span class="cap">Einnahmen</span>
-      <span class="total-num" id="total">0,00 €</span>
-      <span class="cap sub" id="total-count">0 Artikel</span><span class="ver">v3</span>
-    </div>
-    <div class="actions">
-      <button class="btn" id="undo" disabled>↶ Letzten Verkauf zurücknehmen</button>
-    </div>
+    <span class="cap">Einnahmen</span>
+    <span class="total-num" id="total">0,00 €</span>
+    <span class="cap sub" id="total-count">0 Artikel verkauft</span>
+    <span class="ver">v4</span>
   </footer>
 </div>
 
-<dialog id="admin">
-  <h2>Verwaltung</h2>
-  <p id="admin-text"></p>
-  <div class="stack">
-    <button class="btn" id="save">Zahlen speichern (Datei)</button>
-    <button class="btn" id="restore" hidden>Letztes Zurücksetzen rückgängig machen</button>
-    <button class="btn destructive" id="reset">Zähler dieses Standes zurücksetzen …</button>
-    <button class="btn strong-blue" id="admin-close">Fertig</button>
+<!-- Bezahlen / Wechselgeld -->
+<dialog id="pay-dlg">
+  <div class="pay-grid">
+    <div class="pay-info">
+      <div class="cap">Zu zahlen</div><div class="pay-big" id="p-total">0,00 €</div>
+      <div class="cap">Gegeben</div><div class="pay-big given" id="p-given">–</div>
+      <div class="change" id="p-change"></div>
+    </div>
+    <div class="pay-input">
+      <div class="quick" id="p-quick">
+        <button class="btn" data-quick="total">Passend</button>
+        <button class="btn" data-quick="5">5 €</button><button class="btn" data-quick="10">10 €</button>
+        <button class="btn" data-quick="20">20 €</button><button class="btn" data-quick="50">50 €</button>
+        <button class="btn" data-quick="100">100 €</button>
+      </div>
+      <div class="keypad" id="p-keys">
+        <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
+        <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
+        <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
+        <button data-key=",">,</button><button data-key="0">0</button><button data-key="back" aria-label="Löschen">⌫</button>
+      </div>
+    </div>
+  </div>
+  <div class="dlg-actions">
+    <button class="btn" id="p-cancel">Abbrechen</button>
+    <button class="btn primary" id="p-ok" disabled>Verbuchen</button>
   </div>
 </dialog>
 
-<dialog id="confirm">
-  <form method="dialog">
-    <h2>Zähler zurücksetzen?</h2>
-    <p id="confirm-text"></p>
+<!-- Passwort -->
+<dialog id="pw-dlg">
+  <form id="pw-form">
+    <h2 id="pw-title">Passwort</h2>
+    <p id="pw-text"></p>
+    <input id="pw-input" type="password" inputmode="numeric" autocomplete="off" autocapitalize="off" placeholder="Passwort">
+    <p class="err" id="pw-err"></p>
     <div class="dlg-actions">
-      <button value="cancel" class="btn">Abbrechen</button>
-      <button value="ok" class="btn destructive strong">Zurücksetzen</button>
+      <button type="button" class="btn" id="pw-cancel">Abbrechen</button>
+      <button type="submit" class="btn primary">OK</button>
     </div>
   </form>
 </dialog>
 
-<script src="app.js?v=3"></script>
+<!-- Verwaltung (extra Seite) -->
+<div id="admin" class="page" hidden>
+  <header class="top">
+    <h1>Verwaltung</h1>
+    <button class="btn primary" id="admin-close">Fertig</button>
+  </header>
+  <div class="page-body">
+    <section class="card" id="admin-summary"></section>
+    <section class="card actions-card">
+      <button class="btn" id="save">Zahlen speichern (Datei)</button>
+      <button class="btn" id="pw-change">Passwort ändern</button>
+      <button class="btn" id="restore" hidden>Gelöschte Buchungen wiederherstellen</button>
+      <button class="btn destructive" id="wipe">Alle Buchungen auf diesem Gerät löschen …</button>
+    </section>
+    <h3 class="list-h">Buchungen</h3>
+    <section class="card" id="sales-list"></section>
+  </div>
+</div>
+
+<dialog id="confirm">
+  <form method="dialog">
+    <h2 id="c-title"></h2>
+    <p id="c-text"></p>
+    <div class="dlg-actions">
+      <button value="cancel" class="btn">Abbrechen</button>
+      <button value="ok" class="btn destructive strong" id="c-ok">OK</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="app.js?v=4"></script>
 </body>
 </html>

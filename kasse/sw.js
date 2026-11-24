@@ -1,5 +1,5 @@
-const CACHE = 'kasse-v3';
-const ASSETS = ['./', 'index.html', 'styles.css?v=3', 'app.js?v=3', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CACHE = 'kasse-v4';
+const ASSETS = ['./', 'index.html', 'styles.css?v=4', 'app.js?v=4', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 // Alles am HTTP-Cache vorbei laden, sonst landet eine veraltete Version (GitHub Pages: max-age 10 min) im Cache
 self.addEventListener('install', e => e.waitUntil(
   caches.open(CACHE).then(c => Promise.all(ASSETS.map(a => fetch(a, { cache: 'reload' }).then(r => c.put(a, r))))).then(() => self.skipWaiting())));
