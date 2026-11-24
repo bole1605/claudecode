@@ -4,7 +4,7 @@ Einfaches Kassensystem als installierbare Web-App (PWA) für iPad und Android-Ta
 
 - Drei Seiten: **Crêpes**, **Burger & Spezi**, **Karten**. Kachel antippen = Artikel kommt auf den **Bon** (rechts).
 - **Bezahlen** → Wechselgeld-Rechner (Schnellwahl 5/10/20/50/100 €, „Passend“, Ziffernblock) → **Verbuchen**.
-- Einnahmen unten = verbuchte, nicht stornierte Verkäufe der Seite.
+- Einnahmen sind nur in der passwortgeschützten Verwaltung sichtbar, nicht auf den Verkaufsseiten.
 - **Verwaltung** (extra Seite, Passwort): Titel oben links 5× schnell antippen oder 1,5 s halten. Beim ersten Mal wird das Passwort festgelegt.
   Dort: **Bearbeitungsmodus** (Produkte, Unterkategorien und Seiten hinzufügen, umbenennen, verschieben, löschen; Preise ändern), alle Buchungen, **Storno** (und Storno aufheben), Zahlen als CSV speichern, Buchungen löschen (wiederherstellbar), Passwort ändern.
 - Stand fest einstellen: `…/kasse/#burger` (oder `#crepes`, `#karten`) als Home-Bildschirm-Link anlegen.

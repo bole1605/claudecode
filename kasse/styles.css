@@ -154,3 +154,5 @@ main{flex:1;min-width:0}
 .form-dlg .dlg-actions .btn{min-height:50px}
 body.editing .bon,body.editing .bottom{display:none}
 #tabs [data-addstand]{min-height:44px;min-width:48px;border-radius:10px;font-size:20px;color:var(--blue)}
+
+.top-spacer{text-align:right}.top-spacer .ver{margin:0}
