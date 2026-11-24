@@ -215,3 +215,6 @@ body.editing .bon,body.editing .bottom{display:none}
 /* ---- v14: Kassenstand ---- */
 .sale-cash{font-size:15px;margin:2px 0;font-variant-numeric:tabular-nums}.sale-cash b{font-size:16px}
 #cash-card .btn{margin-top:12px}
+
+#paypal-preview .btn{display:inline-flex;align-items:center;text-decoration:none;margin:4px 0 10px}
+#paypal-preview+.switch-row,.card .switch-row+.muted{margin-top:10px}

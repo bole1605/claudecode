@@ -14,14 +14,14 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=14">
+<link rel="stylesheet" href="styles.css?v=15">
 </head>
 <body>
 <div class="app">
   <header class="top">
     <h1 id="title">Kasse</h1>
     <div class="segmented" role="tablist" aria-label="Stand wählen" id="tabs"></div>
-    <div class="top-spacer"><span class="ver">v14</span></div>
+    <div class="top-spacer"><span class="ver">v15</span></div>
   </header>
 
   <div class="edit-bar" id="edit-bar" hidden></div>
@@ -125,6 +125,9 @@
     </section>
     <section class="card"><b>PayPal</b><small class="muted" id="paypal-state"></small>
       <div id="paypal-preview"></div>
+      <label class="switch-row"><span><b>Betrag automatisch eintragen</b><small>Nur bei paypal.me-Links. Ausschalten, wenn PayPal beim Scannen den Betrag nicht übernimmt.</small></span>
+      <input type="checkbox" role="switch" id="pp-amount"></label>
+      <small class="muted"><b>Zum Testen:</b> Scanne den Code nicht mit dem PayPal-Konto, dem der Link gehört. PayPal kann sich nicht selbst bezahlen und zeigt dann nur die Startseite an. Nimm ein anderes Konto oder öffne den Link im Browser, ohne angemeldet zu sein.</small>
       <small class="muted">Der Link wird im QR-Code beim Bezahlen angezeigt. Bei einem paypal.me-Link wird der Betrag automatisch eingetragen.</small>
       <button class="btn destructive" id="paypal-off" hidden>PayPal-Link entfernen</button></section>
     <section class="card actions-card">
@@ -198,7 +201,7 @@
 <div id="toast" class="toast" hidden></div>
 <pre id="print-area"></pre>
 
-<script src="qrcode.js?v=14"></script>
-<script src="app.js?v=14"></script>
+<script src="qrcode.js?v=15"></script>
+<script src="app.js?v=15"></script>
 </body>
 </html>
