@@ -206,3 +206,8 @@ body.editing .bon,body.editing .bottom{display:none}
 .pay-field.active{border-color:var(--blue);background:var(--fill)}
 .pay-big.tipv{color:#248A3D}@media (prefers-color-scheme:dark){.pay-big.tipv{color:#30D158}}
 .quick.tipq{grid-template-columns:repeat(4,1fr)}.quick.tipq .btn{padding:0 6px;font-size:15px}
+
+/* ---- v13: QR als Bild ---- */
+.pay-qr img.qr,.pv img.qr{display:block;margin:0 auto;image-rendering:pixelated;image-rendering:crisp-edges;max-width:100%;height:auto;background:#fff;border-radius:8px}
+.pv img.qr{margin:8px 0}
+.qr-url{margin:6px 0 0;font-size:12px}
