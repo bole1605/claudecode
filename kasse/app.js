@@ -508,7 +508,7 @@ document.addEventListener('click', async e => {
   if (D.target) { target = D.target; payUpdate(); return; }
   if (D.tipq) {
     const g = parse(given), total = cartTotal();
-    tip = D.tipq === 'none' ? '' : D.tipq === 'rest' ? (g !== null && g > total ? fmtIn(g - total) : '') : fmtIn(+D.tipq);
+    tip = D.tipq === 'none' ? '' : D.tipq === 'rest' ? (g !== null && g > total ? fmtIn(g - total) : '') : fmtIn(Math.max(0, parse(tip) || 0) + (+D.tipq)); // +0,50 / +1 / +2 addieren sich
     payUpdate(); return;
   }
   if (D.method) { method = D.method; payUpdate(); return; }
