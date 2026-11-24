@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Kasse</title>
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kasse">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1 id="title">Kasse</h1>
+    <div class="segmented" role="tablist" aria-label="Stand wählen" id="tabs"></div>
+    <div class="top-spacer"></div>
+  </header>
+
+  <main id="main"></main>
+
+  <footer class="bottom">
+    <div class="total">
+      <span class="cap">Einnahmen</span>
+      <span class="total-num" id="total">0,00 €</span>
+      <span class="cap sub" id="total-count">0 Artikel</span>
+    </div>
+    <div class="actions">
+      <button class="btn" id="undo" disabled>↶ Letzten Verkauf zurücknehmen</button>
+      <button class="btn destructive" id="reset">Zurücksetzen</button>
+    </div>
+  </footer>
+</div>
+
+<dialog id="confirm">
+  <form method="dialog">
+    <h2>Zähler zurücksetzen?</h2>
+    <p id="confirm-text"></p>
+    <div class="dlg-actions">
+      <button value="cancel" class="btn">Abbrechen</button>
+      <button value="ok" class="btn destructive strong">Zurücksetzen</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
