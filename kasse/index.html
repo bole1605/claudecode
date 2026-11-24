@@ -14,14 +14,14 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=10">
+<link rel="stylesheet" href="styles.css?v=11">
 </head>
 <body>
 <div class="app">
   <header class="top">
     <h1 id="title">Kasse</h1>
     <div class="segmented" role="tablist" aria-label="Stand wählen" id="tabs"></div>
-    <div class="top-spacer"><span class="ver">v10</span></div>
+    <div class="top-spacer"><span class="ver">v11</span></div>
   </header>
 
   <div class="edit-bar" id="edit-bar" hidden></div>
@@ -83,7 +83,10 @@
   <form id="pw-form">
     <h2 id="pw-title">Passwort</h2>
     <p id="pw-text"></p>
-    <input id="pw-input" type="password" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="Passwort">
+    <input id="pw-input" class="secret" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="next" placeholder="Passwort">
+    <input id="pw-input2" class="secret" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="Passwort wiederholen" hidden>
+    <label class="show-pw"><input type="checkbox" id="pw-show"> Eingabe anzeigen</label>
+    <button type="button" class="btn link" id="pw-forgot" hidden>Passwort vergessen?</button>
     <p class="err" id="pw-err"></p>
     <div class="dlg-actions">
       <button type="button" class="btn" id="pw-cancel">Abbrechen</button>
@@ -185,7 +188,7 @@
 <div id="toast" class="toast" hidden></div>
 <pre id="print-area"></pre>
 
-<script src="qrcode.js?v=10"></script>
-<script src="app.js?v=10"></script>
+<script src="qrcode.js?v=11"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>

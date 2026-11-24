@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v8** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v11** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -21,8 +21,10 @@ Danach immer die App über das Symbol auf dem Home-Bildschirm starten, nicht üb
 
 **Passwort festlegen (wichtig, vor dem Übergeben des Tablets):**
 1. Titel oben links **5-mal schnell antippen** (oder 1,5 Sekunden gedrückt halten).
-2. Beim ersten Mal wirst du aufgefordert, ein Passwort festzulegen (mindestens 4 Zeichen).
-3. Wer das Passwort nicht kennt, kommt nicht an Storno, Einnahmen und Einstellungen.
+2. Beim ersten Mal wirst du aufgefordert, ein Passwort festzulegen (mindestens 4 Zeichen, Buchstaben und Zahlen möglich). Du gibst es **zweimal** ein.
+3. Danach zeigt die App einen **Wiederherstellungscode** (z. B. `ABCD-EF23`). **Notiere ihn auf Papier**, nicht auf dem Tablet.
+4. **Das Passwort gilt nur für das jeweilige Tablet.** Auf jedem Gerät, das eine Kollegin oder ein Kollege öffnet, wird beim ersten Mal ein eigenes Passwort festgelegt. Es wird nicht von anderen Geräten übernommen. Nimm auf allen Tablets am besten dasselbe Passwort.
+5. Wer das Passwort nicht kennt, kommt nicht an Storno, Einnahmen und Einstellungen.
 
 ---
 
@@ -62,7 +64,8 @@ Einstellungen (alle in der Verwaltung):
 | **PayPal-Link** | „PayPal-Link festlegen“, z. B. `https://paypal.me/DeinName`. Bei paypal.me trägt die App den Betrag automatisch in den QR-Code ein. Bei anderen Links (z. B. PayPal-QR-Link) wird der Link ohne Betrag angezeigt. „PayPal-Link entfernen“ löscht ihn wieder. |
 | **Bearbeitungsmodus** | Produkte, Unterkategorien und Seiten ändern (siehe 4.). |
 | **Zahlen speichern (Datei)** | Erzeugt eine CSV-Datei (siehe 5.). |
-| **Passwort ändern** | Neues Passwort festlegen. |
+| **Passwort ändern** | Neues Passwort festlegen (erzeugt auch einen neuen Wiederherstellungscode). |
+| **Bons (PDF & Druck)** | Schalter und „Bon-Kopf und Fußzeile festlegen“. Nach dem Verbuchen erscheint „PDF“ und „Drucken“, später auch bei jeder Buchung in der Liste. |
 | **Sortiment auf Standard zurücksetzen** | Stellt das ursprüngliche Sortiment wieder her. Gebuchte Verkäufe bleiben erhalten. |
 | **Alle Buchungen auf diesem Gerät löschen** | Löscht alle Buchungen (mit Rückfrage). Mit „Gelöschte Buchungen wiederherstellen“ holst du sie zurück, solange du nicht erneut löschst. |
 
@@ -125,7 +128,7 @@ Inhalt: Anzahl und Umsatz je Produkt, Summen je Stand, Gesamtsumme, Zahlarten (B
 
 - **Daten bleiben nur im Tablet.** Browserdaten oder Website-Daten löschen, die App vom Home-Bildschirm entfernen und neu anlegen oder das Tablet zurücksetzen löscht **alle Buchungen**. Speichere vorher die Zahlen.
 - **Immer die App vom Home-Bildschirm benutzen**, nicht den Browser oder ein privates Fenster. Dort ist der Speicher getrennt, und die Zähler würden „fehlen“.
-- **Passwort vergessen:** Ich kann es nicht zurücksetzen. Der einzige Weg wäre, die Daten des Tablets zu löschen. Dabei gehen die Buchungen verloren.
+- **Passwort vergessen:** Auf dem Passwort-Fenster gibt es „Passwort vergessen?“. Dort gibst du den Wiederherstellungscode ein und vergibst ein neues Passwort, ohne Daten zu verlieren. Ohne Code bleibt nur, die Daten des Tablets zu löschen, und dabei gehen die Buchungen verloren.
 - **Das Passwort ist ein Schutz gegen versehentliche Bedienung**, kein Schutz gegen jemanden, der sich technisch auskennt.
 - **Jedes Tablet zählt für sich.** Dieselben Produkte auf zwei Tablets bedeuten zwei getrennte Zählungen.
 - **Updates:** Neue Versionen werden beim Start der App mit Internet geladen. Steht die Versionsnummer oben rechts noch auf einer alten Nummer, schließe die App komplett (aus der App-Übersicht wegwischen) und öffne sie nach ein bis zwei Minuten erneut. Aktualisiere nicht mitten im Verkauf.

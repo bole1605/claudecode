@@ -40,7 +40,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const PALETTE = ['#FF9F0A', '#34C759', '#30B0C7', '#FF3B30', '#AF52DE', '#5856D6', '#FF2D55', '#007AFF'];
 
 const RC_DEFAULT = { name: 'Evangelische Kirchengemeinde Kleinglattbach', addr: 'Kirchstraße 15; 71665 Vaihingen an der Enz', foot: 'Vielen Dank, Guten Appetit & frohe Weihnachten!' };
-let state = { stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
+let state = { rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
 try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
 let STANDS, ALL = {};
 function setCatalog(c) {
@@ -264,23 +264,38 @@ async function hashPw(s) {
   let h = 5381; for (const c of s) h = ((h << 5) + h + c.charCodeAt(0)) | 0; return 'x' + h;
 }
 let pwMode = null;
+const recCode = () => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', r = crypto.getRandomValues(new Uint8Array(8)); return [...r].map(x => c[x % c.length]).join('').replace(/(.{4})/, '$1-'); };
 function pwDialog(mode) {
   pwMode = mode;
-  $('#pw-title').textContent = mode === 'enter' ? 'Passwort eingeben' : mode === 'set' ? 'Passwort festlegen' : 'Neues Passwort';
-  $('#pw-text').textContent = mode === 'enter' ? 'Die Verwaltung ist geschützt.' : 'Mindestens 4 Zeichen (Buchstaben und Zahlen möglich). Bitte gut merken – ohne Passwort gibt es keinen Zugang zu Storno und Zurücksetzen.';
-  $('#pw-input').value = ''; $('#pw-err').textContent = '';
+  const enter = mode === 'enter';
+  $('#pw-title').textContent = enter ? 'Passwort eingeben' : mode === 'change' ? 'Neues Passwort' : 'Passwort festlegen';
+  $('#pw-text').textContent = enter ? 'Das Passwort gilt nur für dieses Gerät.' : 'Dieses Gerät hat noch kein eigenes Passwort bzw. du vergibst ein neues. Mindestens 4 Zeichen (Buchstaben und Zahlen möglich). Zur Sicherheit zweimal eingeben.';
+  $('#pw-input').value = ''; $('#pw-input2').value = ''; $('#pw-err').textContent = '';
+  $('#pw-input2').hidden = enter; $('#pw-forgot').hidden = !enter || !state.rec;
+  $('#pw-show').checked = false; setPwVisible(false);
   $('#pw-dlg').showModal(); setTimeout(() => $('#pw-input').focus(), 50);
 }
+function setPwVisible(on) { ['#pw-input', '#pw-input2'].forEach(s => $(s).classList.toggle('secret', !on)); }
+$('#pw-show').addEventListener('change', e => setPwVisible(e.target.checked));
+$('#pw-forgot').addEventListener('click', async () => {
+  $('#pw-dlg').close();
+  const c = await promptText('Wiederherstellungscode eingeben', '', 'XXXX-XXXX');
+  if (c && state.rec && await hashPw('rec|' + c.toUpperCase().replace(/[^A-Z0-9]/g, '')) === state.rec) pwDialog('recover');
+  else if (c) { await ask('Code falsch', 'Der Wiederherstellungscode stimmt nicht.', 'OK'); pwDialog('enter'); }
+});
 $('#pw-form').addEventListener('submit', async e => {
   e.preventDefault();
-  const v = $('#pw-input').value;
+  const v = $('#pw-input').value.trim();
   if (pwMode === 'enter') {
     if (await hashPw(v) === state.pw) { $('#pw-dlg').close(); showAdmin(); }
-    else { $('#pw-err').textContent = 'Falsches Passwort'; $('#pw-input').value = ''; }
+    else { $('#pw-err').textContent = 'Falsches Passwort. Das Passwort gilt nur für dieses Gerät.'; $('#pw-input').value = ''; }
   } else {
     if (v.length < 4) { $('#pw-err').textContent = 'Mindestens 4 Zeichen'; return; }
-    state.pw = await hashPw(v); save(); $('#pw-dlg').close();
-    if (pwMode === 'set') showAdmin();
+    if (v !== $('#pw-input2').value.trim()) { $('#pw-err').textContent = 'Die beiden Eingaben stimmen nicht überein'; return; }
+    state.pw = await hashPw(v);
+    const code = recCode(); state.rec = await hashPw('rec|' + code.replace('-', '')); save(); $('#pw-dlg').close();
+    await ask('Wiederherstellungscode', `Bitte notieren (nicht auf dem Gerät): ${code} – Damit kannst du ein vergessenes Passwort neu setzen, ohne Daten zu verlieren.`, 'Notiert');
+    if (pwMode !== 'change') showAdmin();
   }
 });
 $('#pw-cancel').addEventListener('click', () => $('#pw-dlg').close());
@@ -602,3 +617,6 @@ if ('serviceWorker' in navigator) {
   let had = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !document.querySelector('dialog[open]') && $('#admin').hidden) location.reload(); had = true; });
 }
+
+// Sehr alte iPads (vor iPadOS 15.4) kennen <dialog> nicht: Hinweis statt stiller Fehler
+if (!window.HTMLDialogElement || !HTMLDialogElement.prototype.showModal) document.body.insertAdjacentHTML('afterbegin', '<div style="background:#FF3B30;color:#fff;padding:12px 16px;font-weight:600">Dieses Gerät ist zu alt (iPadOS bzw. Browser 15.4 oder neuer nötig). Bezahlen und Verwaltung funktionieren hier nicht.</div>');
