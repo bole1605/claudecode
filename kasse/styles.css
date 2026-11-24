@@ -71,3 +71,6 @@ dialog p{margin:0 0 20px;color:var(--label2)}
 .stack{display:flex;flex-direction:column;gap:10px}.stack .btn{min-height:50px}.stack[hidden],.btn[hidden]{display:none}
 .btn.strong-blue{background:var(--blue);color:#fff}
 @media (prefers-reduced-motion:reduce){.badge.pop{animation:none}}
+
+.ver{font-size:11px;color:var(--label2);opacity:.5;align-self:center}
+.top h1{touch-action:none}
