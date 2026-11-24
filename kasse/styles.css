@@ -199,3 +199,10 @@ body.editing .bon,body.editing .bottom{display:none}
 .show-pw{display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;color:var(--label2);margin:4px 0}
 .show-pw input{width:22px;height:22px;margin:0}
 .btn.link{background:none;min-height:44px;width:100%}
+
+/* ---- v12: Trinkgeld ---- */
+.pay-field{display:block;width:100%;text-align:left;padding:8px 12px;margin-bottom:8px;border-radius:14px;border:2px solid transparent;background:transparent}
+.pay-field .cap{display:block}.pay-field .pay-big{display:block;margin:0}
+.pay-field.active{border-color:var(--blue);background:var(--fill)}
+.pay-big.tipv{color:#248A3D}@media (prefers-color-scheme:dark){.pay-big.tipv{color:#30D158}}
+.quick.tipq{grid-template-columns:repeat(4,1fr)}.quick.tipq .btn{padding:0 6px;font-size:15px}
