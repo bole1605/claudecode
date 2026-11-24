@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=4">
+<link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
 <div class="app">
@@ -23,6 +23,8 @@
     <div class="segmented" role="tablist" aria-label="Stand wählen" id="tabs"></div>
     <div class="top-spacer"></div>
   </header>
+
+  <div class="edit-bar" id="edit-bar" hidden></div>
 
   <div class="body">
     <main id="main"></main>
@@ -39,7 +41,7 @@
     <span class="cap">Einnahmen</span>
     <span class="total-num" id="total">0,00 €</span>
     <span class="cap sub" id="total-count">0 Artikel verkauft</span>
-    <span class="ver">v4</span>
+    <span class="ver">v5</span>
   </footer>
 </div>
 
@@ -95,15 +97,45 @@
   <div class="page-body">
     <section class="card" id="admin-summary"></section>
     <section class="card actions-card">
+      <button class="btn primary" id="edit-mode">Bearbeitungsmodus (Produkte & Seiten)</button>
       <button class="btn" id="save">Zahlen speichern (Datei)</button>
       <button class="btn" id="pw-change">Passwort ändern</button>
       <button class="btn" id="restore" hidden>Gelöschte Buchungen wiederherstellen</button>
+      <button class="btn" id="defaults">Sortiment auf Standard zurücksetzen …</button>
       <button class="btn destructive" id="wipe">Alle Buchungen auf diesem Gerät löschen …</button>
     </section>
     <h3 class="list-h">Buchungen</h3>
     <section class="card" id="sales-list"></section>
   </div>
 </div>
+
+<dialog id="item-dlg" class="form-dlg">
+  <form id="item-form">
+    <h2 id="i-title"></h2>
+    <label>Name<input id="i-name" autocomplete="off"></label>
+    <label>Zusatz (optional, z. B. „0,5 l“)<input id="i-sub" autocomplete="off"></label>
+    <label>Preis in €<input id="i-price" inputmode="decimal" autocomplete="off" placeholder="3,50"></label>
+    <label>Unterkategorie<select id="i-group"></select></label>
+    <p class="err" id="i-err"></p>
+    <div class="dlg-actions">
+      <button type="button" class="btn destructive" id="i-del">Löschen</button>
+      <button type="button" class="btn" id="i-cancel">Abbrechen</button>
+      <button type="submit" class="btn primary">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="text-dlg" class="form-dlg">
+  <form id="text-form">
+    <h2 id="t-title"></h2>
+    <input id="t-input" autocomplete="off">
+    <p class="err" id="t-err"></p>
+    <div class="dlg-actions">
+      <button type="button" class="btn" id="t-cancel">Abbrechen</button>
+      <button type="submit" class="btn primary">OK</button>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="confirm">
   <form method="dialog">
@@ -116,6 +148,6 @@
   </form>
 </dialog>
 
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

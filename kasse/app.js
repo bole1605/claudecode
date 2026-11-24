@@ -1,6 +1,6 @@
 'use strict';
 // Preise in Cent, damit nie Rundungsfehler entstehen.
-const STANDS = [
+const DEFAULT_STANDS = [
   { id: 'crepes', label: 'Crêpes', groups: [
     { name: 'Crêpes', color: '#FF9F0A', items: [
       { id: 'c-zimt',   name: 'Zimt und Zucker', price: 300 },
@@ -28,16 +28,31 @@ const STANDS = [
     ]},
   ]},
 ];
-const ALL = {};
-STANDS.forEach(s => s.groups.forEach(g => g.items.forEach(it => { ALL[it.id] = { ...it, stand: s.id }; })));
-
 const KEY = 'kasse-v2';
 const $ = s => document.querySelector(s);
 const euro = c => (c / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 const items = s => s.groups.flatMap(g => g.items);
 
-let state = { stand: STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false };
+const clone = o => JSON.parse(JSON.stringify(o));
+const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const PALETTE = ['#FF9F0A', '#34C759', '#30B0C7', '#FF3B30', '#AF52DE', '#5856D6', '#FF2D55', '#007AFF'];
+
+let state = { stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null };
 try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
+let STANDS, ALL = {};
+function setCatalog(c) {
+  STANDS = state.catalog = c;
+  STANDS.forEach(s => s.groups.forEach((g, i) => { if (!g.id) g.id = s.id + '-g' + i; }));
+  ALL = {};
+  STANDS.forEach(s => s.groups.forEach(g => g.items.forEach(it => { ALL[it.id] = { ...it, stand: s.id }; })));
+  if (!STANDS.some(s => s.id === state.stand)) state.stand = STANDS[0].id;
+}
+setCatalog(Array.isArray(state.catalog) && state.catalog.length ? state.catalog : clone(DEFAULT_STANDS));
+let editing = false;
+const snap = lines => Object.fromEntries(Object.keys(lines).filter(id => ALL[id]).map(id => [id, { name: ALL[id].name, price: ALL[id].price }]));
+const labelOf = id => { const s = STANDS.find(x => x.id === id); if (s) return s.label; const k = state.sales.find(x => x.stand === id); return (k && k.sl) || 'Gelöschte Seite'; };
+const itemName = (s, id) => (s.info && s.info[id] ? s.info[id].name : ALL[id] ? ALL[id].name : 'Gelöschter Artikel');
 // Übernahme der Zähler aus der Vorgängerversion (v1: nur Zähler, keine Buchungen)
 if (!state.migrated) {
   try {
@@ -46,7 +61,7 @@ if (!state.migrated) {
     for (const [id, n] of Object.entries((old && old.counts) || {})) if (n > 0 && ALL[id]) (by[ALL[id].stand] = by[ALL[id].stand] || {})[id] = n;
     for (const [st, lines] of Object.entries(by)) {
       const total = Object.entries(lines).reduce((a, [id, n]) => a + ALL[id].price * n, 0);
-      state.sales.push({ n: ++state.seq, t: Date.now(), stand: st, lines, total, given: total, change: 0, void: false, note: 'Übernommen aus Vorversion' });
+      state.sales.push({ n: ++state.seq, t: Date.now(), stand: st, sl: labelOf(st), lines, info: snap(lines), total, given: total, change: 0, void: false, note: 'Übernommen aus Vorversion' });
     }
   } catch (e) {}
   state.migrated = true;
@@ -58,16 +73,20 @@ if (!STANDS.some(s => s.id === state.stand)) state.stand = STANDS[0].id;
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
 const stand = () => STANDS.find(s => s.id === state.stand);
 const cart = () => state.cart[state.stand] || (state.cart[state.stand] = {});
-const cartTotal = () => Object.entries(cart()).reduce((a, [id, n]) => a + ALL[id].price * n, 0);
+const cartTotal = () => Object.entries(cart()).reduce((a, [id, n]) => a + (ALL[id] ? ALL[id].price * n : 0), 0);
 const buzz = () => { try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} };
 
-function sold() { // verbuchte (nicht stornierte) Verkäufe je Artikel + Umsatz je Stand
-  const per = {}, rev = {}, cnt = {};
+function sold() { // verbuchte (nicht stornierte) Verkäufe; Preise/Namen stammen aus dem Bon-Zeitpunkt
+  const perS = {}, revS = {}, rev = {}, cnt = {};
   for (const s of state.sales) if (!s.void) {
     rev[s.stand] = (rev[s.stand] || 0) + s.total;
-    for (const [id, n] of Object.entries(s.lines)) { per[id] = (per[id] || 0) + n; cnt[s.stand] = (cnt[s.stand] || 0) + n; }
+    const P = perS[s.stand] = perS[s.stand] || {}, R = revS[s.stand] = revS[s.stand] || {};
+    for (const [id, n] of Object.entries(s.lines)) {
+      const pr = s.info && s.info[id] ? s.info[id].price : ALL[id] ? ALL[id].price : 0;
+      P[id] = (P[id] || 0) + n; R[id] = (R[id] || 0) + n * pr; cnt[s.stand] = (cnt[s.stand] || 0) + n;
+    }
   }
-  return { per, rev, cnt };
+  return { perS, revS, rev, cnt };
 }
 
 function cartAdd(id, d) {
@@ -78,31 +97,57 @@ function cartAdd(id, d) {
 }
 
 function build() {
+  document.body.classList.toggle('editing', editing);
   $('#tabs').innerHTML = STANDS.map(s =>
-    `<button role="tab" data-stand="${s.id}" aria-selected="${s.id === state.stand}">${s.label}</button>`).join('');
+    `<button role="tab" data-stand="${s.id}" aria-selected="${s.id === state.stand}">${esc(s.label)}</button>`).join('')
+    + (editing ? '<button data-addstand aria-label="Seite hinzufügen">＋</button>' : '');
   const s = stand();
   $('#title').textContent = s.label;
+  $('#edit-bar').hidden = !editing;
+  if (editing) return buildEdit();
   $('#main').innerHTML = s.groups.map(g => `
     <section class="group" style="--accent:${g.color}">
-      <h2>${g.name}</h2>
+      <h2>${esc(g.name)}</h2>
       <div class="grid n${g.items.length}">${g.items.map(it => `
         <div class="tile-wrap">
-          <button class="tile" data-add="${it.id}" aria-label="${it.name} zum Bon hinzufügen">
+          <button class="tile" data-add="${it.id}" aria-label="${esc(it.name)} zum Bon hinzufügen">
             <span class="badge" data-count="${it.id}">0</span>
-            <span class="name">${it.name}</span>
-            ${it.sub ? `<span class="sub">${it.sub}</span>` : ''}
+            <span class="name">${esc(it.name)}</span>
+            ${it.sub ? `<span class="sub">${esc(it.sub)}</span>` : ''}
             <span class="price">${euro(it.price)}</span>
             <span class="rev" data-sold="${it.id}"></span>
           </button>
-          <button class="minus" data-sub="${it.id}" aria-label="${it.name} vom Bon entfernen">−</button>
+          <button class="minus" data-sub="${it.id}" aria-label="${esc(it.name)} vom Bon entfernen">−</button>
         </div>`).join('')}
       </div>
-    </section>`).join('');
+    </section>`).join('') || '<p class="empty">Diese Seite hat noch keine Produkte. Bearbeitungsmodus: Titel 5× antippen → Verwaltung.</p>';
   update();
 }
 
+function buildEdit() {
+  const s = stand();
+  $('#edit-bar').innerHTML = `<span class="eb-t">Bearbeitungsmodus · Seite „${esc(s.label)}“</span><span class="eb-a">
+    <button class="btn" data-renamestand>Seite umbenennen</button><button class="btn destructive" data-delstand>Seite löschen</button>
+    <button class="btn primary" data-editdone>Fertig</button></span>`;
+  $('#main').innerHTML = s.groups.map((g, i) => `
+    <section class="group" style="--accent:${g.color}">
+      <div class="g-head"><h2>${esc(g.name)}</h2><span class="g-actions">
+        <button class="btn sm" data-gup="${g.id}" ${i === 0 ? 'disabled' : ''} aria-label="Nach oben">↑</button>
+        <button class="btn sm" data-gdown="${g.id}" ${i === s.groups.length - 1 ? 'disabled' : ''} aria-label="Nach unten">↓</button>
+        <button class="btn sm" data-gren="${g.id}">Umbenennen</button>
+        <button class="btn sm destructive" data-gdel="${g.id}">Löschen</button></span></div>
+      <div class="grid">${g.items.map(it => `
+        <div class="tile-wrap"><button class="tile edit" data-edit="${it.id}">
+          <span class="pencil">✎</span><span class="name">${esc(it.name)}</span>
+          ${it.sub ? `<span class="sub">${esc(it.sub)}</span>` : ''}<span class="price">${euro(it.price)}</span></button></div>`).join('')}
+        <div class="tile-wrap"><button class="tile add-tile" data-newitem="${g.id}">＋ Produkt</button></div>
+      </div>
+    </section>`).join('') + '<button class="btn wide" data-newgroup>＋ Unterkategorie hinzufügen</button>';
+}
+
 function update() {
-  const s = stand(), c = cart(), { per, rev, cnt } = sold();
+  if (editing) return;
+  const s = stand(), c = cart(), { perS, rev, cnt } = sold(), per = perS[state.stand] || {};
   for (const it of items(s)) {
     const n = c[it.id] || 0;
     const b = document.querySelector(`[data-count="${it.id}"]`);
@@ -112,17 +157,16 @@ function update() {
   }
   const lines = items(s).filter(it => c[it.id]);
   $('#bon-lines').innerHTML = lines.length ? lines.map(it => `
-    <li><span class="bl-n">${c[it.id]}×</span><span class="bl-name">${it.name}</span>
+    <li><span class="bl-n">${c[it.id]}×</span><span class="bl-name">${esc(it.name)}</span>
     <span class="bl-sum">${euro(c[it.id] * it.price)}</span>
-    <button class="bl-minus" data-sub="${it.id}" aria-label="${it.name} entfernen">−</button></li>`).join('')
+    <button class="bl-minus" data-sub="${it.id}" aria-label="${esc(it.name)} entfernen">−</button></li>`).join('')
     : '<li class="empty">Kachel antippen, um einen Artikel hinzuzufügen</li>';
   const t = cartTotal();
   $('#bon-sum').textContent = euro(t);
   $('#pay').disabled = $('#clear').disabled = t === 0;
   $('#pay').textContent = t ? `Bezahlen · ${euro(t)}` : 'Bezahlen';
   $('#total').textContent = euro(rev[state.stand] || 0);
-  const n = cnt[state.stand] || 0;
-  $('#total-count').textContent = `${n} Artikel verkauft`;
+  $('#total-count').textContent = `${cnt[state.stand] || 0} Artikel verkauft`;
 }
 
 // --- Schnelles Tippen: Artikel landet schon beim Aufsetzen des Fingers auf dem Bon
@@ -160,7 +204,7 @@ function key(k) {
 }
 function book() {
   const g = parse(given), total = cartTotal(); if (g === null || g < total) return;
-  state.sales.push({ n: ++state.seq, t: Date.now(), stand: state.stand, lines: { ...cart() }, total, given: g, change: g - total, void: false });
+  state.sales.push({ n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: { ...cart() }, info: snap(cart()), total, given: g, change: g - total, void: false });
   state.cart[state.stand] = {}; save(); update(); $('#pay-dlg').close(); buzz();
 }
 
@@ -204,23 +248,25 @@ $('#pw-cancel').addEventListener('click', () => $('#pw-dlg').close());
 // --- Verwaltung (extra Seite): Buchungen, Storno, Speichern
 function openAdmin() { hold = null; buzz(); pwDialog(state.pw ? 'enter' : 'set'); }
 function showAdmin() { renderAdmin(); $('#admin').hidden = false; document.body.classList.add('noscroll'); }
-function hideAdmin() { $('#admin').hidden = true; document.body.classList.remove('noscroll'); update(); }
+function hideAdminKeep() { $('#admin').hidden = true; document.body.classList.remove('noscroll'); }
+function hideAdmin() { hideAdminKeep(); build(); }
 const fmtT = t => new Date(t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-const lineText = lines => Object.entries(lines).map(([id, n]) => `${n}× ${ALL[id].name}`).join(', ');
+const lineText = s => Object.entries(s.lines).map(([id, n]) => `${n}× ${itemName(s, id)}`).join(', ');
+const standIds = () => { const ids = STANDS.map(s => s.id); state.sales.forEach(s => { if (!ids.includes(s.stand)) ids.push(s.stand); }); return ids; };
 function renderAdmin() {
   const { rev, cnt } = sold();
-  $('#admin-summary').innerHTML = '<h3>Zwischenstand dieses Geräts</h3>' + STANDS.map(s => {
-    const k = state.sales.filter(x => x.stand === s.id);
-    return `<div class="sum-row"><span>${s.label}</span><span>${k.filter(x => !x.void).length} ${k.filter(x => !x.void).length === 1 ? "Buchung" : "Buchungen"} · ${cnt[s.id] || 0} Artikel${k.some(x => x.void) ? ` · ${k.filter(x => x.void).length} storniert` : ''}</span><b>${euro(rev[s.id] || 0)}</b></div>`;
+  $('#admin-summary').innerHTML = '<h3>Zwischenstand dieses Geräts</h3>' + standIds().map(id => {
+    const k = state.sales.filter(x => x.stand === id), g = k.filter(x => !x.void).length, v = k.length - g;
+    return `<div class="sum-row"><span>${esc(labelOf(id))}</span><span>${g} ${g === 1 ? 'Buchung' : 'Buchungen'} · ${cnt[id] || 0} Artikel${v ? ` · ${v} storniert` : ''}</span><b>${euro(rev[id] || 0)}</b></div>`;
   }).join('') + `<div class="sum-row total"><span>Gesamt</span><span></span><b>${euro(Object.values(rev).reduce((a, b) => a + b, 0))}</b></div>`;
   $('#restore').hidden = !state.backup;
   const list = [...state.sales].reverse();
   $('#sales-list').innerHTML = list.length ? list.map(s => `
     <div class="sale${s.void ? ' void' : ''}">
       <div class="sale-main">
-        <div class="sale-head"><b>#${s.n}</b> · ${fmtT(s.t)} · ${STANDS.find(x => x.id === s.stand).label}${s.void ? ' · <span class="tag">storniert</span>' : ''}</div>
-        <div class="sale-lines">${lineText(s.lines)}</div>
-        <div class="sale-pay">${s.note ? s.note : `Gegeben ${euro(s.given)} · Rückgeld ${euro(s.change)}`}</div>
+        <div class="sale-head"><b>#${s.n}</b> · ${fmtT(s.t)} · ${esc(labelOf(s.stand))}${s.void ? ' · <span class="tag">storniert</span>' : ''}</div>
+        <div class="sale-lines">${esc(lineText(s))}</div>
+        <div class="sale-pay">${s.note ? esc(s.note) : `Gegeben ${euro(s.given)} · Rückgeld ${euro(s.change)}`}</div>
       </div>
       <b class="sale-sum">${euro(s.total)}</b>
       <button class="btn ${s.void ? '' : 'destructive'}" data-void="${s.n}">${s.void ? 'Storno aufheben' : 'Stornieren'}</button>
@@ -232,27 +278,119 @@ async function exportFile() {
   const d = new Date(), p = n => String(n).padStart(2, '0');
   const stamp = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
   const q = v => `"${String(v).replace(/"/g, '""')}"`, num = c => (c / 100).toFixed(2).replace('.', ','), row = a => a.map(q).join(';');
-  const { per, rev } = sold();
+  const { perS, revS, rev } = sold();
   const rows = [row(['Stand', 'Produkt', 'Einzelpreis (€)', 'Anzahl', 'Umsatz (€)'])];
   let all = 0;
-  for (const s of STANDS) {
-    for (const it of items(s)) { const c = per[it.id] || 0; rows.push(row([s.label, it.name + (it.sub ? ` (${it.sub})` : ''), num(it.price), c, num(c * it.price)])); }
-    rows.push(row([s.label, 'SUMME', '', '', num(rev[s.id] || 0)])); all += rev[s.id] || 0;
+  for (const sid of standIds()) {
+    const cat = STANDS.find(s => s.id === sid), seen = new Set();
+    const add = (id, name, price) => { seen.add(id); rows.push(row([labelOf(sid), name, price === null ? '' : num(price), (perS[sid] || {})[id] || 0, num((revS[sid] || {})[id] || 0)])); };
+    if (cat) items(cat).forEach(it => add(it.id, it.name + (it.sub ? ` (${it.sub})` : ''), it.price));
+    for (const id of Object.keys(perS[sid] || {})) if (!seen.has(id)) {
+      const k = state.sales.find(x => x.stand === sid && x.info && x.info[id]);
+      add(id, (k ? k.info[id].name : 'Gelöschter Artikel') + ' (nicht mehr im Sortiment)', k ? k.info[id].price : null);
+    }
+    rows.push(row([labelOf(sid), 'SUMME', '', '', num(rev[sid] || 0)])); all += rev[sid] || 0;
   }
   rows.push(row(['', 'GESAMT (dieses Gerät)', '', '', num(all)]), row(['Stand der Daten', stamp]), '',
     row(['Bon-Nr.', 'Zeit', 'Stand', 'Artikel', 'Summe (€)', 'Gegeben (€)', 'Rückgeld (€)', 'Status']));
-  for (const s of state.sales) rows.push(row([s.n, fmtT(s.t), STANDS.find(x => x.id === s.stand).label, lineText(s.lines), num(s.total), num(s.given), num(s.change), s.void ? 'storniert' : 'gültig']));
+  for (const s of state.sales) rows.push(row([s.n, fmtT(s.t), labelOf(s.stand), lineText(s), num(s.total), num(s.given), num(s.change), s.void ? 'storniert' : 'gültig']));
   const name = `kasse-${stamp.replace(' ', '-').replace(':', '')}.csv`;
-  const file = new File(['﻿' + rows.join('\r\n')], name, { type: 'text/csv' });
+  const file = new File(['\ufeff' + rows.join('\r\n')], name, { type: 'text/csv' });
   try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Kasse' }); return; } }
   catch (err) { if (err.name === 'AbortError') return; }
   const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
+// --- Bearbeitungsmodus: Produkte, Unterkategorien und Seiten
+function promptText(title, value = '') {
+  return new Promise(res => {
+    $('#t-title').textContent = title; $('#t-input').value = value; $('#t-err').textContent = '';
+    const d = $('#text-dlg'); d.returnValue = ''; d.showModal(); setTimeout(() => $('#t-input').focus(), 50);
+    const f = $('#text-form'), done = ok => { f.onsubmit = null; $('#t-cancel').onclick = null; d.close(); res(ok ? $('#t-input').value.trim() : null); };
+    f.onsubmit = e => { e.preventDefault(); if (!$('#t-input').value.trim()) { $('#t-err').textContent = 'Bitte einen Namen eingeben'; return; } done(true); };
+    $('#t-cancel').onclick = () => done(false);
+  });
+}
+const findGroup = id => stand().groups.find(g => g.id === id);
+const commit = () => { setCatalog(STANDS); save(); build(); };
+let editItemId = null, editGroupId = null;
+function openItem(id, gid) {
+  editItemId = id; editGroupId = gid;
+  const it = id ? ALL[id] : { name: '', sub: '', price: 0 };
+  const g = id ? stand().groups.find(x => x.items.some(i => i.id === id)) : findGroup(gid);
+  $('#i-title').textContent = id ? 'Produkt bearbeiten' : 'Neues Produkt';
+  $('#i-name').value = it.name; $('#i-sub').value = it.sub || '';
+  $('#i-price').value = id ? (it.price / 100).toFixed(2).replace('.', ',') : '';
+  $('#i-group').innerHTML = stand().groups.map(x => `<option value="${x.id}" ${g && x.id === g.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
+  $('#i-del').hidden = !id; $('#i-err').textContent = '';
+  $('#item-dlg').showModal(); if (!id) setTimeout(() => $('#i-name').focus(), 50);
+}
+$('#item-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const name = $('#i-name').value.trim(), sub = $('#i-sub').value.trim(), price = parse($('#i-price').value.trim()), gid = $('#i-group').value;
+  if (!name) { $('#i-err').textContent = 'Bitte einen Namen eingeben'; return; }
+  if (price === null || price < 0) { $('#i-err').textContent = 'Bitte einen Preis eingeben, z. B. 3,50'; return; }
+  const target = findGroup(gid);
+  if (editItemId) {
+    const from = stand().groups.find(x => x.items.some(i => i.id === editItemId)), it = from.items.find(i => i.id === editItemId);
+    Object.assign(it, { name, price }); if (sub) it.sub = sub; else delete it.sub;
+    if (from !== target) { from.items.splice(from.items.indexOf(it), 1); target.items.push(it); }
+  } else target.items.push(sub ? { id: uid('i'), name, sub, price } : { id: uid('i'), name, price });
+  $('#item-dlg').close(); commit();
+});
+$('#i-cancel').addEventListener('click', () => $('#item-dlg').close());
+$('#i-del').addEventListener('click', async () => {
+  const it = ALL[editItemId];
+  if (!await ask('Produkt löschen?', `„${it.name}“ wird aus dem Sortiment entfernt. Bereits verbuchte Verkäufe bleiben erhalten.`, 'Löschen')) return;
+  stand().groups.forEach(g => { g.items = g.items.filter(i => i.id !== editItemId); });
+  Object.values(state.cart).forEach(c => delete c[editItemId]);
+  $('#item-dlg').close(); commit();
+});
+
+async function editAction(t) {
+  const d = t.dataset, s = stand();
+  if (d.edit) openItem(d.edit);
+  else if (d.newitem) openItem(null, d.newitem);
+  else if (d.newgroup !== undefined) {
+    const n = await promptText('Neue Unterkategorie'); if (!n) return;
+    s.groups.push({ id: uid('g'), name: n, color: PALETTE[STANDS.reduce((a, x) => a + x.groups.length, 0) % PALETTE.length], items: [] }); commit();
+  }
+  else if (d.gren) { const g = findGroup(d.gren), n = await promptText('Unterkategorie umbenennen', g.name); if (n) { g.name = n; commit(); } }
+  else if (d.gdel) {
+    const g = findGroup(d.gdel);
+    if (await ask('Unterkategorie löschen?', `„${g.name}“ mit ${g.items.length} Produkt(en) wird entfernt. Bereits verbuchte Verkäufe bleiben erhalten.`, 'Löschen')) {
+      g.items.forEach(i => Object.values(state.cart).forEach(c => delete c[i.id])); s.groups = s.groups.filter(x => x !== g); commit();
+    }
+  }
+  else if (d.gup || d.gdown) {
+    const i = s.groups.findIndex(g => g.id === (d.gup || d.gdown)), j = d.gup ? i - 1 : i + 1;
+    if (j >= 0 && j < s.groups.length) { [s.groups[i], s.groups[j]] = [s.groups[j], s.groups[i]]; commit(); }
+  }
+  else if (d.addstand !== undefined) {
+    const n = await promptText('Neue Seite'); if (!n) return;
+    const ns = { id: uid('s'), label: n, groups: [] }; STANDS.push(ns); state.stand = ns.id; history.replaceState(null, '', '#' + ns.id); commit();
+  }
+  else if (d.renamestand !== undefined) { const n = await promptText('Seite umbenennen', s.label); if (n) { s.label = n; commit(); } }
+  else if (d.delstand !== undefined) {
+    if (STANDS.length < 2) { await ask('Nicht möglich', 'Die letzte Seite kann nicht gelöscht werden.', 'OK'); return; }
+    if (await ask('Seite löschen?', `„${s.label}“ mit allen Produkten wird entfernt. Bereits verbuchte Verkäufe bleiben in der Verwaltung erhalten.`, 'Löschen')) {
+      delete state.cart[s.id]; STANDS.splice(STANDS.indexOf(s), 1); state.stand = STANDS[0].id; history.replaceState(null, '', '#' + state.stand); commit();
+    }
+  }
+  else if (d.editdone !== undefined) { editing = false; build(); }
+}
+
 // --- Klicks
 document.addEventListener('click', async e => {
   const t = e.target.closest('button'); if (!t) return;
+  const D = t.dataset;
+  if (D.edit || D.newitem || D.newgroup !== undefined || D.gren || D.gdel || D.gup || D.gdown || D.addstand !== undefined || D.renamestand !== undefined || D.delstand !== undefined || D.editdone !== undefined) return editAction(t);
+  if (t.id === 'edit-mode') { hideAdminKeep(); editing = true; build(); return; }
+  if (t.id === 'defaults') {
+    if (await ask('Sortiment zurücksetzen?', 'Alle eigenen Seiten, Kategorien und Produkte werden durch das ursprüngliche Sortiment ersetzt. Bereits verbuchte Verkäufe bleiben erhalten.', 'Zurücksetzen')) { state.cart = {}; setCatalog(clone(DEFAULT_STANDS)); save(); build(); renderAdmin(); }
+    return;
+  }
   if (t.dataset.add) { if (e.detail === 0) cartAdd(t.dataset.add, 1); } // nur Tastatur; Touch läuft über pointerdown
   else if (t.dataset.sub) cartAdd(t.dataset.sub, -1);
   else if (t.dataset.stand) { state.stand = t.dataset.stand; save(); history.replaceState(null, '', '#' + state.stand); build(); }
@@ -267,7 +405,7 @@ document.addEventListener('click', async e => {
   else if (t.id === 'pw-change') pwDialog('change');
   else if (t.dataset.void) {
     const s = state.sales.find(x => x.n === +t.dataset.void); if (!s) return;
-    const ok = await ask(s.void ? 'Storno aufheben?' : `Bon #${s.n} stornieren?`, `${lineText(s.lines)} · ${euro(s.total)}`, s.void ? 'Aufheben' : 'Stornieren');
+    const ok = await ask(s.void ? 'Storno aufheben?' : `Bon #${s.n} stornieren?`, `${lineText(s)} · ${euro(s.total)}`, s.void ? 'Aufheben' : 'Stornieren');
     if (ok) { s.void = !s.void; save(); renderAdmin(); }
   }
   else if (t.id === 'wipe') {

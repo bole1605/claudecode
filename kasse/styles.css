@@ -137,3 +137,20 @@ main{flex:1;min-width:0}
 .empty{color:var(--label2);text-align:center;margin:12px 0}
 @media (max-width:700px){.pay-grid{grid-template-columns:1fr}.sale{grid-template-columns:1fr auto}.sale .btn{grid-column:1/-1}}
 .page .top .btn{justify-self:end;padding:0 28px}
+
+/* ---- v5: Bearbeitungsmodus ---- */
+.edit-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:0 24px 4px;padding:10px 16px;border-radius:14px;background:rgba(255,159,10,.16)}
+.eb-t{font-weight:600}.eb-a{display:flex;gap:8px;flex-wrap:wrap}.edit-bar .btn{min-height:44px}
+.g-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:8px 0 10px}.g-head h2{margin:0 4px}
+.g-actions{display:flex;gap:6px}.btn.sm{min-height:44px;padding:0 14px;font-size:15px}
+.tile.edit{outline:2px dashed var(--accent);outline-offset:-4px}
+.tile .pencil{position:absolute;top:14px;right:16px;font-size:22px;color:var(--label2)}
+.tile.add-tile{align-items:center;justify-content:center;background:transparent;border:2px dashed var(--sep);box-shadow:none;color:var(--blue);font-weight:600;font-size:18px}
+.btn.wide{width:100%;min-height:56px;margin:8px 0 24px;background:var(--card)}
+.btn:disabled{opacity:.35}
+.form-dlg{text-align:left}.form-dlg h2{text-align:center}
+.form-dlg label{display:block;font-size:13px;font-weight:600;color:var(--label2);margin-bottom:12px}
+.form-dlg input,.form-dlg select{display:block;width:100%;margin-top:4px;min-height:50px;border-radius:12px;border:1px solid var(--sep);background:var(--bg);color:var(--label);font-size:19px;padding:0 12px;-webkit-user-select:text;user-select:text}
+.form-dlg .dlg-actions .btn{min-height:50px}
+body.editing .bon,body.editing .bottom{display:none}
+#tabs [data-addstand]{min-height:44px;min-width:48px;border-radius:10px;font-size:20px;color:var(--blue)}
