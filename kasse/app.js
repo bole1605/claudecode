@@ -209,6 +209,14 @@ function paypalUrl(total) {
     return u.href;
   } catch (e) { return ''; }
 }
+// QR als Bild (GIF-Data-URL) statt SVG: sieht auf allen Browsern gleich aus, auch auf älteren iPads
+function qrImg(url, target) {
+  try {
+    const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+    const n = qr.getModuleCount(), cell = Math.max(3, Math.floor(target / (n + 8))), size = (n + 8) * cell;
+    return `<img class="qr" alt="QR-Code" src="${qr.createDataURL(cell, cell * 4)}" width="${size}" height="${size}">`;
+  } catch (e) { return ''; }
+}
 function qrSvg(url) { try { const qr = qrcode(0, 'M'); qr.addData(url); qr.make(); return qr.createSvgTag({ scalable: true, margin: 2 }); } catch (e) { return ''; } }
 function payUpdate() {
   const total = cartTotal(), g = parse(given), ch = $('#p-change'), pp = method === 'paypal', T = state.tip.on;
@@ -221,8 +229,9 @@ function payUpdate() {
   $('#p-ok').textContent = pp ? 'PayPal-Zahlung erhalten · Verbuchen' : 'Verbuchen';
   if (pp) {
     const url = state.paypal ? paypalUrl(total) : '';
-    const svg = url ? qrSvg(url) : '';
-    $('#p-qr-img').innerHTML = svg || '<p class="err">Kein gültiger PayPal-Link hinterlegt.<br>Bitte in der Verwaltung festlegen.</p>';
+    const img = url ? qrImg(url, 300) : '';
+    $('#p-qr-img').innerHTML = img ? img + `<small class="muted qr-url">${esc(url)}</small>`
+      : `<p class="err">${state.paypal ? 'Der QR-Code konnte nicht erzeugt werden (Link zu lang oder ungültig).' : 'Kein PayPal-Link hinterlegt.'}<br>Bitte in der Verwaltung unter „PayPal-Link festlegen“ prüfen.</p>`;
     $('#p-ok').disabled = false; return;
   }
   document.querySelectorAll('.pay-field').forEach(b => b.classList.toggle('active', b.dataset.target === target));
@@ -326,7 +335,7 @@ function renderAdmin() {
   $('#paypal-state').textContent = state.paypal ? `Hinterlegt: ${state.paypal}` : 'Noch kein Link hinterlegt.';
   $('#paypal-off').hidden = !state.paypal;
   const pv = state.paypal ? paypalUrl(1000) : '';
-  $('#paypal-preview').innerHTML = pv ? `<div class="pv">${qrSvg(pv)}</div><small class="muted">Vorschau des QR-Codes (Beispiel 10,00 €):<br>${esc(pv)}<br>Scanne ihn einmal mit dem Handy und prüfe den Empfänger.</small>` : '';
+  $('#paypal-preview').innerHTML = pv ? `<div class="pv">${qrImg(pv, 200)}</div><small class="muted">Vorschau des QR-Codes (Beispiel 10,00 €):<br>${esc(pv)}<br>Scanne ihn einmal mit dem Handy und prüfe den Empfänger.</small>` : '';
   $('#vat-summary').hidden = !state.vat.on;
   if (state.vat.on) {
     const rates = Object.keys(gr).sort((x, y) => x - y), T = vatText(gr);
