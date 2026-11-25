@@ -54,13 +54,40 @@ t('Textumbruch', () => {
 t('Zeichensatz fürs PDF', () => {
   assert.strictEqual(K.enc('3,00 €'), '3,00 \x80'); assert.strictEqual(K.enc('Süß – Pfand'), 'Süß \x96 Pfand'); assert.strictEqual(K.enc('a b'), 'a b'); assert.strictEqual(K.enc('日'), '?');
 });
-t('PDF ist gültig aufgebaut', () => {
-  const u = K.makePdf([{ t: 'Test (1) \\ ä', b: true }, { t: '3,00 €' }]), s = Buffer.from(u).toString('latin1');
+const pdfCheck = (u, pages) => {
+  const s = Buffer.from(u).toString('latin1');
   assert.ok(s.startsWith('%PDF-1.4') && s.trimEnd().endsWith('%%EOF'));
   const sx = +s.match(/startxref\n(\d+)/)[1]; assert.ok(s.slice(sx).startsWith('xref'));
-  const entries = s.slice(sx).split('\n').slice(3, 9);
+  const N = +s.slice(sx).match(/xref\n0 (\d+)/)[1], entries = s.slice(sx).split('\n').slice(3, 3 + N - 1);
   entries.forEach((e, i) => assert.ok(s.slice(+e.slice(0, 10)).startsWith(`${i + 1} 0 obj`), 'xref ' + (i + 1)));
-  const len = +s.match(/\/Length (\d+)/)[1], body = s.match(/stream\n([\s\S]*?)\nendstream/)[1]; assert.strictEqual(body.length, len);
+  assert.strictEqual((s.match(/\/Type \/Page /g) || []).length, pages, 'Seitenzahl');
+  for (const m of s.matchAll(/\/Length (\d+) >>\nstream\n([\s\S]*?)\nendstream/g)) assert.strictEqual(m[2].length, +m[1], 'Länge des Inhalts');
+  return s;
+};
+t('PDF ist gültig aufgebaut (Bon, 1 Seite)', () => {
+  const s = pdfCheck(K.makePdf([{ t: 'Test (1) \\ ä', b: true }, { t: '3,00 €' }]), 1);
+  assert.ok(s.includes('Test \\(1\\) \\\\ \xe4'));
+});
+t('PDF: Kassenbericht auf A4 mit mehreren Seiten', () => {
+  const lines = Array.from({ length: 130 }, (_, i) => ({ t: 'Zeile ' + i, b: i % 40 === 0 }));
+  const s = pdfCheck(K.makePdf(lines, { w: 595.28, h: 841.89, m: 48, fs: 10, lh: 14 }), 3);   // 56 Zeilen pro Seite
+  assert.ok(s.includes('/MediaBox [0 0 595.28 841.89]') && s.includes('Zeile 129'));
+  pdfCheck(K.makePdf([], { w: 595.28, h: 841.89, m: 48 }), 1);   // leerer Bericht
+});
+t('Kassenstand mit Einlagen und Entnahmen (zeitlich geordnet, Storno)', () => {
+  const sales = [{ n: 1, t: 10, total: 600, tip: 100 }, { n: 2, t: 30, total: 300 }, { n: 3, t: 40, total: 750, void: true }, { n: 4, t: 50, total: 300, method: 'paypal' }];
+  const moves = [{ t: 20, amt: 2000 }, { t: 35, amt: -5000 }, { t: 45, amt: -100, void: true }];
+  const c = K.cashSeries(sales, 10000, moves);
+  assert.deepStrictEqual([c.m[1], c.m[2], c.m[3], c.m[4], c.bal], [10700, 13000, 8000, 8000, 8000]);
+  assert.deepStrictEqual([c.sales, c.tips, c.ein, c.ent], [900, 100, 2000, 5000]);
+  assert.strictEqual(K.cashSeries(sales, 10000).bal, 11000);   // ohne Bewegungen wie bisher
+});
+t('Kassensturz: Stückelung zählen', () => {
+  assert.strictEqual(K.DENOMS.length, 15); assert.strictEqual(K.DENOMS[0], 50000); assert.strictEqual(K.DENOMS[14], 1);
+  assert.strictEqual(K.countTotal({ 5000: 1, 2000: 1, 500: 1, 100: 1 }), 7600);
+  assert.strictEqual(K.countTotal({ 200: 3, 10: '4', 1: 7 }), 647);           // 6,00 + 0,40 + 0,07
+  assert.strictEqual(K.countTotal({ 100: -2, 200: 'x', 50: 1.9 }), 50);         // ungültige Eingaben zählen nicht
+  assert.strictEqual(K.countTotal({}), 0); assert.strictEqual(K.countTotal(null), 0);
 });
 t('Sortiment-Umstellung (Burger, Pfand)', () => {
   const cat = [{ id: 'burger', groups: [{ id: 'g1', items: [{ id: 'b-maul', name: 'Maultaschen', price: 650, vat: 7 }, { id: 'b-spezial', name: 'Spezial', price: 750, vat: 7 }] }, { id: 'g2', items: [{ id: 'g-spezi', name: 'Spezi', price: 300 }] }] }];

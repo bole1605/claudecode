@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v20** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v21** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -105,6 +105,16 @@ Inhalt: Anzahl und Umsatz je Produkt, Summen je Stand, Gesamtsumme, Zahlarten (B
 
 ---
 
+## 5d. Kassensturz und Kassenbericht
+
+Verwaltung → Block **„Kassenstand (Bargeld)“**. Dort steht, was rechnerisch in der Kasse sein müsste: Anfangsbestand + Barverkäufe + Spenden + Einlagen − Entnahmen. PayPal ist nicht enthalten.
+
+- **Einlage / Entnahme …:** Wenn du Wechselgeld nachlegst oder Geld aus der Kasse nimmst (zur Bank, in den Tresor), buchst du das hier mit Betrag und Bemerkung. Sonst stimmt der Kassenstand nicht mehr. Ein Fehler lässt sich mit „Stornieren“ zurücknehmen.
+- **Kassensturz …:** Du zählst das Bargeld und trägst die **Stückzahlen** je Schein und Münze ein (mit „+“ und „−“ oder direkt). Die App rechnet die Summe aus und zeigt sofort die **Differenz zum Soll**: „Kasse stimmt“, „Überschuss“ oder „Fehlbetrag“ (rot). Mit „Kassensturz speichern“ wird die Zählung samt Uhrzeit und Bemerkung (zum Beispiel „Mittag“) im **Kassensturz-Protokoll** gespeichert. Ein Kassensturz lässt sich nicht löschen.
+- **Kassenbericht (PDF) / Kassenbericht drucken:** Der Bericht (DIN A4) enthält Anfangsbestand, Einnahmen, Spenden, Einlagen und Entnahmen, den Soll-Bestand, das Zählprotokoll mit Differenz, die Umsätze je Stand, die Aufteilung Bar/PayPal, die Mehrwertsteuer (wenn der Rechner an ist), Stornos, Pfand-Auszahlungen sowie Zeilen für **Unterschrift und Prüfung**. Direkt nach dem Speichern eines Kassensturzes gibt es die Tasten im Fenster. Später steht in der Liste bei jedem Kassensturz eine Taste „Bericht“.
+- Das Protokoll, Einlagen und Entnahmen stehen auch in der **CSV-Datei** und in der **Sicherung**.
+- **Empfehlung:** Je ein Kassensturz mittags und am Ende jedes Tages. Den Bericht ausdrucken und unterschreiben oder als PDF zu den Unterlagen legen.
+
 ## 5c. Tablet auf einen Stand festlegen
 
 Verwaltung → **„Stand dieses Geräts“** → „Nur Crêpes“ / „Nur Burger & Spezi“ / „Nur Karten“. Dann verschwinden die Reiter oben, und am Stand kann nicht aus Versehen eine andere Seite geöffnet werden. Auch ein Link mit `#burger` oder ein Neustart ändert daran nichts. Die Verwaltung und der Bearbeitungsmodus bleiben über den Titel erreichbar. Zurück: „Alle Seiten (Reiter sichtbar)“.
@@ -150,7 +160,7 @@ Verwaltung → **„Datensicherung“**:
 
 **Nach dem Markt:**
 - [ ] Zahlen speichern und die Datei an dich senden
-- [ ] Zwischenstand mit dem Bargeld in der Kasse abgleichen (Bar-Summe aus der Verwaltung)
+- [ ] **Kassensturz** durchführen und **Kassenbericht** speichern oder ausdrucken (Abschnitt 5d)
 - [ ] PayPal-Eingänge mit der PayPal-Summe vergleichen
 
 ---

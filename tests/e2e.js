@@ -14,7 +14,7 @@ const has = f => fs.existsSync(path.join(root, dir, f));   // neue Funktionen we
 async function test(name, fn) {
   count++; const errs = [];
   try { await fn(errs); if (errs.length) throw new Error('Fehler auf der Seite: ' + errs.join(' | ')); console.log('ok  ' + name); }
-  catch (e) { fails++; console.log('FEHLER  ' + name + '\n        ' + String(e.message || e).split('\n').slice(0, 4).join('\n        ')); }
+  catch (e) { fails++; console.log('FEHLER  ' + name + '\n        ' + String(e.message || e).split('\n').slice(0, 14).join('\n        ')); }
 }
 (async () => {
   await new Promise(r => server.listen(0, r));
@@ -252,6 +252,44 @@ async function test(name, fn) {
     await p.evaluate(() => { $('#main').style.maxHeight = ''; $('#main').style.overflow = ''; }); await p.setViewportSize({ width: 1180, height: 1800 });   // passt auf den Bildschirm: Berühren zählt sofort
     assert.strictEqual(await p.evaluate(() => scrollable()), false);
     await p.dispatchEvent(s, 'pointerdown', { button: 0, clientX: 10, clientY: 10, pointerId: 6 }); assert.strictEqual(await n(), 2, 'ohne Scrollen zählt schon das Berühren');
+    await p.ctx.close();
+  });
+
+  if (dir === 'kasse-test') await test('Kassensturz und Kassenbericht: Einlage/Entnahme, Zählen, Differenz, PDF', async errs => {
+    const p = await open(errs);
+    await admin(p, true);
+    await p.click('#cash-start'); await p.fill('#t-input', '100'); await p.press('#t-input', 'Enter'); await p.waitForTimeout(150);
+    await p.click('#admin-close'); await tap(p, 'b-maul-v'); await pay(p, async () => { await p.click('[data-quick="10"]'); });          // +6 -> 106
+    await admin(p, false);
+    const bal = async () => (await txt(p, '#cash-card')).match(/Aktuell in der Kasse.*?([\d.]+,\d\d) €/)[1];
+    assert.strictEqual(await bal(), '106,00');
+    await p.click('#mv-open'); await p.fill('#mv-amt', '20'); await p.fill('#mv-note', 'Wechselgeld'); await p.click('#mv-form button[type=submit]'); assert.strictEqual(await bal(), '126,00');
+    await p.click('#mv-open'); await p.click('#mv-seg [data-kind=ent]'); await p.fill('#mv-amt', '50'); await p.fill('#mv-note', 'zur Bank'); await p.click('#mv-form button[type=submit]'); assert.strictEqual(await bal(), '76,00');
+    await p.click('#mv-open'); await p.fill('#mv-amt', 'abc'); await p.click('#mv-form button[type=submit]'); assert.ok((await txt(p, '#mv-err')).includes('Betrag')); await p.click('#mv-cancel');
+    // Storno einer Entnahme -> wieder 126
+    await p.click('[data-mvvoid]:near(:text("zur Bank"))').catch(async () => { await p.locator('.mv', { hasText: 'zur Bank' }).locator('[data-mvvoid]').click(); }); await p.click('#c-ok'); await p.waitForTimeout(150); assert.strictEqual(await bal(), '126,00');
+    await p.locator('.mv', { hasText: 'zur Bank' }).locator('[data-mvvoid]').click(); await p.click('#c-ok'); await p.waitForTimeout(150); assert.strictEqual(await bal(), '76,00');   // Storno aufgehoben
+    // Kassensturz: 50 + 20 + 5 + 1 = 76 -> stimmt
+    await p.click('#cs-open'); await p.waitForSelector('#cs-dlg[open] .cs-row');
+    for (const [d, n] of [[5000, 1], [2000, 1], [500, 1], [100, 1]]) await p.fill(`#cs-grid input[data-d="${d}"]`, String(n));
+    assert.strictEqual(await txt(p, '#cs-ist'), '76,00 €'); assert.strictEqual(await txt(p, '#cs-soll'), '76,00 €'); assert.strictEqual(await txt(p, '#cs-diff'), 'Kasse stimmt');
+    await p.click('[data-csm="-1"][data-d="100"]'); assert.ok((await txt(p, '#cs-diff')).includes('Fehlbetrag 1,00 €'), await txt(p, '#cs-diff'));
+    await p.click('[data-csm="1"][data-d="100"]'); await p.click('[data-csm="1"][data-d="50"]'); assert.ok((await txt(p, '#cs-diff')).includes('Überschuss 0,50 €'));
+    await p.click('[data-csm="-1"][data-d="50"]'); await p.fill('#cs-note', 'Mittag'); await p.click('#cs-save');
+    assert.ok((await txt(p, '#cs-result')).includes('Kasse stimmt'));
+    const pdf = (await dl(p, '#cs-pdf')).toString('latin1');
+    for (const x of ['KASSENBERICHT', 'Evangelische Kirchengemeinde Kleinglattbach', 'Anfangsbestand', 'Soll-Bestand', 'Gezaehlter Bestand'.replace('ae', '\xe4'), 'Zählprotokoll'.replace('ä', '\xe4'), '1 x 50 \x80', 'Kassierer/in', 'Mittag', 'Einlagen und Entnahmen', 'Wechselgeld'])
+      assert.ok(pdf.includes(x), 'Bericht ohne: ' + x);
+    assert.ok(pdf.includes('Differenz \\(Kasse stimmt\\)'), 'Differenz-Zeile');   // im PDF sind Klammern mit Backslash maskiert
+    await p.click('#cs-done');
+    assert.ok((await txt(p, '#cash-card')).includes('Letzter Kassensturz') && (await txt(p, '#cash-card')).includes('Kasse stimmt') && (await p.$$('[data-rep]')).length === 1);
+    // zweiter Kassensturz mit Fehlbetrag, älteren Bericht wieder öffnen
+    await p.click('#cs-open'); await p.fill('#cs-grid input[data-d="5000"]', '1'); await p.fill('#cs-grid input[data-d="2000"]', '1'); await p.click('#cs-save');
+    assert.ok((await txt(p, '#cs-result')).includes('Fehlbetrag 6,00 €')); await p.click('#cs-done');
+    assert.strictEqual((await p.$$('[data-rep]')).length, 2);
+    const old = (await dl(p, '#cash-card [data-rep]:last-of-type')).toString('latin1'); assert.ok(old.includes('KASSENBERICHT') && old.includes('Alle Kassenst'.replace('ü', '\xfc')), 'Verlauf der Kassenstürze fehlt');
+    const csv = (await dl(p, '#save')).toString('utf8'); assert.ok(csv.includes('Einlagen gesamt') && csv.includes('Entnahmen gesamt') && csv.includes('"Kassensturz";"Zeit"') && csv.includes('Wechselgeld') && /"gültig"/.test(csv));
+    const b = JSON.parse((await dl(p, '#backup-save')).toString('utf8')); assert.ok(b.data.moves.length === 2 && b.data.counts.length === 2, 'Sicherung ohne Kassensturz/Bewegungen');
     await p.ctx.close();
   });
 

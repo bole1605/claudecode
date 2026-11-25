@@ -33,7 +33,7 @@ const DEFAULT_STANDS = [
     ]},
   ]},
 ];
-const VERSION = 20;
+const VERSION = 21;
 // Fokus ins erste Feld – aber nur, wenn die Eingabe nicht schon in einem anderen Feld des Fensters begonnen hat
 const focusFirst = sel => setTimeout(() => { const el = document.querySelector(sel), d = el.closest('dialog'); if (!d.contains(document.activeElement) || document.activeElement === d) el.focus(); }, 50);
 // Test- und Live-Version liegen auf derselben Domain: getrennter Speicher, damit sich die Daten nie vermischen
@@ -51,7 +51,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const PALETTE = ['#FF9F0A', '#34C759', '#30B0C7', '#5856D6', '#AF52DE', '#007AFF', '#A2845E', '#00C7BE'];   // kein Rot: Rot ist für Löschen/Storno/Minus reserviert
 
 const RC_DEFAULT = { name: 'Evangelische Kirchengemeinde Kleinglattbach', addr: 'Kirchstraße 15; 71665 Vaihingen an der Enz', foot: 'Vielen Dank, Guten Appetit & frohe Weihnachten!' };
-let state = { lock: null, mig20: false, share: { on: true }, lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
+let state = { moves: [], counts: [], lock: null, mig20: false, share: { on: true }, lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
 try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
 let STANDS, ALL = {};
 function setCatalog(c) {
@@ -355,7 +355,7 @@ $('#pw-cancel').addEventListener('click', () => $('#pw-dlg').close());
 
 // --- Verwaltung (extra Seite): Buchungen, Storno, Speichern
 function openAdmin() { hold = null; buzz(); pwDialog(state.pw ? 'enter' : 'set'); }
-function showAdmin() { renderAdmin(); $('#admin').hidden = false; document.body.classList.add('noscroll'); }
+function showAdmin() { $('#toast').hidden = true; renderAdmin(); $('#admin').hidden = false; document.body.classList.add('noscroll'); }
 function hideAdminKeep() { $('#admin').hidden = true; document.body.classList.remove('noscroll'); }
 function hideAdmin() { hideAdminKeep(); build(); }
 const fmtTS = t => new Date(t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -363,7 +363,7 @@ const fmtT = t => new Date(t).toLocaleString('de-DE', { day: '2-digit', month: '
 const lineText = s => Object.entries(s.lines).map(([id, n]) => `${n}× ${itemName(s, id)}`).join(', ');
 const standIds = () => { const ids = STANDS.map(s => s.id); state.sales.forEach(s => { if (!ids.includes(s.stand)) ids.push(s.stand); }); return ids; };
 // Kassenstand (Bargeld): Anfangsbestand + bar bezahlte Beträge + Spenden; PayPal und stornierte Buchungen ändern ihn nicht
-const cashSeries = () => Kasse.cashSeries(state.sales, state.cash.start);
+const cashSeries = () => Kasse.cashSeries(state.sales, state.cash.start, state.moves);
 const payTotals = () => Kasse.payTotals(state.sales);
 function renderAdmin() {
   const { rev, cnt, gr, grS } = sold();
@@ -383,12 +383,25 @@ function renderAdmin() {
     $('#vat-summary').innerHTML = '<h3>Mehrwertsteuer (enthalten in den Bruttopreisen)</h3>' + (rates.length ? rates.map(r => `<div class="sum-row vat"><span>Satz ${pct(r)}</span><span>Brutto ${euro(gr[r])} · Netto ${euro(gr[r] - vatPart(gr[r], +r))}</span><b>${euro(vatPart(gr[r], +r))}</b></div>`).join('') + `<div class="sum-row total"><span>Gesamt MwSt</span><span>Brutto ${euro(Object.values(gr).reduce((s, x) => s + x, 0))} · Netto ${euro(T.net)}</span><b>${euro(T.vat)}</b></div>` : '<p class="empty">Noch keine Verkäufe.</p>');
   }
   const pay = payTotals(), cs = cashSeries();
+  const lastC = state.counts[state.counts.length - 1];
+  const diffTxt = d => d === 0 ? 'Kasse stimmt' : d > 0 ? `Überschuss ${euro(d)}` : `Fehlbetrag ${euro(-d)}`;
   $('#cash-card').innerHTML = `<h3>Kassenstand (Bargeld)</h3>
     <div class="sum-row"><span>Anfangsbestand</span><span>${state.cash.at ? 'festgelegt am ' + fmtTS(state.cash.at) : 'noch nicht festgelegt'}</span><b>${euro(state.cash.start)}</b></div>
     <div class="sum-row"><span>+ Barverkäufe</span><span></span><b>${euro(cs.sales)}</b></div>
     <div class="sum-row"><span>+ Spenden</span><span></span><b>${euro(cs.tips)}</b></div>
+    <div class="sum-row"><span>+ Einlagen</span><span></span><b>${euro(cs.ein)}</b></div>
+    <div class="sum-row"><span>− Entnahmen</span><span></span><b>${euro(cs.ent ? -cs.ent : 0)}</b></div>
     <div class="sum-row total"><span>Aktuell in der Kasse</span><span>PayPal ist nicht enthalten</span><b>${euro(cs.bal)}</b></div>
-    <button class="btn" id="cash-start">Anfangsbestand festlegen</button>`;
+    ${state.moves.length ? '<div class="mv-list">' + [...state.moves].reverse().map(x => `<div class="mv${x.void ? ' void' : ''}"><span>${fmtTS(x.t)} · ${x.amt > 0 ? 'Einlage' : 'Entnahme'}${x.note ? ' · ' + esc(x.note) : ''}${x.void ? ' · <span class="tag">storniert</span>' : ''}</span><b>${euro(x.amt)}</b><button class="btn sm ${x.void ? '' : 'destructive'}" data-mvvoid="${x.id}">${x.void ? 'Aufheben' : 'Stornieren'}</button></div>`).join('') + '</div>' : ''}
+    ${lastC ? `<div class="cs-last">Letzter Kassensturz: ${fmtTS(lastC.t)} · gezählt ${euro(lastC.ist)} · Soll ${euro(lastC.soll)} · <b class="${lastC.diff === 0 ? 'ok' : 'bad'}">${diffTxt(lastC.diff)}</b></div>` : ''}
+    <div class="actions-card" style="padding:0;margin-top:12px">
+      <button class="btn primary" id="cs-open">Kassensturz …</button>
+      <button class="btn" id="mv-open">Einlage / Entnahme …</button>
+      <button class="btn" id="rep-pdf">Kassenbericht (PDF)</button>
+      <button class="btn" id="rep-print">Kassenbericht drucken</button>
+      <button class="btn" id="cash-start">Anfangsbestand festlegen</button>
+    </div>
+    ${state.counts.length ? '<div class="cs-hist"><h3>Kassensturz-Protokoll</h3>' + [...state.counts].reverse().map(c => `<div class="mv"><span>${fmtTS(c.t)}${c.note ? ' · ' + esc(c.note) : ''} · gezählt ${euro(c.ist)} · Soll ${euro(c.soll)} · <b class="${c.diff === 0 ? 'ok' : 'bad'}">${diffTxt(c.diff)}</b></span><button class="btn sm" data-rep="${c.id}">Bericht</button></div>`).join('') + '</div>' : ''}`;
   $('#admin-summary').innerHTML = '<h3>Zwischenstand dieses Geräts</h3>' + standIds().map(id => {
     const k = state.sales.filter(x => x.stand === id), g = k.filter(x => !x.void).length, v = k.length - g;
     return `<div class="sum-row"><span>${esc(labelOf(id))}</span><span>${g} ${g === 1 ? 'Buchung' : 'Buchungen'} · ${cnt[id] || 0} Artikel${v ? ` · ${v} storniert` : ''}</span><b>${euro(rev[id] || 0)}</b></div>${state.vat.on && grS[id] ? `<div class="vat-sub">${vatText(grS[id]).text}</div>` : ''}`;
@@ -414,7 +427,7 @@ function renderAdmin() {
 }
 
 // --- Datensicherung (Datei zum Wiederherstellen)
-const BACKUP_KEYS = ['catalog', 'sales', 'seq', 'vat', 'tip', 'cash', 'receipt', 'paypal', 'ppMode'];
+const BACKUP_KEYS = ['catalog', 'sales', 'seq', 'vat', 'tip', 'cash', 'moves', 'counts', 'receipt', 'paypal', 'ppMode'];
 async function deliver(file, title) {
   try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title }); return true; } }
   catch (err) { if (err.name === 'AbortError') return false; }
@@ -464,6 +477,13 @@ async function exportFile() {
   if (V) { rows.push('', row(['Mehrwertsteuer', 'Satz', 'Brutto (€)', 'Netto (€)', 'MwSt (€)'])); for (const r of Object.keys(gr).sort((x, y) => x - y)) rows.push(row(['', pct(r), num(gr[r]), num(gr[r] - vatPart(gr[r], +r)), num(vatPart(gr[r], +r))])); const T = vatText(gr); rows.push(row(['', 'GESAMT', num(all), num(T.net), num(T.vat)])); }
   rows.push('', row(['Bon-Nr.', 'Zeit', 'Stand', 'Artikel', 'Summe (€)', 'Gegeben (€)', 'Rückgeld (€)', 'Status', 'Zahlart', 'Spende (€)', 'Kassenstand danach (€)'].concat(V ? ['MwSt (€)'] : [])));
   for (const s of state.sales) rows.push(row([s.n, fmtTS(s.t), labelOf(s.stand), lineText(s), num(s.total), num(s.given), num(s.change), s.void ? 'storniert' : 'gültig', s.method === 'paypal' ? 'PayPal' : 'Bar', num(s.tip || 0), num(cs.m[s.n])].concat(V ? [num((() => { const g = {}; for (const [id, n] of Object.entries(s.lines)) { const pr = s.info && s.info[id] ? s.info[id].price : ALL[id] ? ALL[id].price : 0, r = vatOf(s.info, id); g[r] = (g[r] || 0) + n * pr; } return vatText(g).vat; })())] : [])));
+  if (state.moves.length || state.counts.length) {
+    rows.push('', row(['Kasse: Einlagen/Entnahmen', 'Zeit', 'Bemerkung', 'Betrag (€)', 'Status']));
+    state.moves.forEach(x => rows.push(row(['', fmtTS(x.t), x.note || '', num(x.amt), x.void ? 'storniert' : 'gültig'])));
+    rows.push(row(['', 'Einlagen gesamt', '', num(cs.ein)]), row(['', 'Entnahmen gesamt', '', num(-cs.ent)]));
+    rows.push('', row(['Kassensturz', 'Zeit', 'Soll (€)', 'Gezählt (€)', 'Differenz (€)', 'Bemerkung']));
+    state.counts.forEach(c => rows.push(row(['', fmtTS(c.t), num(c.soll), num(c.ist), num(c.diff), c.note || ''])));
+  }
   const name = `kasse-${stamp.replace(' ', '-').replace(':', '')}.csv`;
   const file = new File(['\ufeff' + rows.join('\r\n')], name, { type: 'text/csv' });
   try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Kasse' }); return; } }
@@ -571,6 +591,21 @@ document.addEventListener('click', async e => {
   if (D.print) { printBon(+D.print); return; }
   if (t.id === 'toast-x') { $('#toast').hidden = true; return; }
   if (t.id === 'rc-head') { openReceiptHead(); return; }
+  if (t.id === 'cs-open') { csOpen(); return; }
+  if (t.id === 'cs-save') { csSave(); return; }
+  if (t.id === 'cs-cancel' || t.id === 'cs-done') { $('#cs-dlg').close(); return; }
+  if (D.csm) { const i = document.querySelector(`#cs-grid input[data-d="${D.d}"]`); i.value = Math.max(0, (Math.floor(+i.value) || 0) + (+D.csm)); csUpdate(); return; }
+  if (t.id === 'cs-pdf') { reportPdf(csSaved && csSaved.id); return; }
+  if (t.id === 'cs-print') { reportPrint(csSaved && csSaved.id); return; }
+  if (t.id === 'rep-pdf') { reportPdf(); return; }
+  if (t.id === 'rep-print') { reportPrint(); return; }
+  if (D.rep) { reportPdf(D.rep); return; }
+  if (t.id === 'mv-open') { mvOpen(); return; }
+  if (t.id === 'mv-cancel') { $('#mv-dlg').close(); return; }
+  if (D.kind) { mvKind = D.kind; mvSeg(); return; }
+  if (D.mvvoid) { const x = state.moves.find(m => m.id === D.mvvoid); if (!x) return;
+    if (await ask(x.void ? 'Storno aufheben?' : 'Einlage/Entnahme stornieren?', `${fmtTS(x.t)} · ${euro(x.amt)}${x.note ? ' · ' + x.note : ''}`, x.void ? 'Aufheben' : 'Stornieren')) { x.void = !x.void; save(); renderAdmin(); }
+    return; }
   if (t.id === 'cash-start') {
     const n = await promptText('Anfangsbestand der Kasse in €', state.cash.at ? fmtIn(state.cash.start) : '', 'z. B. 100');
     if (n !== null) { const c = parse(n.replace(/[^\d,.]/g, '')); if (c === null || c < 0) await ask('Ungültiger Betrag', 'Bitte einen Betrag wie 100 oder 85,50 eingeben.', 'OK'); else { state.cash = { start: c, at: Date.now() }; save(); renderAdmin(); } }
@@ -621,6 +656,97 @@ document.addEventListener('click', async e => {
   else if (t.id === 'restore' && state.backup) { state.sales = state.backup.sales; state.seq = state.backup.seq; state.backup = null; save(); renderAdmin(); }
 });
 $('#pay-dlg').addEventListener('cancel', () => {}); // Esc schließt wie Abbrechen
+
+// --- Kassensturz, Einlagen/Entnahmen und Kassenbericht
+const denLabel = d => d >= 100 ? `${d / 100} €` : `${d} Cent`;
+function csSum() { const c = {}; document.querySelectorAll('#cs-grid input').forEach(i => { const n = Math.max(0, Math.floor(+i.value) || 0); if (n) c[i.dataset.d] = n; }); return c; }
+function csUpdate() {
+  const counts = csSum(), ist = Kasse.countTotal(counts), soll = cashSeries().bal, diff = ist - soll;
+  document.querySelectorAll('#cs-grid input').forEach(i => { $(`[data-s="${i.dataset.d}"]`).textContent = euro((+i.dataset.d) * Math.max(0, Math.floor(+i.value) || 0)); });
+  $('#cs-ist').textContent = euro(ist); $('#cs-soll').textContent = euro(soll);
+  const el = $('#cs-diff'); el.className = diff === 0 ? 'ok' : 'bad';
+  el.textContent = diff === 0 ? 'Kasse stimmt' : diff > 0 ? `Überschuss ${euro(diff)}` : `Fehlbetrag ${euro(-diff)}`;
+}
+function csOpen() {
+  const row = d => `<div class="cs-row"><span class="cs-l">${denLabel(d)}</span><button class="btn sm" data-csm="-1" data-d="${d}" aria-label="weniger">−</button><input type="number" inputmode="numeric" min="0" value="0" data-d="${d}" aria-label="Anzahl ${denLabel(d)}"><button class="btn sm" data-csm="1" data-d="${d}" aria-label="mehr">+</button><span class="cs-s" data-s="${d}">0,00 €</span></div>`;
+  const D = Kasse.DENOMS;
+  $('#cs-grid').innerHTML = `<div><h3>Scheine</h3>${D.filter(d => d >= 500).map(row).join('')}</div><div><h3>Münzen</h3>${D.filter(d => d < 500).map(row).join('')}</div>`;
+  $('#cs-note').value = ''; $('#cs-before').hidden = false; $('#cs-after').hidden = true; csUpdate();
+  if (!$('#cs-dlg').open) $('#cs-dlg').showModal();
+}
+let csSaved = null;
+function csSave() {
+  const counts = csSum(), ist = Kasse.countTotal(counts), soll = cashSeries().bal;
+  csSaved = { id: uid('c'), t: Date.now(), soll, ist, diff: ist - soll, denoms: counts, note: $('#cs-note').value.trim() };
+  state.counts.push(csSaved); save(); renderAdmin();
+  $('#cs-before').hidden = true; $('#cs-after').hidden = false;
+  $('#cs-result').innerHTML = `Kassensturz gespeichert: gezählt <b>${euro(ist)}</b> · Soll <b>${euro(soll)}</b> · <b class="${csSaved.diff === 0 ? 'ok' : 'bad'}">${csSaved.diff === 0 ? 'Kasse stimmt' : csSaved.diff > 0 ? 'Überschuss ' + euro(csSaved.diff) : 'Fehlbetrag ' + euro(-csSaved.diff)}</b>`;
+}
+let mvKind = 'ein';
+function mvOpen() { mvKind = 'ein'; $('#mv-amt').value = ''; $('#mv-note').value = ''; $('#mv-err').textContent = ''; mvSeg(); $('#mv-dlg').showModal(); }
+function mvSeg() { document.querySelectorAll('#mv-seg button').forEach(b => b.setAttribute('aria-selected', b.dataset.kind === mvKind)); }
+$('#mv-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const amt = parse($('#mv-amt').value.trim());
+  if (amt === null || amt <= 0) { $('#mv-err').textContent = 'Bitte einen Betrag eingeben, z. B. 50'; return; }
+  state.moves.push({ id: uid('m'), t: Date.now(), amt: mvKind === 'ein' ? amt : -amt, note: $('#mv-note').value.trim() });
+  save(); $('#mv-dlg').close(); renderAdmin();
+});
+function reportLines(c) {
+  const N = 80, L = [], R = state.receipt, cs = cashSeries(), { rev, cnt, gr } = sold(), pay = payTotals();
+  const l = (t, b) => L.push({ t, b: !!b }), hr = () => l('-'.repeat(N));
+  const cen = (t, b) => l(' '.repeat(Math.max(0, Math.floor((N - t.length) / 2))) + t, b);
+  const lr = (a, b, bold) => { const left = a.length > N - b.length - 1 ? a.slice(0, N - b.length - 2) + '…' : a; l(left.padEnd(N - b.length) + b, bold); };
+  const diffTxt = d => d === 0 ? 'Kasse stimmt' : d > 0 ? 'Überschuss' : 'Fehlbetrag';
+  cen('KASSENBERICHT', true);
+  if (R.name) wrapText(R.name, N).forEach(x => cen(x, true));
+  String(R.addr || '').split(/\n|;/).map(x => x.trim()).filter(Boolean).forEach(x => cen(x));
+  if (R.tax) cen(R.tax);
+  hr();
+  l('Erstellt:   ' + new Date().toLocaleString('de-DE'));
+  l('Gerät:      ' + (state.lock ? labelOf(state.lock) : 'alle Stände') + (IS_TEST ? '  (TESTVERSION)' : ''));
+  const valid = state.sales.filter(s => !s.void), voids = state.sales.filter(s => s.void);
+  l('Zeitraum:   ' + (state.sales.length ? fmtTS(state.sales[0].t) + ' bis ' + fmtTS(state.sales[state.sales.length - 1].t) : 'noch keine Buchungen'));
+  l(`Buchungen:  ${valid.length} gültig, ${voids.length} storniert`);
+  hr(); l('BARGELD', true);
+  lr('Anfangsbestand', money(state.cash.start));
+  lr('+ Barverkäufe (brutto)', money(cs.sales)); lr('+ Spenden (nicht im Umsatz)', money(cs.tips));
+  lr('+ Einlagen', money(cs.ein)); lr('- Entnahmen', money(cs.ent ? -cs.ent : 0));
+  lr('= Soll-Bestand (rechnerisch)', money(cs.bal), true);
+  hr(); l('KASSENSTURZ', true);
+  if (c) {
+    l('Datum:      ' + fmtTS(c.t) + (c.note ? '  (' + c.note + ')' : ''));
+    lr('Soll-Bestand zum Zeitpunkt', money(c.soll)); lr('Gezählter Bestand', money(c.ist));
+    lr(`Differenz (${diffTxt(c.diff)})`, money(c.diff), true);
+    l(''); l('Zählprotokoll:');
+    Kasse.DENOMS.filter(d => c.denoms[d]).forEach(d => lr(`  ${c.denoms[d]} x ${denLabel(d)}`, money(d * c.denoms[d])));
+    lr('  Summe', money(c.ist), true);
+  } else l('Es wurde noch kein Kassensturz durchgeführt.');
+  if (state.counts.length > 1) { l(''); l('Alle Kassenstürze:'); state.counts.forEach(x => lr('  ' + fmtTS(x.t) + ' gezählt ' + money(x.ist), 'Diff. ' + money(x.diff))); }
+  if (state.moves.length) { l(''); l('Einlagen und Entnahmen:'); state.moves.forEach(x => lr('  ' + fmtTS(x.t) + ' ' + (x.note || (x.amt > 0 ? 'Einlage' : 'Entnahme')) + (x.void ? ' (storniert)' : ''), money(x.amt))); }
+  hr(); l('UMSÄTZE (brutto, ohne Storno)', true);
+  standIds().forEach(id => { const k = valid.filter(x => x.stand === id).length; lr(`${labelOf(id)}: ${k} ${k === 1 ? 'Buchung' : 'Buchungen'}, ${cnt[id] || 0} Artikel`, money(rev[id] || 0)); });
+  lr('Gesamt', money(Object.values(rev).reduce((x, y) => x + y, 0)), true);
+  lr('  davon bar bezahlt', money(pay.bar)); lr('  davon PayPal (nicht im Bargeld)', money(pay.paypal));
+  if (state.vat.on) { l(''); l('Enthaltene Mehrwertsteuer:'); Object.keys(gr).sort((x, y) => x - y).forEach(r => lr(`  Satz ${pct(r)}  (brutto ${money(gr[r])})`, money(vatPart(gr[r], +r)))); }
+  hr(); l('HINWEISE', true);
+  lr(`Stornierte Buchungen: ${voids.length}`, money(voids.reduce((x, s) => x + s.total, 0)));
+  const po = valid.filter(s => s.payout); lr(`Pfand-Auszahlungen: ${po.length}`, money(po.reduce((x, s) => x + s.total, 0)));
+  l(''); l(''); l('Kassierer/in: ________________________   Geprüft: ________________________');
+  l(''); l('Datum, Unterschrift');
+  return L;
+}
+async function reportPdf(id) {
+  const c = id ? state.counts.find(x => x.id === id) : state.counts[state.counts.length - 1];
+  const d = new Date(), p = k => String(k).padStart(2, '0');
+  const file = new File([Kasse.makePdf(reportLines(c), { w: 595.28, h: 841.89, m: 36, fs: 10, lh: 12.5 })], `kassenbericht-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.pdf`, { type: 'application/pdf' });
+  await deliver(file, 'Kassenbericht');
+}
+function reportPrint(id) {
+  const c = id ? state.counts.find(x => x.id === id) : state.counts[state.counts.length - 1];
+  $('#print-area').textContent = reportLines(c).map(x => x.t).join('\n'); $('#print-area').classList.add('rep');
+  window.print(); setTimeout(() => $('#print-area').classList.remove('rep'), 500);
+}
 
 // --- Bons: Zeitstempel, PDF und Druck
 const money = c => euro(c).replace(/ | /g, ' ');
@@ -734,6 +860,8 @@ $('#rc-toggle').addEventListener('change', e => { state.receipt.on = e.target.ch
 $('#vat-toggle').addEventListener('change', e => { state.vat.on = e.target.checked; save(); renderAdmin(); });
 
 $('#restore-file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) backupRestore(f); });
+
+$('#cs-grid').addEventListener('input', csUpdate);
 
 // --- Versteckter Zugang: Titel 1,5 s halten oder 5× schnell antippen
 let hold = null;
