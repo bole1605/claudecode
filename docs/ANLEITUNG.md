@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v18** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v19** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -67,6 +67,7 @@ Einstellungen (alle in der Verwaltung):
 | **Bearbeitungsmodus** | Produkte, Unterkategorien und Seiten ändern (siehe 4.). |
 | **Zahlen speichern (Datei)** | Erzeugt eine CSV-Datei (siehe 5.). |
 | **Passwort ändern** | Neues Passwort festlegen (erzeugt auch einen neuen Wiederherstellungscode). |
+| **QR-Code / E-Mail nach dem Verbuchen** | Schalter im Bereich „Bons“, siehe Abschnitt 5b. |
 | **Bons (PDF & Druck)** | Schalter und „Bon-Kopf und Fußzeile festlegen“. Nach dem Verbuchen erscheint „PDF“ und „Drucken“, später auch bei jeder Buchung in der Liste. |
 | **Sortiment auf Standard zurücksetzen** | Stellt das ursprüngliche Sortiment wieder her. Gebuchte Verkäufe bleiben erhalten. |
 | **Alle Buchungen auf diesem Gerät löschen** | Löscht alle Buchungen (mit Rückfrage). Mit „Gelöschte Buchungen wiederherstellen“ holst du sie zurück, solange du nicht erneut löschst. |
@@ -102,6 +103,17 @@ Inhalt: Anzahl und Umsatz je Produkt, Summen je Stand, Gesamtsumme, Zahlarten (B
 **Empfehlung:** Speichere die Zahlen **am Ende jedes Markttags** und schicke dir die Datei selbst zu. Die Zählungen jedes Tablets stehen nur dort, einen Gesamtstand über alle Tablets gibt es nicht. Die Dateien der drei Stände rechnest du von Hand zusammen.
 
 ---
+
+## 5b. Bon für den Kunden: QR-Code und E-Mail
+
+**Wenn eingeschaltet** (Verwaltung → „Bons (PDF & Druck)“ → Schalter **„QR-Code / E-Mail nach dem Verbuchen“**), öffnet sich nach jedem Verbuchen sofort ein Fenster:
+- **QR-Code:** Der Kunde scannt ihn mit der Handy-Kamera und sieht seinen Bon online (Seite `bon.html`). Dort kann er ihn als PDF speichern oder drucken. Der Bon steckt komprimiert im Link, **auf unserem Server liegt nichts**. Das Handy des Kunden braucht Internet, das Tablet nicht, um den Code anzuzeigen.
+- **E-Mail:** Du tippst die Adresse des Kunden ein und tippst „E-Mail vorbereiten“. Das **Mail-Programm des Tablets** öffnet sich mit fertigem Entwurf (Adresse, Betreff, Bon-Text, Link). Du tippst dort auf „Senden“. Dafür muss im Mail-Programm des Tablets das Postfach der Gemeinde eingerichtet sein. Die App verschickt nichts selbst. Die Adresse des Kunden wird **nicht gespeichert**.
+- **„Fertig – nächster Kunde“** schließt das Fenster. Daneben stehen „PDF“ und „Drucken“.
+
+**Wenn ausgeschaltet:** Der Bon wird trotzdem erzeugt wie bisher. Unten erscheint nach dem Verbuchen kurz die Leiste mit **„QR / Mail“, „PDF“ und „Drucken“**, und in der Verwaltung hat jede Buchung dieselben drei Tasten. So öffnest du den Bon nur bei Bedarf.
+
+Hinweis: Der Online-Bon zeigt den Stand beim Verbuchen. Wird die Buchung später storniert, ändert sich der schon verschickte Bon nicht.
 
 ## 5a. Datensicherung (Datei zum Wiederherstellen)
 

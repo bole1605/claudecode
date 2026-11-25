@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<title>Ihr Bon</title>
+<style>
+  :root{--bg:#F2F2F7;--card:#fff;--label:#000;--label2:rgba(60,60,67,.6);--sep:rgba(60,60,67,.18);--blue:#007AFF;--red:#FF3B30}
+  @media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1C1C1E;--label:#fff;--label2:rgba(235,235,245,.6);--sep:rgba(84,84,88,.6);--blue:#0A84FF}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--label);font:17px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;padding:16px 16px 40px}
+  .bon{max-width:440px;margin:0 auto;background:var(--card);border-radius:20px;padding:22px 20px;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+  .c{text-align:center}.h1{font-weight:700;font-size:18px}.m{color:var(--label2);font-size:15px}
+  hr{border:0;border-top:1px dashed var(--sep);margin:14px 0}
+  .nr{font-weight:700;font-size:20px;text-align:center;letter-spacing:.5px}
+  table{width:100%;border-collapse:collapse}td{padding:4px 0;vertical-align:top}td.r{text-align:right;white-space:nowrap;padding-left:12px;font-variant-numeric:tabular-nums}
+  .sum td{font-weight:700;font-size:19px;padding-top:6px}
+  .void{color:var(--red);font-weight:700;text-align:center;margin:0 0 10px}
+  button{display:block;width:100%;margin:18px auto 0;min-height:50px;border:0;border-radius:14px;background:var(--blue);color:#fff;font-weight:600;font-size:17px;font-family:inherit}
+  .err{max-width:440px;margin:40px auto;text-align:center;color:var(--red)}
+  @media print{body{background:#fff;padding:0}.bon{box-shadow:none;border-radius:0}button{display:none}}
+</style>
+</head>
+<body>
+<div id="out"><p class="err" id="msg">Bon wird geladen …</p></div>
+<script src="logic.js"></script>
+<script>
+'use strict';
+const euro = c => (c / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pct = r => String(r).replace('.', ',') + ' %';
+(async () => {
+  const out = document.getElementById('out');
+  try {
+    const b = await Kasse.bonDecode(decodeURIComponent(location.hash.slice(1)));
+    if (!b || b.v !== 1 || !Array.isArray(b.L)) throw new Error('format');
+    const d = new Date(b.t), [name, addr, tax, foot] = b.h || [];
+    const lines = b.L.map(([n, q, p]) => `<tr><td>${q}× ${esc(n)}${q > 1 ? `<div class="m">à ${euro(p)}</div>` : ''}</td><td class="r">${euro(q * p)}</td></tr>`).join('');
+    const g = {}; b.L.forEach(([, q, p, r]) => { g[r] = (g[r] || 0) + q * p; });
+    const vat = b.x ? '<hr><div class="m">Enthaltene MwSt.:</div><table>' + Object.entries(g).sort((x, y) => x[0] - y[0]).map(([r, x]) => `<tr><td class="m">MwSt ${pct(r)} (brutto ${euro(x)})</td><td class="r m">${euro(Kasse.vatPart(x, +r))}</td></tr>`).join('') + '</table>' : '';
+    const pay = b.po ? `<tr><td>Ausgezahlt</td><td class="r">${euro(-b.tot)}</td></tr>`
+      : b.m === 'p' ? '<tr><td>Bezahlt mit PayPal</td><td class="r"></td></tr>'
+      : b.tot === 0 ? '' : `<tr><td>Bar gegeben</td><td class="r">${euro(b.giv)}</td></tr>${b.tip ? `<tr><td>Spende</td><td class="r">${euro(b.tip)}</td></tr>` : ''}<tr><td>Rückgeld</td><td class="r">${euro(b.chg)}</td></tr>`;
+    out.innerHTML = `<div class="bon">
+      ${name ? `<div class="c h1">${esc(name)}</div>` : ''}${addr ? `<div class="c m">${esc(addr).split(/\n|;/).map(x => x.trim()).filter(Boolean).join('<br>')}</div>` : ''}${tax ? `<div class="c m">${esc(tax)}</div>` : ''}
+      <hr><div class="nr">BON NR. ${String(b.n).padStart(4, '0')}</div>
+      <div class="c m">${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} · ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}<br>${esc(b.s)}</div>
+      <hr><table>${lines}</table><hr>
+      <table><tr class="sum"><td>SUMME</td><td class="r">${euro(b.tot)}</td></tr>${pay}</table>${vat}
+      ${foot ? `<hr><div class="c m">${esc(foot)}</div>` : ''}
+      <button onclick="window.print()">Als PDF speichern / Drucken</button></div>`;
+    document.title = 'Bon ' + String(b.n).padStart(4, '0');
+  } catch (e) {
+    out.innerHTML = '<p class="err">Dieser Bon-Link ist ungültig oder unvollständig.<br>Bitte den QR-Code erneut scannen.</p>';
+  }
+})();
+</script>
+</body>
+</html>

@@ -71,4 +71,22 @@ t('Sortiment-Umstellung (Burger, Pfand)', () => {
   assert.strictEqual(cat[0].groups[1].items[0].autoAdd, 'g-pfand');
   const again = JSON.stringify(cat); K.migrateCatalog(cat); assert.strictEqual(JSON.stringify(cat), again);   // zweimal ausführen ändert nichts
 });
-console.log(`\n${n} Rechentests bestanden (${dir})`);
+(async () => {
+  const sample = { v: 1, n: 7, t: 1764000000000, s: 'Burger & Spezi', m: 'b', tot: 1250, giv: 2000, tip: 150, chg: 600, po: 0, x: 1,
+    L: [['Maultaschen auf karamellisierten Zwiebeln – Vegi', 2, 600, 7], ['Paulaner Spezi', 1, 300, 19], ['Käse, süß & "scharf" ü', 1, 50, 7]],
+    h: ['Evangelische Kirchengemeinde Kleinglattbach', 'Kirchstraße 15; 71665 Vaihingen an der Enz', '', 'Vielen Dank!'] };
+  const s = await K.bonEncode(sample);
+  assert.deepStrictEqual(await K.bonDecode(s), sample);
+  assert.ok(/^[pz][A-Za-z0-9_-]+$/.test(s), 'nur URL-sichere Zeichen');
+  const big = { ...sample, L: Array.from({ length: 25 }, (_, i) => ['Artikel Nummer ' + i, 1 + (i % 3), 250 + i, 7]) };
+  const bs = await K.bonEncode(big);
+  assert.deepStrictEqual(await K.bonDecode(bs), big);
+  assert.ok(bs.length < 1800, 'langer Bon bleibt als QR-Code lesbar: ' + bs.length);
+  assert.ok(s.length < 700, 'normaler Bon ist kurz: ' + s.length);
+  n++; console.log('ok  Bon-Link kodieren und lesen (' + s.length + ' bzw. ' + bs.length + ' Zeichen)');
+  assert.ok(K.isEmail('kunde@example.de') && K.isEmail(' a.b+c@sub.example.com ') && !K.isEmail('abc') && !K.isEmail('a@b') && !K.isEmail('a b@c.de') && !K.isEmail('a@b.de, c@d.de') && !K.isEmail(''));
+  const m = K.mailtoUrl('kunde@example.de', 'Ihr Bon – Nr. 1', 'Zeile 1\nSumme 3,00 €');
+  assert.ok(m.startsWith('mailto:kunde@example.de?subject=Ihr%20Bon%20%E2%80%93%20Nr.%201&body=Zeile%201%0ASumme%203%2C00%20%E2%82%AC'), m);
+  n++; console.log('ok  E-Mail-Adresse prüfen und mailto-Link bauen');
+  console.log(`\n${n} Rechentests bestanden (${dir})`);
+})().catch(e => { console.error('FEHLER', e.message); process.exit(1); });

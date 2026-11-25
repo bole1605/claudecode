@@ -19,4 +19,5 @@
 | v15 | PayPal-Betrag ein-/ausschaltbar, Trinkgeld-Tasten addieren sich |
 | v16 | PayPal-QR-Inhalt wählbar, dokumentiertes Betragsformat |
 | v17 | Trinkgeld → Spende, Burger Vegi/Fleisch, Spezi-Pfand |
-| **v18** | **Offline-Betrieb repariert (Service Worker war seit v5 leer), Datensicherung (Datei) mit Wiederherstellen, Test- und Live-Version, automatische Tests, Fokus-Fehler in Eingabefenstern behoben, Bildschirm bleibt an, dauerhafter Speicher** |
+| v18 | **Offline-Betrieb repariert (Service Worker war seit v5 leer), Datensicherung (Datei) mit Wiederherstellen, Test- und Live-Version, automatische Tests, Fokus-Fehler in Eingabefenstern behoben, Bildschirm bleibt an, dauerhafter Speicher** |
+| **v19** | **Bon für den Kunden: QR-Code zur Online-Ansicht und E-Mail-Entwurf nach dem Verbuchen (in der Verwaltung ein-/ausschaltbar), Taste „QR / Mail“ in der Leiste und in der Buchungsliste** |

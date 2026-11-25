@@ -10,6 +10,7 @@ const server = http.createServer((q, r) => {
   r.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-store' }); fs.createReadStream(f).pipe(r);
 });
 let fails = 0, count = 0;
+const has = f => fs.existsSync(path.join(root, dir, f));   // neue Funktionen werden erst geprüft, wenn sie in der Version vorhanden sind (Live-Version später)
 async function test(name, fn) {
   count++; const errs = [];
   try { await fn(errs); if (errs.length) throw new Error('Fehler auf der Seite: ' + errs.join(' | ')); console.log('ok  ' + name); }
@@ -21,7 +22,7 @@ async function test(name, fn) {
   const browser = await chromium.launch();
   const open = async (errs, hash = '#burger', opts = {}) => {
     const ctx = await browser.newContext({ viewport: { width: 1180, height: 900 }, acceptDownloads: true, serviceWorkers: opts.sw ? 'allow' : 'block', ...opts.ctx });
-    const p = await ctx.newPage(); p.on('pageerror', e => errs.push(e.message)); if (opts.seed) await p.addInitScript(({ k, v }) => { if (!localStorage.getItem(k)) localStorage.setItem(k, v); }, { k: dir === 'kasse-test' ? 'kasse-test-v2' : 'kasse-v2', v: JSON.stringify(opts.seed) });
+    const p = await ctx.newPage(); p.on('pageerror', e => errs.push(e.message)); await p.addInitScript(({ k, v }) => { if (!localStorage.getItem(k)) localStorage.setItem(k, v); }, { k: dir === 'kasse-test' ? 'kasse-test-v2' : 'kasse-v2', v: JSON.stringify({ share: { on: !!opts.share }, ...(opts.seed || {}) }) });   // Bon-QR nur in den Tests, die ihn prüfen
     await p.goto(base + hash); p.ctx = ctx; return p;
   };
   const tap = (p, id) => p.dispatchEvent(`[data-add=${id}]`, 'pointerdown', { button: 0 });
@@ -156,6 +157,60 @@ async function test(name, fn) {
   await test('MwSt.-Rechner: Bon und Verwaltung', async errs => {
     const p = await open(errs); await tap(p, 'b-maul-v'); await tap(p, 'g-spezi'); await p.evaluate(() => { state.vat.on = true; update(); });
     const bon = await txt(p, '#bon-vat'); assert.ok(bon.includes('MwSt 7 %0,39 €') && bon.includes('MwSt 19 %'), bon); await p.ctx.close();
+  });
+
+  if (has('bon.html')) await test('Bon-QR: öffnet nach dem Verbuchen und führt zur Online-Ansicht des Bons', async errs => {
+    const p = await open(errs, '#burger', { share: true });
+    await tap(p, 'b-maul-v'); await tap(p, 'b-maul-v'); await tap(p, 'g-spezi');
+    await p.click('#pay'); await p.click('[data-quick="20"]'); await p.click('[data-tipq="50"]'); await p.click('#p-ok');
+    await p.waitForSelector('#share-dlg[open] #sh-qr img.qr');
+    assert.ok((await txt(p, '#sh-title')).includes('Bon #1'));
+    const png = PNG.sync.read(await p.locator('#sh-qr img').screenshot());
+    const r = jsQR(new Uint8ClampedArray(png.data), png.width, png.height);
+    assert.ok(r && r.data.startsWith(new URL(base).origin + '/' + dir + '/bon.html#'), 'QR-Inhalt: ' + (r && r.data));
+    const v = await p.ctx.newPage(); v.on('pageerror', x => errs.push(x.message));
+    await v.goto(r.data); await v.waitForSelector('.bon');
+    const t = await txt(v, '.bon');
+    for (const x of ['Evangelische Kirchengemeinde Kleinglattbach', 'BON NR. 0001', '2× Maultaschen auf karamellisierten Zwiebeln – Vegi', '12,00 €', '1× Paulaner Spezi'])
+      assert.ok(t.includes(x), x + ' fehlt: ' + t);
+    for (const re of [/SUMME\s*17,00 €/, /Spende\s*0,50 €/, /Rückgeld\s*2,50 €/]) assert.ok(re.test(t), re + ' fehlt: ' + t);
+    await p.click('#sh-done');
+    assert.ok(!(await p.evaluate(() => document.querySelector('#share-dlg').open)));
+    await p.ctx.close();
+  });
+
+  if (has('bon.html')) await test('Bon-QR aus: Bon wird trotzdem erzeugt und lässt sich per Taste öffnen', async errs => {
+    const p = await open(errs);
+    await tap(p, 'g-spezi'); await p.click('#pay'); await p.click('[data-quick="10"]'); await p.click('#p-ok');
+    await p.waitForSelector('#toast:not([hidden])');
+    assert.ok(!(await p.evaluate(() => document.querySelector('#share-dlg').open)), 'Dialog darf nicht von selbst aufgehen');
+    for (const b of ['QR / Mail', 'PDF', 'Drucken']) assert.ok((await txt(p, '#toast')).includes(b), b);
+    await p.click('#toast [data-share]'); await p.waitForSelector('#share-dlg[open] #sh-qr img.qr'); await p.click('#sh-done');
+    await admin(p, true);
+    assert.strictEqual(await p.isChecked('#share-toggle'), false);
+    assert.ok((await p.$$('#sales-list [data-share]')).length === 1 && (await p.$$('#sales-list [data-pdf]')).length === 1);
+    await p.click('.switch-row:has(#share-toggle)');
+    assert.strictEqual(await p.evaluate(() => state.share.on), true);
+    await p.click('#admin-close'); await tap(p, 'g-spezi'); await p.click('#pay'); await p.click('[data-quick="10"]'); await p.click('#p-ok');
+    await p.waitForSelector('#share-dlg[open]');
+    await p.ctx.close();
+  });
+
+  if (has('bon.html')) await test('Bon per E-Mail: Adresse wird geprüft, Entwurf enthält den Bon, nichts wird gespeichert', async errs => {
+    const p = await open(errs, '#burger', { share: true });
+    await tap(p, 'b-spezial-f'); await p.click('#pay'); await p.click('[data-quick="10"]'); await p.click('#p-ok');
+    await p.waitForSelector('#sh-qr img.qr');
+    await p.fill('#sh-mail', 'abc'); await p.click('#sh-send');
+    assert.ok((await txt(p, '#sh-err')).includes('gültige'));
+    const m = await p.evaluate(() => mailFor(shareSale, 'kunde@example.de'));
+    const d = decodeURIComponent(m);
+    assert.ok(m.startsWith('mailto:kunde@example.de?subject=') && d.includes('SUMME') && d.includes('Spezial-Maultaschenburger') && d.includes('bon.html#'), m.slice(0, 200));
+    await p.fill('#sh-mail', 'kunde@example.de'); await p.click('#sh-done');
+    assert.strictEqual(await p.inputValue('#sh-mail'), '');
+    assert.ok(!(await p.evaluate(() => JSON.stringify(localStorage))).includes('kunde@example.de'), 'E-Mail-Adresse darf nicht gespeichert werden');
+    const v = await p.ctx.newPage(); await v.goto(base.replace('index.html', 'bon.html') + '#kaputt');
+    assert.ok((await txt(v, 'body')).includes('ungültig'));
+    await p.ctx.close();
   });
 
   await browser.close(); server.close();
