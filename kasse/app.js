@@ -505,6 +505,7 @@ document.addEventListener('click', async e => {
   const t = e.target.closest('button'); if (!t) return;
   const D = t.dataset;
   if (D.edit || D.newitem || D.newgroup !== undefined || D.gren || D.gdel || D.gup || D.gdown || D.addstand !== undefined || D.renamestand !== undefined || D.delstand !== undefined || D.editdone !== undefined) return editAction(t);
+  if (t.id === 'pp-amount') return;
   if (t.id === 'vat-toggle' || t.id === 'rc-toggle' || t.id === 'tip-toggle') return;
   if (D.pdf) { sharePdf(+D.pdf); return; }
   if (D.print) { printBon(+D.print); return; }
