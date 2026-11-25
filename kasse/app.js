@@ -14,11 +14,15 @@ const DEFAULT_STANDS = [
   ]},
   { id: 'burger', label: 'Burger & Spezi', groups: [
     { name: 'Maultaschenburger', color: '#34C759', items: [
-      { id: 'b-maul', name: 'Maultaschen auf karamellisierten Zwiebeln', sub: 'Vegi- oder Fleischfüllung', price: 600 },
-      { id: 'b-spezial', name: 'Glabbicher Weihnachtsmarkt Spezial-Maultaschenburger', price: 750 },
+      { id: 'b-maul-v', name: 'Maultaschen auf karamellisierten Zwiebeln – Vegi', sub: 'Vegetarische Füllung', price: 600 },
+      { id: 'b-maul-f', name: 'Maultaschen auf karamellisierten Zwiebeln – Fleisch', sub: 'Fleischfüllung', price: 600 },
+      { id: 'b-spezial-v', name: 'Glabbicher Weihnachtsmarkt Spezial-Maultaschenburger – Vegi', sub: 'Vegetarische Füllung', price: 750 },
+      { id: 'b-spezial-f', name: 'Glabbicher Weihnachtsmarkt Spezial-Maultaschenburger – Fleisch', sub: 'Fleischfüllung', price: 750 },
     ]},
     { name: 'Getränke', color: '#30B0C7', items: [
-      { id: 'g-spezi', name: 'Paulaner Spezi', sub: '0,5 l', price: 300 },
+      { id: 'g-spezi', name: 'Paulaner Spezi', sub: '0,5 l', price: 300, autoAdd: 'g-pfand' },
+      { id: 'g-pfand', name: 'Pfand', sub: 'pro Flasche', price: 200, kind: 'pfand' },
+      { id: 'g-pfand-rueck', name: 'Pfand zurück', sub: 'wird ausgezahlt', price: -200, kind: 'pfand' },
     ]},
   ]},
   { id: 'karten', label: 'Karten', groups: [
@@ -33,14 +37,15 @@ const $ = s => document.querySelector(s);
 const euro = c => (c / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 const items = s => s.groups.flatMap(g => g.items);
 
-const defVat = id => (id === 'g-spezi' || id.startsWith('k-')) ? 19 : 7;
+const defVat = id => (id === 'g-spezi' || id.startsWith('k-') || id.startsWith('g-pfand')) ? 19 : 7;
+const isPfand = id => id.startsWith('g-pfand');
 const clone = o => JSON.parse(JSON.stringify(o));
 const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const PALETTE = ['#FF9F0A', '#34C759', '#30B0C7', '#FF3B30', '#AF52DE', '#5856D6', '#FF2D55', '#007AFF'];
 
 const RC_DEFAULT = { name: 'Evangelische Kirchengemeinde Kleinglattbach', addr: 'Kirchstraße 15; 71665 Vaihingen an der Enz', foot: 'Vielen Dank, Guten Appetit & frohe Weihnachten!' };
-let state = { rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
+let state = { mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
 try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
 let STANDS, ALL = {};
 function setCatalog(c) {
@@ -50,6 +55,28 @@ function setCatalog(c) {
   STANDS.forEach(s => s.groups.forEach(g => g.items.forEach(it => { ALL[it.id] = { ...it, stand: s.id }; })));
   if (!STANDS.some(s => s.id === state.stand)) state.stand = STANDS[0].id;
 }
+// Einmalige Umstellung gespeicherter Sortimente: Burger in Vegi/Fleisch teilen, Spezi mit Pfand
+function migrateCatalog(cat) {
+  for (const s of cat) for (const g of s.groups) {
+    const out = [];
+    for (const it of g.items) {
+      if (it.id === 'b-maul' || it.id === 'b-spezial') {
+        const base = it.name.replace(/\s+[–-]\s+(Vegi|Fleisch)$/, '');
+        out.push({ ...it, id: it.id + '-v', name: base + ' – Vegi', sub: 'Vegetarische Füllung' }, { ...it, id: it.id + '-f', name: base + ' – Fleisch', sub: 'Fleischfüllung' });
+      } else out.push(it);
+    }
+    g.items = out;
+    const sp = g.items.find(i => i.id === 'g-spezi');
+    if (sp) {
+      sp.autoAdd = 'g-pfand';
+      const at = g.items.indexOf(sp) + 1, all = cat.flatMap(x => x.groups.flatMap(y => y.items.map(i => i.id)));
+      if (!all.includes('g-pfand')) g.items.splice(at, 0, { id: 'g-pfand', name: 'Pfand', sub: 'pro Flasche', price: 200, kind: 'pfand' });
+      if (!all.includes('g-pfand-rueck')) g.items.splice(g.items.findIndex(i => i.id === 'g-pfand') + 1, 0, { id: 'g-pfand-rueck', name: 'Pfand zurück', sub: 'wird ausgezahlt', price: -200, kind: 'pfand' });
+    }
+  }
+}
+if (Array.isArray(state.catalog) && state.catalog.length && !state.mig17) migrateCatalog(state.catalog);
+state.mig17 = true;
 setCatalog(Array.isArray(state.catalog) && state.catalog.length ? state.catalog : clone(DEFAULT_STANDS));
 // Bon-Kopf: Vorgaben übernehmen, solange nichts Eigenes eingetragen ist
 if (!state.receipt.name && !state.receipt.addr) { state.receipt.name = RC_DEFAULT.name; state.receipt.addr = RC_DEFAULT.addr; }
@@ -105,7 +132,7 @@ function sold() { // verbuchte (nicht stornierte) Verkäufe; Preise/Namen stamme
     const P = perS[s.stand] = perS[s.stand] || {}, R = revS[s.stand] = revS[s.stand] || {};
     for (const [id, n] of Object.entries(s.lines)) {
       const pr = s.info && s.info[id] ? s.info[id].price : ALL[id] ? ALL[id].price : 0;
-      P[id] = (P[id] || 0) + n; R[id] = (R[id] || 0) + n * pr; cnt[s.stand] = (cnt[s.stand] || 0) + n;
+      P[id] = (P[id] || 0) + n; R[id] = (R[id] || 0) + n * pr; if (!isPfand(id)) cnt[s.stand] = (cnt[s.stand] || 0) + n;
       const v = vatOf(s.info, id); gr[v] = (gr[v] || 0) + n * pr; (grS[s.stand] = grS[s.stand] || {})[v] = ((grS[s.stand] || {})[v] || 0) + n * pr;
     }
   }
@@ -116,6 +143,11 @@ function cartAdd(id, d) {
   const c = cart();
   c[id] = (c[id] || 0) + d;
   if (c[id] <= 0) delete c[id];
+  const link = ALL[id] && ALL[id].autoAdd;   // z. B. Spezi → Pfand automatisch mit auf den Bon
+  if (link && ALL[link]) {
+    if (d > 0) c[link] = (c[link] || 0) + d;
+    else if (c[link] > 0) { c[link] += d; if (c[link] <= 0) delete c[link]; }
+  }
   save(); update();
 }
 
@@ -188,8 +220,9 @@ function update() {
   $('#bon-sum').textContent = euro(t);
   const bg = {}; for (const [id, n] of Object.entries(c)) if (ALL[id]) bg[ALL[id].vat] = (bg[ALL[id].vat] || 0) + n * ALL[id].price;
   $('#bon-vat').innerHTML = state.vat.on && t ? Object.entries(bg).sort((x, y) => x[0] - y[0]).map(([r, g]) => `<div><span>darin MwSt ${pct(r)}</span><span>${euro(vatPart(g, +r))}</span></div>`).join('') : '';
-  $('#pay').disabled = $('#clear').disabled = t === 0;
-  $('#pay').textContent = t ? `Bezahlen · ${euro(t)}` : 'Bezahlen';
+  const empty = !Object.keys(c).length;
+  $('#pay').disabled = $('#clear').disabled = empty;
+  $('#pay').textContent = empty ? 'Bezahlen' : t < 0 ? `Auszahlen · ${euro(-t)}` : t === 0 ? 'Verbuchen · 0,00 €' : `Bezahlen · ${euro(t)}`;
 }
 
 // --- Schnelles Tippen: Artikel landet schon beim Aufsetzen des Fingers auf dem Bon
@@ -232,8 +265,17 @@ function payUpdate() {
   const total = cartTotal(), g = parse(given), ch = $('#p-change'), pp = method === 'paypal', T = state.tip.on;
   const tp = Math.max(0, parse(tip) || 0);
   $('#p-total').textContent = euro(total);
+  const settle = total <= 0;   // nur Pfand-Rückgabe o. Ä.: nichts zu kassieren, ggf. auszahlen
+  $('#p-method').hidden = settle;
+  if (settle) {
+    ['#p-cash', '#p-given-b', '#p-tip-b', '#p-qr'].forEach(s => $(s).hidden = true);
+    ch.hidden = false; ch.className = 'change ok';
+    ch.innerHTML = `<span class="cap">${total < 0 ? 'Auszahlen' : 'Nichts zu zahlen'}</span><b>${euro(-total)}</b>`;
+    $('#p-ok').textContent = total < 0 ? 'Ausgezahlt · Verbuchen' : 'Verbuchen'; $('#p-ok').disabled = false; return;
+  }
   document.querySelectorAll('#p-method button').forEach(b => b.setAttribute('aria-selected', b.dataset.method === method));
   ['#p-cash', '#p-given-b', '#p-change'].forEach(s => $(s).hidden = pp);
+  $('#p-cash').hidden = pp;
   $('#p-tip-b').hidden = pp || !T; $('#p-tipq').hidden = !T;
   $('#p-qr').hidden = !pp;
   $('#p-ok').textContent = pp ? 'PayPal-Zahlung erhalten · Verbuchen' : 'Verbuchen';
@@ -251,11 +293,11 @@ function payUpdate() {
   ch.className = 'change';
   const need = total + (T ? tp : 0);
   if (g === null) ch.innerHTML = '<span class="cap">Rückgeld</span><b>–</b>';
-  else if (g >= need) { ch.classList.add('ok'); ch.innerHTML = `<span class="cap">Rückgeld${T && tp ? ' (nach Trinkgeld)' : ''}</span><b>${euro(g - need)}</b>`; }
+  else if (g >= need) { ch.classList.add('ok'); ch.innerHTML = `<span class="cap">Rückgeld${T && tp ? ' (nach Spende)' : ''}</span><b>${euro(g - need)}</b>`; }
   else { ch.classList.add('short'); ch.innerHTML = `<span class="cap">Es fehlen</span><b>${euro(need - g)}</b>`; }
   $('#p-ok').disabled = g === null || g < need;
 }
-function openPay() { if (!cartTotal()) return; given = ''; tip = ''; target = 'given'; method = 'bar'; payUpdate(); $('#pay-dlg').showModal(); }
+function openPay() { if (!Object.keys(cart()).length) return; given = ''; tip = ''; target = 'given'; method = 'bar'; payUpdate(); $('#pay-dlg').showModal(); }
 const fmtIn = c => (c / 100).toFixed(2).replace('.', ',').replace(/,00$/, '');
 function key(k) {
   let v = target === 'tip' ? tip : given;
@@ -271,7 +313,12 @@ function key(k) {
   payUpdate();
 }
 function book() {
-  const total = cartTotal(), pp = method === 'paypal', tp = pp || !state.tip.on ? 0 : Math.max(0, parse(tip) || 0), g = pp ? total : parse(given); if (g === null || g < total + tp) return;
+  const total = cartTotal();
+  if (total <= 0) { // Auszahlung (z. B. Pfand zurück) oder 0 €: bar, nichts einzunehmen
+    state.sales.push({ method: 'bar', n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: { ...cart() }, info: snap(cart()), total, given: 0, tip: 0, change: -total, payout: total < 0, void: false });
+    state.cart[state.stand] = {}; save(); update(); $('#pay-dlg').close(); buzz(); showToast(state.sales[state.sales.length - 1]); return;
+  }
+  const pp = method === 'paypal', tp = pp || !state.tip.on ? 0 : Math.max(0, parse(tip) || 0), g = pp ? total : parse(given); if (g === null || g < total + tp) return;
   state.sales.push({ method, n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: { ...cart() }, info: snap(cart()), total, given: g, tip: tp, change: g - total - tp, void: false });
   state.cart[state.stand] = {}; save(); update(); $('#pay-dlg').close(); buzz(); showToast(state.sales[state.sales.length - 1]);
 }
@@ -337,7 +384,7 @@ const fmtTS = t => new Date(t).toLocaleString('de-DE', { day: '2-digit', month: 
 const fmtT = t => new Date(t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 const lineText = s => Object.entries(s.lines).map(([id, n]) => `${n}× ${itemName(s, id)}`).join(', ');
 const standIds = () => { const ids = STANDS.map(s => s.id); state.sales.forEach(s => { if (!ids.includes(s.stand)) ids.push(s.stand); }); return ids; };
-// Kassenstand (Bargeld): Anfangsbestand + bar bezahlte Beträge + Trinkgeld; PayPal und stornierte Buchungen ändern ihn nicht
+// Kassenstand (Bargeld): Anfangsbestand + bar bezahlte Beträge + Spenden; PayPal und stornierte Buchungen ändern ihn nicht
 function cashSeries() {
   let bal = state.cash.start, sales = 0, tips = 0; const m = {};
   for (const s of state.sales) {
@@ -366,13 +413,13 @@ function renderAdmin() {
   $('#cash-card').innerHTML = `<h3>Kassenstand (Bargeld)</h3>
     <div class="sum-row"><span>Anfangsbestand</span><span>${state.cash.at ? 'festgelegt am ' + fmtTS(state.cash.at) : 'noch nicht festgelegt'}</span><b>${euro(state.cash.start)}</b></div>
     <div class="sum-row"><span>+ Barverkäufe</span><span></span><b>${euro(cs.sales)}</b></div>
-    <div class="sum-row"><span>+ Trinkgeld</span><span></span><b>${euro(cs.tips)}</b></div>
+    <div class="sum-row"><span>+ Spenden</span><span></span><b>${euro(cs.tips)}</b></div>
     <div class="sum-row total"><span>Aktuell in der Kasse</span><span>PayPal ist nicht enthalten</span><b>${euro(cs.bal)}</b></div>
     <button class="btn" id="cash-start">Anfangsbestand festlegen</button>`;
   $('#admin-summary').innerHTML = '<h3>Zwischenstand dieses Geräts</h3>' + standIds().map(id => {
     const k = state.sales.filter(x => x.stand === id), g = k.filter(x => !x.void).length, v = k.length - g;
     return `<div class="sum-row"><span>${esc(labelOf(id))}</span><span>${g} ${g === 1 ? 'Buchung' : 'Buchungen'} · ${cnt[id] || 0} Artikel${v ? ` · ${v} storniert` : ''}</span><b>${euro(rev[id] || 0)}</b></div>${state.vat.on && grS[id] ? `<div class="vat-sub">${vatText(grS[id]).text}</div>` : ''}`;
-  }).join('') + `<div class="sum-row total"><span>Gesamt</span><span>Bar ${euro(pay.bar)} · PayPal ${euro(pay.paypal)}${pay.tip ? ` · Trinkgeld ${euro(pay.tip)} (nicht enthalten)` : ''}</span><b>${euro(Object.values(rev).reduce((a, b) => a + b, 0))}</b></div>`;
+  }).join('') + `<div class="sum-row total"><span>Gesamt</span><span>Bar ${euro(pay.bar)} · PayPal ${euro(pay.paypal)}${pay.tip ? ` · Spenden ${euro(pay.tip)} (nicht enthalten)` : ''}</span><b>${euro(Object.values(rev).reduce((a, b) => a + b, 0))}</b></div>`;
   $('#restore').hidden = !state.backup;
   const saleVat = s => { const g = {}; for (const [id, n] of Object.entries(s.lines)) { const pr = s.info && s.info[id] ? s.info[id].price : ALL[id] ? ALL[id].price : 0, r = vatOf(s.info, id); g[r] = (g[r] || 0) + n * pr; } return vatText(g).vat; };
   const list = [...state.sales].reverse();
@@ -381,8 +428,8 @@ function renderAdmin() {
       <div class="sale-main">
         <div class="sale-head"><b>#${s.n}</b> · ${fmtTS(s.t)} · ${esc(labelOf(s.stand))}${s.method === 'paypal' ? ' · <span class="tag pp">PayPal</span>' : ''}${s.void ? ' · <span class="tag">storniert</span>' : ''}</div>
         <div class="sale-lines">${esc(lineText(s))}</div>
-        <div class="sale-cash">${s.void ? 'storniert – Kassenstand unverändert' : s.method === 'paypal' ? 'PayPal – Kassenstand unverändert' : `Kasse +${euro(s.total + (s.tip || 0))}`} → <b>${euro(cs.m[s.n])}</b></div>
-        <div class="sale-pay">${s.note ? esc(s.note) : s.method === 'paypal' ? 'Bezahlt mit PayPal' : `Gegeben ${euro(s.given)}${s.tip ? ` · Trinkgeld ${euro(s.tip)}` : ''} · Rückgeld ${euro(s.change)}`}${state.vat.on ? ` · MwSt ${euro(saleVat(s))}` : ''}</div>
+        <div class="sale-cash">${s.void ? 'storniert – Kassenstand unverändert' : s.method === 'paypal' ? 'PayPal – Kassenstand unverändert' : `Kasse ${s.total + (s.tip || 0) < 0 ? '−' : '+'}${euro(Math.abs(s.total + (s.tip || 0)))}`} → <b>${euro(cs.m[s.n])}</b></div>
+        <div class="sale-pay">${s.note ? esc(s.note) : s.method === 'paypal' ? 'Bezahlt mit PayPal' : s.payout ? `Ausgezahlt ${euro(-s.total)}` : `Gegeben ${euro(s.given)}${s.tip ? ` · Spende ${euro(s.tip)}` : ''} · Rückgeld ${euro(s.change)}`}${state.vat.on ? ` · MwSt ${euro(saleVat(s))}` : ''}</div>
       </div>
       <b class="sale-sum">${euro(s.total)}</b>
       <div class="sale-btns">${state.receipt.on ? `<button class="btn" data-pdf="${s.n}">PDF</button><button class="btn" data-print="${s.n}">Drucken</button>` : ''}
@@ -408,9 +455,9 @@ async function exportFile() {
     }
     rows.push(row([labelOf(sid), 'SUMME', '', '', num(rev[sid] || 0)].concat(V ? ['', num(vatText(grS[sid] || {}).vat)] : []))); all += rev[sid] || 0;
   }
-  rows.push(row(['', 'GESAMT (dieses Gerät)', '', '', num(all)]), row(['', 'davon Bar', '', '', num(payTotals().bar)]), row(['', 'davon PayPal', '', '', num(payTotals().paypal)]), row(['', 'Trinkgeld gesamt (nicht im Umsatz)', '', '', num(payTotals().tip)]), row(['', 'Kassenstand Anfang (Bargeld)', '', '', num(state.cash.start)]), row(['', 'Kassenstand aktuell (Bargeld, ohne PayPal)', '', '', num(cs.bal)]), row(['Stand der Daten', stamp]));
+  rows.push(row(['', 'GESAMT (dieses Gerät)', '', '', num(all)]), row(['', 'davon Bar', '', '', num(payTotals().bar)]), row(['', 'davon PayPal', '', '', num(payTotals().paypal)]), row(['', 'Spenden gesamt (nicht im Umsatz)', '', '', num(payTotals().tip)]), row(['', 'Kassenstand Anfang (Bargeld)', '', '', num(state.cash.start)]), row(['', 'Kassenstand aktuell (Bargeld, ohne PayPal)', '', '', num(cs.bal)]), row(['Stand der Daten', stamp]));
   if (V) { rows.push('', row(['Mehrwertsteuer', 'Satz', 'Brutto (€)', 'Netto (€)', 'MwSt (€)'])); for (const r of Object.keys(gr).sort((x, y) => x - y)) rows.push(row(['', pct(r), num(gr[r]), num(gr[r] - vatPart(gr[r], +r)), num(vatPart(gr[r], +r))])); const T = vatText(gr); rows.push(row(['', 'GESAMT', num(all), num(T.net), num(T.vat)])); }
-  rows.push('', row(['Bon-Nr.', 'Zeit', 'Stand', 'Artikel', 'Summe (€)', 'Gegeben (€)', 'Rückgeld (€)', 'Status', 'Zahlart', 'Trinkgeld (€)', 'Kassenstand danach (€)'].concat(V ? ['MwSt (€)'] : [])));
+  rows.push('', row(['Bon-Nr.', 'Zeit', 'Stand', 'Artikel', 'Summe (€)', 'Gegeben (€)', 'Rückgeld (€)', 'Status', 'Zahlart', 'Spende (€)', 'Kassenstand danach (€)'].concat(V ? ['MwSt (€)'] : [])));
   for (const s of state.sales) rows.push(row([s.n, fmtTS(s.t), labelOf(s.stand), lineText(s), num(s.total), num(s.given), num(s.change), s.void ? 'storniert' : 'gültig', s.method === 'paypal' ? 'PayPal' : 'Bar', num(s.tip || 0), num(cs.m[s.n])].concat(V ? [num((() => { const g = {}; for (const [id, n] of Object.entries(s.lines)) { const pr = s.info && s.info[id] ? s.info[id].price : ALL[id] ? ALL[id].price : 0, r = vatOf(s.info, id); g[r] = (g[r] || 0) + n * pr; } return vatText(g).vat; })())] : [])));
   const name = `kasse-${stamp.replace(' ', '-').replace(':', '')}.csv`;
   const file = new File(['\ufeff' + rows.join('\r\n')], name, { type: 'text/csv' });
@@ -437,25 +484,29 @@ function openItem(id, gid) {
   editItemId = id; editGroupId = gid;
   const it = id ? ALL[id] : { name: '', sub: '', price: 0, vat: 7 };
   $('#i-vat').value = String(it.vat);
+  const pf = ALL['g-pfand'] && id !== 'g-pfand' && id !== 'g-pfand-rueck';
+  $('#i-auto-l').hidden = !pf; $('#i-auto').value = pf && it.autoAdd ? it.autoAdd : '';
   const g = id ? stand().groups.find(x => x.items.some(i => i.id === id)) : findGroup(gid);
   $('#i-title').textContent = id ? 'Produkt bearbeiten' : 'Neues Produkt';
   $('#i-name').value = it.name; $('#i-sub').value = it.sub || '';
-  $('#i-price').value = id ? (it.price / 100).toFixed(2).replace('.', ',') : '';
+  $('#i-price').value = id ? (Math.abs(it.price) / 100).toFixed(2).replace('.', ',') : '';
   $('#i-group').innerHTML = stand().groups.map(x => `<option value="${x.id}" ${g && x.id === g.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
   $('#i-del').hidden = !id; $('#i-err').textContent = '';
   $('#item-dlg').showModal(); if (!id) setTimeout(() => $('#i-name').focus(), 50);
 }
 $('#item-form').addEventListener('submit', e => {
   e.preventDefault();
-  const name = $('#i-name').value.trim(), sub = $('#i-sub').value.trim(), price = parse($('#i-price').value.trim()), gid = $('#i-group').value, vat = +$('#i-vat').value;
+  const name = $('#i-name').value.trim(), sub = $('#i-sub').value.trim(), price = parse($('#i-price').value.trim()), gid = $('#i-group').value, vat = +$('#i-vat').value, auto = $('#i-auto').value;
   if (!name) { $('#i-err').textContent = 'Bitte einen Namen eingeben'; return; }
   if (price === null || price < 0) { $('#i-err').textContent = 'Bitte einen Preis eingeben, z. B. 3,50'; return; }
   const target = findGroup(gid);
   if (editItemId) {
     const from = stand().groups.find(x => x.items.some(i => i.id === editItemId)), it = from.items.find(i => i.id === editItemId);
-    Object.assign(it, { name, price, vat }); if (sub) it.sub = sub; else delete it.sub;
+    Object.assign(it, { name, price: editItemId === 'g-pfand-rueck' ? -Math.abs(price) : price, vat }); if (sub) it.sub = sub; else delete it.sub;
+    if (auto) it.autoAdd = auto; else delete it.autoAdd;
+    if (editItemId === 'g-pfand') STANDS.forEach(s => s.groups.forEach(g => g.items.forEach(i => { if (i.id === 'g-pfand-rueck') i.price = -price; }))); // Rückgabe = Pfand
     if (from !== target) { from.items.splice(from.items.indexOf(it), 1); target.items.push(it); }
-  } else target.items.push(sub ? { id: uid('i'), name, sub, price, vat } : { id: uid('i'), name, price, vat });
+  } else { const n = { id: uid('i'), name, price, vat }; if (sub) n.sub = sub; if (auto) n.autoAdd = auto; target.items.push(n); }
   $('#item-dlg').close(); commit();
 });
 $('#i-cancel').addEventListener('click', () => $('#item-dlg').close());
@@ -598,7 +649,9 @@ function receiptLines(s) {
   }
   hr(); lr('SUMME', money(s.total), true);
   if (s.method === 'paypal') lr('Bezahlt mit PayPal', money(s.total));
-  else if (!s.note) { lr('Bar gegeben', money(s.given)); if (s.tip) lr('Trinkgeld', money(s.tip)); lr('Rückgeld', money(s.change)); }
+  else if (s.payout) lr('Ausgezahlt', money(-s.total));
+  else if (s.total === 0) { /* nichts zu zahlen */ }
+  else if (!s.note) { lr('Bar gegeben', money(s.given)); if (s.tip) lr('Spende', money(s.tip)); lr('Rückgeld', money(s.change)); }
   if (state.vat.on) {
     hr(); l('Enthaltene MwSt.:'); const T = vatText(g);
     Object.entries(g).sort((x, y) => x[0] - y[0]).forEach(([r, x]) => lr(`  MwSt ${pct(r)} (brutto ${money(x)})`, money(vatPart(x, +r))));
