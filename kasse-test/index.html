@@ -15,14 +15,14 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=20">
+<link rel="stylesheet" href="styles.css?v=21">
 </head>
 <body>
 <div class="app">
   <header class="top">
     <h1 id="title">Kasse</h1>
     <div class="segmented" role="tablist" aria-label="Stand wählen" id="tabs"></div>
-    <div class="top-spacer"><span class="ver">v20</span></div>
+    <div class="top-spacer"><span class="ver">v21</span></div>
   </header>
 
   <div class="edit-bar" id="edit-bar" hidden></div>
@@ -161,6 +161,39 @@
   </div>
 </div>
 
+<dialog id="cs-dlg" class="form-dlg cs-dlg">
+  <h2>Kassensturz</h2>
+  <div id="cs-before">
+    <p class="sh-hint">Zähle das Bargeld in der Kasse und trage die Stückzahlen ein (ohne PayPal).</p>
+    <div class="cs-grid" id="cs-grid"></div>
+    <div class="cs-sum">Gezählt <b id="cs-ist"></b> · Soll <b id="cs-soll"></b> · <b id="cs-diff"></b></div>
+    <label>Bemerkung (optional, z. B. „Mittag“)<input id="cs-note" autocomplete="off"></label>
+    <div class="dlg-actions">
+      <button type="button" class="btn" id="cs-cancel">Abbrechen</button>
+      <button type="button" class="btn primary" id="cs-save">Kassensturz speichern</button>
+    </div>
+  </div>
+  <div id="cs-after" hidden>
+    <p id="cs-result" class="cs-result"></p>
+    <div class="sh-row"><button type="button" class="btn" id="cs-pdf">Kassenbericht (PDF)</button><button type="button" class="btn" id="cs-print">Drucken</button></div>
+    <button type="button" class="btn primary sh-done" id="cs-done">Fertig</button>
+  </div>
+</dialog>
+
+<dialog id="mv-dlg" class="form-dlg">
+  <form id="mv-form">
+    <h2>Einlage / Entnahme</h2>
+    <div class="segmented" id="mv-seg" style="width:fit-content;margin:0 auto 14px"><button type="button" data-kind="ein" aria-selected="true">Einlage</button><button type="button" data-kind="ent" aria-selected="false">Entnahme</button></div>
+    <label>Betrag in €<input id="mv-amt" inputmode="decimal" autocomplete="off" placeholder="50"></label>
+    <label>Bemerkung (optional, z. B. „Wechselgeld“ oder „zur Bank“)<input id="mv-note" autocomplete="off"></label>
+    <p class="err" id="mv-err"></p>
+    <div class="dlg-actions">
+      <button type="button" class="btn" id="mv-cancel">Abbrechen</button>
+      <button type="submit" class="btn primary">Buchen</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="share-dlg" class="form-dlg">
   <h2 id="sh-title">Bon</h2>
   <div id="sh-qr" class="sh-qr"></div>
@@ -235,8 +268,8 @@
 <div id="toast" class="toast" hidden></div>
 <pre id="print-area"></pre>
 
-<script src="qrcode.js?v=20"></script>
-<script src="logic.js?v=20"></script>
-<script src="app.js?v=20"></script>
+<script src="qrcode.js?v=21"></script>
+<script src="logic.js?v=21"></script>
+<script src="app.js?v=21"></script>
 </body>
 </html>

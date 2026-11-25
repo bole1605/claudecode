@@ -21,4 +21,5 @@
 | v17 | Trinkgeld → Spende, Burger Vegi/Fleisch, Spezi-Pfand |
 | v18 | **Offline-Betrieb repariert (Service Worker war seit v5 leer), Datensicherung (Datei) mit Wiederherstellen, Test- und Live-Version, automatische Tests, Fokus-Fehler in Eingabefenstern behoben, Bildschirm bleibt an, dauerhafter Speicher** |
 | v19 | **Bon für den Kunden: QR-Code zur Online-Ansicht und E-Mail-Entwurf nach dem Verbuchen (in der Verwaltung ein-/ausschaltbar), Taste „QR / Mail“ in der Leiste und in der Buchungsliste** |
-| **v20** | **Lesbarkeit und Ruhe:** Preis und Name in kräftigem Schwarz, Zähler erst ab 1 (Schwarz oder Weiß je nach Farbe), Karten in Indigo statt Rot, Tablet auf einen Stand festlegbar (Reiter ausgeblendet), Wischen zählt nicht als Verkauf, Raster so, dass die Burger-Seite ohne Scrollen passt** |
+| v20 | **Lesbarkeit und Ruhe:** Preis und Name in kräftigem Schwarz, Zähler erst ab 1 (Schwarz oder Weiß je nach Farbe), Karten in Indigo statt Rot, Tablet auf einen Stand festlegbar (Reiter ausgeblendet), Wischen zählt nicht als Verkauf, Raster so, dass die Burger-Seite ohne Scrollen passt** |
+| **v21** | **Kassensturz** (Stückelung zählen, Differenz zum Soll, Protokoll), **Einlagen/Entnahmen**, **Kassenbericht** als A4-PDF und zum Drucken, auch in CSV und Sicherung |
