@@ -10,7 +10,8 @@ const server = http.createServer((q, r) => {
   r.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-store' }); fs.createReadStream(f).pipe(r);
 });
 let fails = 0, count = 0;
-const has = f => fs.existsSync(path.join(root, dir, f));   // neue Funktionen werden erst geprüft, wenn sie in der Version vorhanden sind (Live-Version später)
+const has = f => fs.existsSync(path.join(root, dir, f));
+const feat = s => fs.readFileSync(path.join(root, dir, 'app.js'), 'utf8').includes(s);   // Funktion im Code vorhanden? (Tests für neue Funktionen laufen erst, wenn die Version sie hat)   // neue Funktionen werden erst geprüft, wenn sie in der Version vorhanden sind (Live-Version später)
 async function test(name, fn) {
   count++; const errs = [];
   try { await fn(errs); if (errs.length) throw new Error('Fehler auf der Seite: ' + errs.join(' | ')); console.log('ok  ' + name); }
@@ -213,7 +214,7 @@ async function test(name, fn) {
     await p.ctx.close();
   });
 
-  if (has('logic.js') && dir === 'kasse-test') await test('Design: Zähler erst ab 1, Preis kräftig, Farbe mit Kontrast, Karten nicht mehr rot', async errs => {
+  if (feat('mig20')) await test('Design: Zähler erst ab 1, Preis kräftig, Farbe mit Kontrast, Karten nicht mehr rot', async errs => {
     const p = await open(errs);
     assert.strictEqual(await p.evaluate(() => getComputedStyle(document.querySelector('[data-count="b-maul-v"]')).display), 'none');
     await tap(p, 'b-maul-v');
@@ -225,12 +226,12 @@ async function test(name, fn) {
     await p.ctx.close();
   });
 
-  if (has('logic.js') && dir === 'kasse-test') await test('Rote Kategorie aus altem Sortiment wird zu Indigo', async errs => {
+  if (feat('mig20')) await test('Rote Kategorie aus altem Sortiment wird zu Indigo', async errs => {
     const p = await open(errs, '#karten', { seed: { mig17: true, stand: 'karten', catalog: [{ id: 'karten', label: 'Karten', groups: [{ id: 'k1', name: 'Karten', color: '#FF3B30', items: [{ id: 'k-1', name: 'Eine Karte', price: 300, vat: 19 }] }] }] } });
     assert.strictEqual(await p.evaluate(() => STANDS[0].groups[0].color), '#5856D6'); await p.ctx.close();
   });
 
-  if (has('logic.js') && dir === 'kasse-test') await test('Gerät auf einen Stand festlegen: keine Reiter, Link und Neustart ändern nichts', async errs => {
+  if (feat('mig20')) await test('Gerät auf einen Stand festlegen: keine Reiter, Link und Neustart ändern nichts', async errs => {
     const p = await open(errs, '#burger'); await admin(p, true);
     await p.selectOption('#lock-select', 'karten'); await p.click('#admin-close');
     assert.strictEqual(await p.isHidden('#tabs'), true); assert.strictEqual(await txt(p, '#title'), 'Karten');
@@ -241,7 +242,7 @@ async function test(name, fn) {
     await p.ctx.close();
   });
 
-  if (has('logic.js') && dir === 'kasse-test') await test('Wischen zählt nicht als Verkauf, wenn die Seite gescrollt werden muss', async errs => {
+  if (feat('mig20')) await test('Wischen zählt nicht als Verkauf, wenn die Seite gescrollt werden muss', async errs => {
     const p = await open(errs); const s = '[data-add=b-maul-v]', n = () => p.evaluate(() => (cart()['b-maul-v'] || 0));
     await p.evaluate(() => { $('#main').style.maxHeight = '260px'; $('#main').style.overflow = 'auto'; });   // Seite länger als der Bildschirm
     assert.strictEqual(await p.evaluate(() => scrollable()), true);
@@ -255,7 +256,7 @@ async function test(name, fn) {
     await p.ctx.close();
   });
 
-  if (dir === 'kasse-test') await test('Kassensturz und Kassenbericht: Einlage/Entnahme, Zählen, Differenz, PDF', async errs => {
+  if (feat('cs-open')) await test('Kassensturz und Kassenbericht: Einlage/Entnahme, Zählen, Differenz, PDF', async errs => {
     const p = await open(errs);
     await admin(p, true);
     await p.click('#cash-start'); await p.fill('#t-input', '100'); await p.press('#t-input', 'Enter'); await p.waitForTimeout(150);
