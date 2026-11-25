@@ -3,8 +3,8 @@
 ## Zwei Versionen
 | Ordner | Adresse | Zweck |
 |---|---|---|
-| `kasse-test/` | `…/claudecode/kasse-test/` | **Testversion.** Hier entstehen alle Änderungen. Oben orangefarbener Balken „TESTVERSION“, eigener Speicher (keine echten Buchungen). |
-| `kasse/` | `…/claudecode/kasse/` | **Live-Version** für die Helfer am Markt. Wird nur durch eine Freigabe verändert. |
+| `kasse-test/` | `https://bole1605.github.io/code/kasse-test/` | **Testversion.** Hier entstehen alle Änderungen. Oben orangefarbener Balken „TESTVERSION“, eigener Speicher (keine echten Buchungen). |
+| `kasse/` | `https://bole1605.github.io/code/kasse/` | **Live-Version** für die Helfer am Markt. Wird nur durch eine Freigabe verändert. |
 
 Beide Versionen liegen auf derselben Domain, haben aber getrennte Speicher und getrennte Caches. Testbuchungen landen also nie in der Live-Kasse.
 
