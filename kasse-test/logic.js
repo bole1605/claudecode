@@ -93,5 +93,23 @@ function makePdf(lines) {
   const u = new Uint8Array(out.length); for (let i = 0; i < out.length; i++) u[i] = out.charCodeAt(i) & 255; return u;
 }
 
-  return { parse, vatPart, normalizeLink, migrateCatalog, ppEmbeds, paypalUrl, calcPay, cashSeries, payTotals, enc, wrapText, makePdf };
+// --- Bon als Link: Bon-Daten komprimiert im Teil nach dem „#“ (wird nie an einen Server geschickt)
+const b64u = {
+  enc: bytes => { let s = ''; for (const b of bytes) s += String.fromCharCode(b); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); },
+  dec: str => { str = str.replace(/-/g, '+').replace(/_/g, '/'); while (str.length % 4) str += '='; const s = atob(str), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
+};
+async function pipe(bytes, stream) { const w = stream.writable.getWriter(); w.write(bytes); w.close(); return new Uint8Array(await new Response(stream.readable).arrayBuffer()); }
+async function bonEncode(obj) {
+  const raw = new TextEncoder().encode(JSON.stringify(obj)), plain = 'p' + b64u.enc(raw);
+  if (typeof CompressionStream === 'undefined') return plain;
+  try { const z = 'z' + b64u.enc(await pipe(raw, new CompressionStream('deflate-raw'))); return z.length < plain.length ? z : plain; } catch (e) { return plain; }
+}
+async function bonDecode(str) {
+  const bytes = b64u.dec(str.slice(1)), raw = str[0] === 'z' ? await pipe(bytes, new DecompressionStream('deflate-raw')) : bytes;
+  return JSON.parse(new TextDecoder().decode(raw));
+}
+const isEmail = s => /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]{2,}$/.test(String(s || '').trim());
+const mailtoUrl = (to, subject, body) => 'mailto:' + String(to).trim() + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+
+  return { bonEncode, bonDecode, isEmail, mailtoUrl, parse, vatPart, normalizeLink, migrateCatalog, ppEmbeds, paypalUrl, calcPay, cashSeries, payTotals, enc, wrapText, makePdf };
 });

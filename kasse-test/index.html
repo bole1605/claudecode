@@ -15,14 +15,14 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=18">
+<link rel="stylesheet" href="styles.css?v=19">
 </head>
 <body>
 <div class="app">
   <header class="top">
     <h1 id="title">Kasse</h1>
     <div class="segmented" role="tablist" aria-label="Stand wählen" id="tabs"></div>
-    <div class="top-spacer"><span class="ver">v18</span></div>
+    <div class="top-spacer"><span class="ver">v19</span></div>
   </header>
 
   <div class="edit-bar" id="edit-bar" hidden></div>
@@ -118,6 +118,8 @@
     <section class="card switch-card">
       <label class="switch-row"><span><b>Bons (PDF &amp; Druck)</b><small>Nach dem Verbuchen erscheint „PDF“ und „Drucken“. Jeder Bon trägt Nummer, Datum und Uhrzeit mit Sekunden.</small></span>
       <input type="checkbox" role="switch" id="rc-toggle"></label>
+      <label class="switch-row" style="margin-top:14px"><span><b>QR-Code / E-Mail nach dem Verbuchen</b><small>Nach jedem Verbuchen öffnet sich sofort der Bon als QR-Code (Online-Ansicht) mit Feld für die E-Mail-Adresse. Aus: Der Bon wird weiter erzeugt, du öffnest ihn bei Bedarf mit „QR / Mail“, „PDF“ oder „Drucken“ unten bzw. in der Buchungsliste.</small></span>
+      <input type="checkbox" role="switch" id="share-toggle"></label>
       <button class="btn" id="rc-head">Bon-Kopf und Fußzeile festlegen</button>
     </section>
     <section class="card switch-card">
@@ -153,6 +155,22 @@
     <section class="card" id="sales-list"></section>
   </div>
 </div>
+
+<dialog id="share-dlg" class="form-dlg">
+  <h2 id="sh-title">Bon</h2>
+  <div id="sh-qr" class="sh-qr"></div>
+  <p class="sh-hint">Der Kunde scannt den QR-Code mit der Handy-Kamera und sieht den Bon online.</p>
+  <label>Oder per E-Mail (Adresse wird nicht gespeichert)
+    <input id="sh-mail" type="email" inputmode="email" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="name@beispiel.de">
+  </label>
+  <p class="err" id="sh-err"></p>
+  <div class="sh-row">
+    <button type="button" class="btn" id="sh-send">E-Mail vorbereiten</button>
+    <button type="button" class="btn" id="sh-pdf">PDF</button>
+    <button type="button" class="btn" id="sh-print">Drucken</button>
+  </div>
+  <button type="button" class="btn primary sh-done" id="sh-done" autofocus>Fertig – nächster Kunde</button>
+</dialog>
 
 <dialog id="rc-dlg" class="form-dlg">
   <form id="rc-form">
@@ -212,8 +230,8 @@
 <div id="toast" class="toast" hidden></div>
 <pre id="print-area"></pre>
 
-<script src="qrcode.js?v=18"></script>
-<script src="logic.js?v=18"></script>
-<script src="app.js?v=18"></script>
+<script src="qrcode.js?v=19"></script>
+<script src="logic.js?v=19"></script>
+<script src="app.js?v=19"></script>
 </body>
 </html>

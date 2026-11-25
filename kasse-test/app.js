@@ -33,7 +33,7 @@ const DEFAULT_STANDS = [
     ]},
   ]},
 ];
-const VERSION = 18;
+const VERSION = 19;
 // Fokus ins erste Feld – aber nur, wenn die Eingabe nicht schon in einem anderen Feld des Fensters begonnen hat
 const focusFirst = sel => setTimeout(() => { const el = document.querySelector(sel), d = el.closest('dialog'); if (!d.contains(document.activeElement) || document.activeElement === d) el.focus(); }, 50);
 // Test- und Live-Version liegen auf derselben Domain: getrennter Speicher, damit sich die Daten nie vermischen
@@ -51,7 +51,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const PALETTE = ['#FF9F0A', '#34C759', '#30B0C7', '#FF3B30', '#AF52DE', '#5856D6', '#FF2D55', '#007AFF'];
 
 const RC_DEFAULT = { name: 'Evangelische Kirchengemeinde Kleinglattbach', addr: 'Kirchstraße 15; 71665 Vaihingen an der Enz', foot: 'Vielen Dank, Guten Appetit & frohe Weihnachten!' };
-let state = { lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
+let state = { share: { on: true }, lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
 try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
 let STANDS, ALL = {};
 function setCatalog(c) {
@@ -215,9 +215,9 @@ let given = '', tip = '', target = 'given', method = 'bar';
 const ppEmbeds = () => Kasse.ppEmbeds(state.paypal, state.ppMode);
 const paypalUrl = total => Kasse.paypalUrl(state.paypal, state.ppMode, total);
 // QR als Bild (GIF-Data-URL) statt SVG: sieht auf allen Browsern gleich aus, auch auf älteren iPads
-function qrImg(url, target) {
+function qrImg(url, target, level) {
   try {
-    const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+    const qr = qrcode(0, level || 'M'); qr.addData(url); qr.make();
     const n = qr.getModuleCount(), cell = Math.max(3, Math.floor(target / (n + 8))), size = (n + 8) * cell;
     return `<img class="qr" alt="QR-Code" src="${qr.createDataURL(cell, cell * 4)}" width="${size}" height="${size}">`;
   } catch (e) { return ''; }
@@ -278,11 +278,11 @@ function book() {
   const total = cartTotal();
   if (total <= 0) { // Auszahlung (z. B. Pfand zurück) oder 0 €: bar, nichts einzunehmen
     state.sales.push({ method: 'bar', n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: { ...cart() }, info: snap(cart()), total, given: 0, tip: 0, change: -total, payout: total < 0, void: false });
-    state.cart[state.stand] = {}; save(); update(); $('#pay-dlg').close(); buzz(); showToast(state.sales[state.sales.length - 1]); return;
+    state.cart[state.stand] = {}; save(); update(); $('#pay-dlg').close(); buzz(); afterBook(state.sales[state.sales.length - 1]); return;
   }
   const pp = method === 'paypal', cp = Kasse.calcPay(total, given, tip, state.tip.on), tp = pp ? 0 : cp.tp, g = pp ? total : cp.g; if (!pp && !cp.ok) return;
   state.sales.push({ method, n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: { ...cart() }, info: snap(cart()), total, given: g, tip: tp, change: g - total - tp, void: false });
-  state.cart[state.stand] = {}; save(); update(); $('#pay-dlg').close(); buzz(); showToast(state.sales[state.sales.length - 1]);
+  state.cart[state.stand] = {}; save(); update(); $('#pay-dlg').close(); buzz(); afterBook(state.sales[state.sales.length - 1]);
 }
 
 // --- Bestätigungsdialog
@@ -353,6 +353,7 @@ function renderAdmin() {
   const { rev, cnt, gr, grS } = sold();
   $('#vat-toggle').checked = state.vat.on;
   $('#rc-toggle').checked = state.receipt.on;
+  $('#share-toggle').checked = state.share.on; $('#share-toggle').disabled = !state.receipt.on;
   $('#tip-toggle').checked = state.tip.on;
   $('#paypal-state').textContent = state.paypal ? `Hinterlegt: ${state.paypal}` : 'Noch kein Link hinterlegt.';
   $('#paypal-off').hidden = !state.paypal;
@@ -390,7 +391,7 @@ function renderAdmin() {
         <div class="sale-pay">${s.note ? esc(s.note) : s.method === 'paypal' ? 'Bezahlt mit PayPal' : s.payout ? `Ausgezahlt ${euro(-s.total)}` : `Gegeben ${euro(s.given)}${s.tip ? ` · Spende ${euro(s.tip)}` : ''} · Rückgeld ${euro(s.change)}`}${state.vat.on ? ` · MwSt ${euro(saleVat(s))}` : ''}</div>
       </div>
       <b class="sale-sum">${euro(s.total)}</b>
-      <div class="sale-btns">${state.receipt.on ? `<button class="btn" data-pdf="${s.n}">PDF</button><button class="btn" data-print="${s.n}">Drucken</button>` : ''}
+      <div class="sale-btns">${state.receipt.on ? `<button class="btn" data-share="${s.n}">QR / Mail</button><button class="btn" data-pdf="${s.n}">PDF</button><button class="btn" data-print="${s.n}">Drucken</button>` : ''}
       <button class="btn ${s.void ? '' : 'destructive'}" data-void="${s.n}">${s.void ? 'Storno aufheben' : 'Stornieren'}</button></div>
     </div>`).join('') : '<p class="empty">Noch keine Buchungen.</p>';
 }
@@ -544,6 +545,10 @@ document.addEventListener('click', async e => {
   const D = t.dataset;
   if (D.edit || D.newitem || D.newgroup !== undefined || D.gren || D.gdel || D.gup || D.gdown || D.addstand !== undefined || D.renamestand !== undefined || D.delstand !== undefined || D.editdone !== undefined) return editAction(t);
   if (t.id === 'pp-amount') return;
+  if (t.id === 'share-toggle') return;
+  if (D.share) { const s = state.sales.find(x => x.n === +D.share); if (s) showShare(s); return; }
+  if (t.id === 'sh-done') { $('#sh-mail').value = ''; $('#share-dlg').close(); return; }
+  if (t.id === 'sh-send') { sendMail(); return; }
   if (t.id === 'vat-toggle' || t.id === 'rc-toggle' || t.id === 'tip-toggle') return;
   if (D.pdf) { sharePdf(+D.pdf); return; }
   if (D.print) { printBon(+D.print); return; }
@@ -656,10 +661,40 @@ function printBon(n) {
   $('#print-area').textContent = receiptLines(s).map(l => l.t).join('\n');
   window.print();
 }
+// --- Bon für Kunden: QR-Code zur Online-Ansicht (bon.html) und E-Mail über das Mail-Programm des Tablets
+function bonPayload(s) {
+  const R = state.receipt;
+  return { v: 1, n: s.n, t: s.t, s: labelOf(s.stand), m: s.method === 'paypal' ? 'p' : 'b', tot: s.total, giv: s.given, tip: s.tip || 0, chg: s.change, po: s.payout ? 1 : 0, x: state.vat.on ? 1 : 0,
+    L: Object.entries(s.lines).map(([id, n]) => [itemName(s, id), n, s.info && s.info[id] ? s.info[id].price : ALL[id] ? ALL[id].price : 0, vatOf(s.info, id)]),
+    h: [R.name, R.addr, R.tax, R.foot] };
+}
+async function bonLink(s) { return location.origin + location.pathname.replace(/[^/]*$/, '') + 'bon.html#' + await Kasse.bonEncode(bonPayload(s)); }
+let shareSale = null, shareLink = '';
+async function showShare(s) {
+  shareSale = s; $('#toast').hidden = true;
+  $('#sh-title').textContent = `Bon #${s.n} · ${euro(s.total)}`; $('#sh-mail').value = ''; $('#sh-err').textContent = '';
+  $('#sh-pdf').dataset.pdf = s.n; $('#sh-print').dataset.print = s.n;
+  $('#sh-qr').innerHTML = '<p class="muted">QR-Code wird erstellt …</p>';
+  if (!$('#share-dlg').open) $('#share-dlg').showModal();
+  try { shareLink = await bonLink(s); const img = qrImg(shareLink, 340, 'L'); $('#sh-qr').innerHTML = img || '<p class="err">QR-Code konnte nicht erzeugt werden.</p>'; }
+  catch (e) { shareLink = ''; $('#sh-qr').innerHTML = '<p class="err">QR-Code konnte nicht erzeugt werden.</p>'; }
+}
+function mailFor(s, to) {
+  const text = receiptLines(s).map(l => l.t).join('\n');
+  const body = text + (shareLink && shareLink.length < 1200 ? `\n\nBon online ansehen:\n${shareLink}` : '');
+  return Kasse.mailtoUrl(to, `Ihr Bon Nr. ${String(s.n).padStart(4, '0')} – ${RC_DEFAULT.name}`, body);
+}
+function sendMail() {
+  const to = $('#sh-mail').value.trim();
+  if (!Kasse.isEmail(to)) { $('#sh-err').textContent = 'Bitte eine gültige E-Mail-Adresse eingeben'; return; }
+  const a = document.createElement('a'); a.href = mailFor(shareSale, to); document.body.appendChild(a); a.click(); a.remove();   // öffnet das Mail-Programm mit fertigem Entwurf
+}
+$('#share-dlg').addEventListener('close', () => { $('#sh-mail').value = ''; });                                       // E-Mail-Adressen werden nie gespeichert
+function afterBook(s) { if (state.receipt.on && state.share.on) showShare(s); else showToast(s); }
 let toastTimer = null;
 function showToast(s) {
   if (!state.receipt.on || !s) return;
-  $('#toast').innerHTML = `<span>Bon #${s.n} gebucht · ${new Date(s.t).toLocaleTimeString('de-DE')}</span><button data-pdf="${s.n}">PDF</button><button data-print="${s.n}">Drucken</button><button id="toast-x" aria-label="Schließen">✕</button>`;
+  $('#toast').innerHTML = `<span>Bon #${s.n} gebucht · ${new Date(s.t).toLocaleTimeString('de-DE')}</span><button data-share="${s.n}">QR / Mail</button><button data-pdf="${s.n}">PDF</button><button data-print="${s.n}">Drucken</button><button id="toast-x" aria-label="Schließen">✕</button>`;
   $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 12000);
 }
 function openReceiptHead() {
@@ -675,6 +710,7 @@ $('#rc-form').addEventListener('submit', e => {
 $('#r-cancel').addEventListener('click', () => $('#rc-dlg').close());
 $('#pp-mode').addEventListener('change', e => { state.ppMode = e.target.value; save(); renderAdmin(); });
 $('#tip-toggle').addEventListener('change', e => { state.tip.on = e.target.checked; save(); renderAdmin(); });
+$('#share-toggle').addEventListener('change', e => { state.share.on = e.target.checked; save(); renderAdmin(); });
 $('#rc-toggle').addEventListener('change', e => { state.receipt.on = e.target.checked; save(); renderAdmin(); });
 
 $('#vat-toggle').addEventListener('change', e => { state.vat.on = e.target.checked; save(); renderAdmin(); });
