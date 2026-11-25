@@ -37,7 +37,9 @@ Oben wählst du den Stand (Crêpes / Burger & Spezi / Karten). Jeder Stand benut
 3. **Bezahlen** antippen. Oben wählst du die Zahlart:
    - **Bar:** Gib das gegebene Geld ein (Schnelltasten 5/10/20/50/100 €, „Passend“ oder Ziffernblock). Unten steht groß das **Rückgeld**. Fehlt Geld, steht in Rot „Es fehlen …“. Dann **Verbuchen**.
    - **PayPal:** Es erscheint ein **QR-Code**. Kundin oder Kunde scannt ihn mit der PayPal-App. **Erst wenn die Zahlung bei dir angekommen ist**, auf „PayPal-Zahlung erhalten · Verbuchen“ tippen.
-4. Erst mit **Verbuchen** ist der Verkauf gebucht. Danach ist der Bon leer, und es geht weiter mit dem nächsten.
+4. **Burger:** Es gibt beide Burger als **Vegi** und als **Fleisch**, jeweils mit eigener Kachel. Auf dem Bon steht die Sorte.
+5. **Spezi-Pfand:** Beim Tippen auf „Paulaner Spezi“ kommt das **Pfand automatisch** (2,00 €) als eigene Zeile auf den Bon. Gibt jemand eine Flasche zurück, tippst du „Pfand zurück“: Das Pfand wird abgezogen oder, wenn sonst nichts auf dem Bon liegt, **bar ausgezahlt** („Auszahlen“). Das Pfand zählt in den Einnahmen und im Kassenstand mit, die Rückgabe zieht es wieder ab. Die Höhe stellst du im Bearbeitungsmodus beim Artikel „Pfand“ ein.
+6. Erst mit **Verbuchen** ist der Verkauf gebucht. Danach ist der Bon leer, und es geht weiter mit dem nächsten.
 
 An den Kacheln steht klein „verkauft: N“. Das sind die bereits verbuchten Stück je Artikel.
 

@@ -14,14 +14,14 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=16">
+<link rel="stylesheet" href="styles.css?v=17">
 </head>
 <body>
 <div class="app">
   <header class="top">
     <h1 id="title">Kasse</h1>
     <div class="segmented" role="tablist" aria-label="Stand wählen" id="tabs"></div>
-    <div class="top-spacer"><span class="ver">v16</span></div>
+    <div class="top-spacer"><span class="ver">v17</span></div>
   </header>
 
   <div class="edit-bar" id="edit-bar" hidden></div>
@@ -49,7 +49,7 @@
     <div class="pay-info">
       <div class="cap">Zu zahlen</div><div class="pay-big" id="p-total">0,00 €</div>
       <button class="pay-field active" id="p-given-b" data-target="given"><span class="cap">Gegeben</span><span class="pay-big given" id="p-given">–</span></button>
-      <button class="pay-field" id="p-tip-b" data-target="tip"><span class="cap">Trinkgeld (antippen, dann eintippen)</span><span class="pay-big tipv" id="p-tip">–</span></button>
+      <button class="pay-field" id="p-tip-b" data-target="tip"><span class="cap">Spende (antippen, dann eintippen)</span><span class="pay-big tipv" id="p-tip">–</span></button>
       <div class="change" id="p-change"></div>
     </div>
     <div class="pay-input">
@@ -65,8 +65,8 @@
         <button class="btn" data-quick="100">100 €</button>
       </div>
       <div class="quick tipq" id="p-tipq">
-        <button class="btn" data-tipq="none">Kein Trinkgeld</button><button class="btn" data-tipq="50">+0,50 €</button><button class="btn" data-tipq="100">+1 €</button>
-        <button class="btn" data-tipq="200">+2 €</button><button class="btn" data-tipq="rest" style="grid-column:span 2">Rest als Trinkgeld</button>
+        <button class="btn" data-tipq="none">Keine Spende</button><button class="btn" data-tipq="50">+0,50 €</button><button class="btn" data-tipq="100">+1 €</button>
+        <button class="btn" data-tipq="200">+2 €</button><button class="btn" data-tipq="rest" style="grid-column:span 2">Rest als Spende</button>
       </div>
       <div class="keypad" id="p-keys">
         <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
@@ -111,7 +111,7 @@
     <section class="card" id="admin-summary"></section>
     <section class="card" id="vat-summary" hidden></section>
     <section class="card switch-card">
-      <label class="switch-row"><span><b>Trinkgeld bei Barzahlung</b><small>Beim Bezahlen kann ein Trinkgeld erfasst werden. Es zählt nicht zu den Einnahmen und wird getrennt ausgewiesen.</small></span>
+      <label class="switch-row"><span><b>Spende bei Barzahlung</b><small>Beim Bezahlen kann eine Spende erfasst werden. Es zählt nicht zu den Einnahmen und wird getrennt ausgewiesen.</small></span>
       <input type="checkbox" role="switch" id="tip-toggle"></label>
     </section>
     <section class="card switch-card">
@@ -165,6 +165,7 @@
     <label>Zusatz (optional, z. B. „0,5 l“)<input id="i-sub" autocomplete="off"></label>
     <label>Preis in €<input id="i-price" inputmode="decimal" autocomplete="off" placeholder="3,50"></label>
     <label>Unterkategorie<select id="i-group"></select></label>
+    <label id="i-auto-l" hidden>Pfand automatisch mit auf den Bon<select id="i-auto"><option value="">Nein</option><option value="g-pfand">Ja, „Pfand“ dazubuchen</option></select></label>
     <label>MwSt.-Satz (im Preis enthalten)<select id="i-vat"><option value="0">0 %</option><option value="7">7 %</option><option value="19">19 %</option></select></label>
     <p class="err" id="i-err"></p>
     <div class="dlg-actions">
@@ -201,7 +202,7 @@
 <div id="toast" class="toast" hidden></div>
 <pre id="print-area"></pre>
 
-<script src="qrcode.js?v=16"></script>
-<script src="app.js?v=16"></script>
+<script src="qrcode.js?v=17"></script>
+<script src="app.js?v=17"></script>
 </body>
 </html>
