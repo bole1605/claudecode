@@ -1,4 +1,5 @@
 'use strict';
+const { parse, vatPart, normalizeLink, migrateCatalog, enc, wrapText, makePdf } = Kasse; // Rechenlogik: siehe logic.js (getestet)
 // Preise in Cent, damit nie Rundungsfehler entstehen.
 const DEFAULT_STANDS = [
   { id: 'crepes', label: 'Crêpes', groups: [
@@ -32,7 +33,12 @@ const DEFAULT_STANDS = [
     ]},
   ]},
 ];
-const KEY = 'kasse-v2';
+const VERSION = 18;
+// Fokus ins erste Feld – aber nur, wenn die Eingabe nicht schon in einem anderen Feld des Fensters begonnen hat
+const focusFirst = sel => setTimeout(() => { const el = document.querySelector(sel), d = el.closest('dialog'); if (!d.contains(document.activeElement) || document.activeElement === d) el.focus(); }, 50);
+// Test- und Live-Version liegen auf derselben Domain: getrennter Speicher, damit sich die Daten nie vermischen
+const IS_TEST = /\/kasse-test\//.test(location.pathname);
+const KEY = IS_TEST ? 'kasse-test-v2' : 'kasse-v2';
 const $ = s => document.querySelector(s);
 const euro = c => (c / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 const items = s => s.groups.flatMap(g => g.items);
@@ -45,7 +51,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const PALETTE = ['#FF9F0A', '#34C759', '#30B0C7', '#FF3B30', '#AF52DE', '#5856D6', '#FF2D55', '#007AFF'];
 
 const RC_DEFAULT = { name: 'Evangelische Kirchengemeinde Kleinglattbach', addr: 'Kirchstraße 15; 71665 Vaihingen an der Enz', foot: 'Vielen Dank, Guten Appetit & frohe Weihnachten!' };
-let state = { mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
+let state = { lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
 try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
 let STANDS, ALL = {};
 function setCatalog(c) {
@@ -54,26 +60,6 @@ function setCatalog(c) {
   ALL = {};
   STANDS.forEach(s => s.groups.forEach(g => g.items.forEach(it => { ALL[it.id] = { ...it, stand: s.id }; })));
   if (!STANDS.some(s => s.id === state.stand)) state.stand = STANDS[0].id;
-}
-// Einmalige Umstellung gespeicherter Sortimente: Burger in Vegi/Fleisch teilen, Spezi mit Pfand
-function migrateCatalog(cat) {
-  for (const s of cat) for (const g of s.groups) {
-    const out = [];
-    for (const it of g.items) {
-      if (it.id === 'b-maul' || it.id === 'b-spezial') {
-        const base = it.name.replace(/\s+[–-]\s+(Vegi|Fleisch)$/, '');
-        out.push({ ...it, id: it.id + '-v', name: base + ' – Vegi', sub: 'Vegetarische Füllung' }, { ...it, id: it.id + '-f', name: base + ' – Fleisch', sub: 'Fleischfüllung' });
-      } else out.push(it);
-    }
-    g.items = out;
-    const sp = g.items.find(i => i.id === 'g-spezi');
-    if (sp) {
-      sp.autoAdd = 'g-pfand';
-      const at = g.items.indexOf(sp) + 1, all = cat.flatMap(x => x.groups.flatMap(y => y.items.map(i => i.id)));
-      if (!all.includes('g-pfand')) g.items.splice(at, 0, { id: 'g-pfand', name: 'Pfand', sub: 'pro Flasche', price: 200, kind: 'pfand' });
-      if (!all.includes('g-pfand-rueck')) g.items.splice(g.items.findIndex(i => i.id === 'g-pfand') + 1, 0, { id: 'g-pfand-rueck', name: 'Pfand zurück', sub: 'wird ausgezahlt', price: -200, kind: 'pfand' });
-    }
-  }
 }
 if (Array.isArray(state.catalog) && state.catalog.length && !state.mig17) migrateCatalog(state.catalog);
 state.mig17 = true;
@@ -86,19 +72,9 @@ let editing = false;
 if (state.paypal) state.paypal = normalizeLink(state.paypal); // alte, fehlerhaft gespeicherte Links reparieren
 // MwSt.: Preise sind Bruttopreise. Vorschlagswerte (bitte prüfen!): Speisen 7 %, Getränke und Karten 19 %. Je Produkt änderbar.
 const vatOf = (info, id) => info && info[id] && typeof info[id].vat === 'number' ? info[id].vat : (ALL[id] ? ALL[id].vat : 7);
-const vatPart = (gross, r) => Math.round(gross * r / (100 + r));
 const pct = r => String(r).replace('.', ',') + ' %';
 const vatText = gr => { const e = Object.entries(gr).sort((a, b) => a[0] - b[0]); const v = e.reduce((s, [r, g]) => s + vatPart(g, +r), 0), g = e.reduce((s, [, x]) => s + x, 0);
   return { vat: v, net: g - v, text: `Netto ${euro(g - v)} · ` + e.map(([r, x]) => `MwSt ${pct(r)}: ${euro(vatPart(x, +r))}`).join(' · ') }; };
-// PayPal-Link bereinigen: doppeltes https://, fehlendes https://, Text um den Link herum, Leerzeichen
-function normalizeLink(raw) {
-  let s = String(raw || '').trim();
-  const m = s.match(/https?:\/\/\S+/i);
-  if (m) s = m[0];
-  s = s.replace(/^(https?:\/\/)+https?:?\/\//i, 'https://');
-  if (!/^https?:\/\//i.test(s)) s = 'https://' + s.replace(/^\/+/, '');
-  try { const u = new URL(s); return /^https?:$/.test(u.protocol) && u.hostname.includes('.') ? u.href : ''; } catch (e) { return ''; }
-}
 const snap = lines => Object.fromEntries(Object.keys(lines).filter(id => ALL[id]).map(id => [id, { name: ALL[id].name, price: ALL[id].price, vat: ALL[id].vat }]));
 const labelOf = id => { const s = STANDS.find(x => x.id === id); if (s) return s.label; const k = state.sales.find(x => x.stand === id); return (k && k.sl) || 'Gelöschte Seite'; };
 const itemName = (s, id) => (s.info && s.info[id] ? s.info[id].name : ALL[id] ? ALL[id].name : 'Gelöschter Artikel');
@@ -235,23 +211,9 @@ document.addEventListener('pointerdown', e => {
 
 // --- Bezahlen / Wechselgeld
 let given = '', tip = '', target = 'given', method = 'bar';
-const parse = s => { if (!s) return null; const v = parseFloat(s.replace(',', '.')); return isNaN(v) ? null : Math.round(v * 100); };
-// Inhalt des QR-Codes (state.ppMode):
-//  'amount'    paypal.me/Name/7.50       (so ist es bei PayPal dokumentiert)
-//  'amountEur' paypal.me/Name/7.50EUR    (mit Währungskürzel)
-//  'none'      der Link genau so, wie er hinterlegt ist (Käufer gibt den Betrag selbst ein)
-const isPaypalMe = u => /(^|\.)paypal\.me$/i.test(u.hostname) && u.pathname.split('/').filter(Boolean).length === 1;
-function ppEmbeds() { try { return state.ppMode !== 'none' && isPaypalMe(new URL(normalizeLink(state.paypal))); } catch (e) { return false; } }
-function paypalUrl(total) {
-  try {
-    const u = new URL(normalizeLink(state.paypal));
-    if (ppEmbeds()) {
-      const name = u.pathname.split('/').filter(Boolean)[0], amt = total % 100 === 0 ? String(total / 100) : (total / 100).toFixed(2);
-      return `${u.origin}/${name}/${amt}${state.ppMode === 'amountEur' ? 'EUR' : ''}`;
-    }
-    return u.href;
-  } catch (e) { return ''; }
-}
+// Inhalt des QR-Codes (state.ppMode): 'amount' | 'amountEur' | 'none' – siehe logic.js
+const ppEmbeds = () => Kasse.ppEmbeds(state.paypal, state.ppMode);
+const paypalUrl = total => Kasse.paypalUrl(state.paypal, state.ppMode, total);
 // QR als Bild (GIF-Data-URL) statt SVG: sieht auf allen Browsern gleich aus, auch auf älteren iPads
 function qrImg(url, target) {
   try {
@@ -291,11 +253,11 @@ function payUpdate() {
   $('#p-given').textContent = given ? given + ' €' : '–';
   $('#p-tip').textContent = tip ? tip + ' €' : '–';
   ch.className = 'change';
-  const need = total + (T ? tp : 0);
+  const cp = Kasse.calcPay(total, given, tip, T), need = cp.need;
   if (g === null) ch.innerHTML = '<span class="cap">Rückgeld</span><b>–</b>';
   else if (g >= need) { ch.classList.add('ok'); ch.innerHTML = `<span class="cap">Rückgeld${T && tp ? ' (nach Spende)' : ''}</span><b>${euro(g - need)}</b>`; }
   else { ch.classList.add('short'); ch.innerHTML = `<span class="cap">Es fehlen</span><b>${euro(need - g)}</b>`; }
-  $('#p-ok').disabled = g === null || g < need;
+  $('#p-ok').disabled = !cp.ok;
 }
 function openPay() { if (!Object.keys(cart()).length) return; given = ''; tip = ''; target = 'given'; method = 'bar'; payUpdate(); $('#pay-dlg').showModal(); }
 const fmtIn = c => (c / 100).toFixed(2).replace('.', ',').replace(/,00$/, '');
@@ -318,7 +280,7 @@ function book() {
     state.sales.push({ method: 'bar', n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: { ...cart() }, info: snap(cart()), total, given: 0, tip: 0, change: -total, payout: total < 0, void: false });
     state.cart[state.stand] = {}; save(); update(); $('#pay-dlg').close(); buzz(); showToast(state.sales[state.sales.length - 1]); return;
   }
-  const pp = method === 'paypal', tp = pp || !state.tip.on ? 0 : Math.max(0, parse(tip) || 0), g = pp ? total : parse(given); if (g === null || g < total + tp) return;
+  const pp = method === 'paypal', cp = Kasse.calcPay(total, given, tip, state.tip.on), tp = pp ? 0 : cp.tp, g = pp ? total : cp.g; if (!pp && !cp.ok) return;
   state.sales.push({ method, n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: { ...cart() }, info: snap(cart()), total, given: g, tip: tp, change: g - total - tp, void: false });
   state.cart[state.stand] = {}; save(); update(); $('#pay-dlg').close(); buzz(); showToast(state.sales[state.sales.length - 1]);
 }
@@ -348,7 +310,7 @@ function pwDialog(mode) {
   $('#pw-input').value = ''; $('#pw-input2').value = ''; $('#pw-err').textContent = '';
   $('#pw-input2').hidden = enter; $('#pw-forgot').hidden = !enter || !state.rec;
   $('#pw-show').checked = false; setPwVisible(false);
-  $('#pw-dlg').showModal(); setTimeout(() => $('#pw-input').focus(), 50);
+  $('#pw-dlg').showModal(); focusFirst('#pw-input');
 }
 function setPwVisible(on) { ['#pw-input', '#pw-input2'].forEach(s => $(s).classList.toggle('secret', !on)); }
 $('#pw-show').addEventListener('change', e => setPwVisible(e.target.checked));
@@ -385,15 +347,8 @@ const fmtT = t => new Date(t).toLocaleString('de-DE', { day: '2-digit', month: '
 const lineText = s => Object.entries(s.lines).map(([id, n]) => `${n}× ${itemName(s, id)}`).join(', ');
 const standIds = () => { const ids = STANDS.map(s => s.id); state.sales.forEach(s => { if (!ids.includes(s.stand)) ids.push(s.stand); }); return ids; };
 // Kassenstand (Bargeld): Anfangsbestand + bar bezahlte Beträge + Spenden; PayPal und stornierte Buchungen ändern ihn nicht
-function cashSeries() {
-  let bal = state.cash.start, sales = 0, tips = 0; const m = {};
-  for (const s of state.sales) {
-    if (!s.void && s.method !== 'paypal') { bal += s.total + (s.tip || 0); sales += s.total; tips += s.tip || 0; }
-    m[s.n] = bal;
-  }
-  return { m, bal, sales, tips };
-}
-const payTotals = () => state.sales.reduce((o, s) => { if (!s.void) { o[s.method === 'paypal' ? 'paypal' : 'bar'] += s.total; o.tip += s.tip || 0; } return o; }, { bar: 0, paypal: 0, tip: 0 });
+const cashSeries = () => Kasse.cashSeries(state.sales, state.cash.start);
+const payTotals = () => Kasse.payTotals(state.sales);
 function renderAdmin() {
   const { rev, cnt, gr, grS } = sold();
   $('#vat-toggle').checked = state.vat.on;
@@ -421,6 +376,9 @@ function renderAdmin() {
     return `<div class="sum-row"><span>${esc(labelOf(id))}</span><span>${g} ${g === 1 ? 'Buchung' : 'Buchungen'} · ${cnt[id] || 0} Artikel${v ? ` · ${v} storniert` : ''}</span><b>${euro(rev[id] || 0)}</b></div>${state.vat.on && grS[id] ? `<div class="vat-sub">${vatText(grS[id]).text}</div>` : ''}`;
   }).join('') + `<div class="sum-row total"><span>Gesamt</span><span>Bar ${euro(pay.bar)} · PayPal ${euro(pay.paypal)}${pay.tip ? ` · Spenden ${euro(pay.tip)} (nicht enthalten)` : ''}</span><b>${euro(Object.values(rev).reduce((a, b) => a + b, 0))}</b></div>`;
   $('#restore').hidden = !state.backup;
+  const lb = state.lastBackup, since = state.sales.filter(s => s.t > (lb || 0)).length;
+  $('#backup-status').textContent = lb ? `Letzte Sicherung: ${fmtTS(lb)} · seitdem ${since} neue ${since === 1 ? 'Buchung' : 'Buchungen'}` : `Noch keine Sicherung erstellt (${state.sales.length} Buchungen auf diesem Gerät).`;
+  storageInfo().then(t => { $('#storage-info').textContent = t; });
   const saleVat = s => { const g = {}; for (const [id, n] of Object.entries(s.lines)) { const pr = s.info && s.info[id] ? s.info[id].price : ALL[id] ? ALL[id].price : 0, r = vatOf(s.info, id); g[r] = (g[r] || 0) + n * pr; } return vatText(g).vat; };
   const list = [...state.sales].reverse();
   $('#sales-list').innerHTML = list.length ? list.map(s => `
@@ -435,6 +393,35 @@ function renderAdmin() {
       <div class="sale-btns">${state.receipt.on ? `<button class="btn" data-pdf="${s.n}">PDF</button><button class="btn" data-print="${s.n}">Drucken</button>` : ''}
       <button class="btn ${s.void ? '' : 'destructive'}" data-void="${s.n}">${s.void ? 'Storno aufheben' : 'Stornieren'}</button></div>
     </div>`).join('') : '<p class="empty">Noch keine Buchungen.</p>';
+}
+
+// --- Datensicherung (Datei zum Wiederherstellen)
+const BACKUP_KEYS = ['catalog', 'sales', 'seq', 'vat', 'tip', 'cash', 'receipt', 'paypal', 'ppMode'];
+async function deliver(file, title) {
+  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title }); return true; } }
+  catch (err) { if (err.name === 'AbortError') return false; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 8000); return true;
+}
+async function backupSave() {
+  const data = {}; BACKUP_KEYS.forEach(k => { data[k] = state[k]; });
+  const d = new Date(), p = k => String(k).padStart(2, '0');
+  const name = `kasse-sicherung-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.json`;
+  const file = new File([JSON.stringify({ app: 'kasse', version: VERSION, savedAt: Date.now(), data })], name, { type: 'application/json' });
+  if (await deliver(file, 'Kasse Sicherung')) { state.lastBackup = Date.now(); save(); renderAdmin(); }
+}
+async function backupRestore(file) {
+  let b;
+  try { b = JSON.parse(await file.text()); } catch (e) { b = null; }
+  if (!b || b.app !== 'kasse' || !b.data || !Array.isArray(b.data.sales) || !Array.isArray(b.data.catalog)) { await ask('Keine gültige Sicherung', 'Diese Datei ist keine Kasse-Sicherung (.json).', 'OK'); return; }
+  const ok = await ask('Sicherung wiederherstellen?', `Sicherung vom ${fmtTS(b.savedAt)} mit ${b.data.sales.length} Buchungen. Die aktuellen Daten dieses Geräts (${state.sales.length} Buchungen) werden ersetzt. Das Passwort bleibt unverändert.`, 'Wiederherstellen');
+  if (!ok) return;
+  BACKUP_KEYS.forEach(k => { if (b.data[k] !== undefined) state[k] = b.data[k]; });
+  state.cart = {}; migrateCatalog(state.catalog); state.mig17 = true; setCatalog(state.catalog);
+  save(); build(); renderAdmin();
+}
+async function storageInfo() {
+  try { const p = navigator.storage && navigator.storage.persisted ? await navigator.storage.persisted() : null; return p === null ? '' : p ? 'Dauerhafter Speicher: ja' : 'Dauerhafter Speicher: nicht zugesagt (Daten bitte regelmäßig sichern)'; } catch (e) { return ''; }
 }
 
 // --- Speichern: CSV-Datei (iPad: „In Dateien sichern“ / Teilen-Menü, Android: Download)
@@ -471,7 +458,7 @@ async function exportFile() {
 function promptText(title, value = '', placeholder = '') {
   return new Promise(res => {
     $('#t-title').textContent = title; $('#t-input').value = value; $('#t-input').placeholder = placeholder; $('#t-err').textContent = '';
-    const d = $('#text-dlg'); d.returnValue = ''; d.showModal(); setTimeout(() => $('#t-input').focus(), 50);
+    const d = $('#text-dlg'); d.returnValue = ''; d.showModal(); focusFirst('#t-input');
     const f = $('#text-form'), done = ok => { f.onsubmit = null; $('#t-cancel').onclick = null; d.close(); res(ok ? $('#t-input').value.trim() : null); };
     f.onsubmit = e => { e.preventDefault(); if (!$('#t-input').value.trim()) { $('#t-err').textContent = 'Bitte einen Namen eingeben'; return; } done(true); };
     $('#t-cancel').onclick = () => done(false);
@@ -492,7 +479,7 @@ function openItem(id, gid) {
   $('#i-price').value = id ? (Math.abs(it.price) / 100).toFixed(2).replace('.', ',') : '';
   $('#i-group').innerHTML = stand().groups.map(x => `<option value="${x.id}" ${g && x.id === g.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
   $('#i-del').hidden = !id; $('#i-err').textContent = '';
-  $('#item-dlg').showModal(); if (!id) setTimeout(() => $('#i-name').focus(), 50);
+  $('#item-dlg').showModal(); if (!id) focusFirst('#i-name');
 }
 $('#item-form').addEventListener('submit', e => {
   e.preventDefault();
@@ -596,6 +583,8 @@ document.addEventListener('click', async e => {
   else if (t.id === 'p-cancel') $('#pay-dlg').close();
   else if (t.id === 'admin-close') hideAdmin();
   else if (t.id === 'save') exportFile();
+  else if (t.id === 'backup-save') backupSave();
+  else if (t.id === 'backup-restore') $('#restore-file').click();
   else if (t.id === 'pw-change') pwDialog('change');
   else if (t.dataset.void) {
     const s = state.sales.find(x => x.n === +t.dataset.void); if (!s) return;
@@ -612,16 +601,6 @@ document.addEventListener('click', async e => {
 $('#pay-dlg').addEventListener('cancel', () => {}); // Esc schließt wie Abbrechen
 
 // --- Bons: Zeitstempel, PDF und Druck
-const WIN = { '€': 0x80, '‚': 0x82, '„': 0x84, '…': 0x85, '‘': 0x91, '’': 0x92, '“': 0x93, '”': 0x94, '–': 0x96, '—': 0x97 };
-const enc = s => [...s.replace(/ | /g, ' ')].map(c => WIN[c] !== undefined ? String.fromCharCode(WIN[c]) : c.charCodeAt(0) < 256 ? c : '?').join('');
-function wrapText(t, n) {
-  const out = []; let cur = '';
-  for (let w of String(t).split(/\s+/).filter(Boolean)) {
-    while (w.length > n) { if (cur) { out.push(cur); cur = ''; } out.push(w.slice(0, n)); w = w.slice(n); }
-    if (!cur) cur = w; else if ((cur + ' ' + w).length <= n) cur += ' ' + w; else { out.push(cur); cur = w; }
-  }
-  if (cur) out.push(cur); return out.length ? out : [''];
-}
 const money = c => euro(c).replace(/ | /g, ' ');
 function receiptLines(s) {
   const N = 36, L = [], R = state.receipt;
@@ -662,21 +641,6 @@ function receiptLines(s) {
   if (s.void) { l(''); c('*** STORNIERT ***', true); }
   return L;
 }
-function makePdf(lines) {
-  const FS = 9, LH = 12.5, M = 14, W = 227, H = Math.max(120, lines.length * LH + 2 * M);
-  const esc2 = s => s.replace(/[\\()]/g, m => '\\' + m);
-  const content = lines.map((l, i) => `BT /${l.b ? 'F2' : 'F1'} ${FS} Tf ${M} ${(H - M - FS - i * LH).toFixed(2)} Td (${esc2(enc(l.t))}) Tj ET`).join('\n');
-  let out = '%PDF-1.4\n'; const offs = [];
-  const add = (n, body) => { offs[n] = out.length; out += `${n} 0 obj\n${body}\nendobj\n`; };
-  add(1, '<< /Type /Catalog /Pages 2 0 R >>'); add(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
-  add(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H.toFixed(2)}] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>`);
-  add(4, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
-  add(5, '<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>');
-  add(6, '<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold /Encoding /WinAnsiEncoding >>');
-  const x = out.length;
-  out += 'xref\n0 7\n0000000000 65535 f \n' + [1, 2, 3, 4, 5, 6].map(n => String(offs[n]).padStart(10, '0') + ' 00000 n \n').join('') + `trailer\n<< /Size 7 /Root 1 0 R >>\nstartxref\n${x}\n%%EOF`;
-  const u = new Uint8Array(out.length); for (let i = 0; i < out.length; i++) u[i] = out.charCodeAt(i) & 255; return u;
-}
 async function sharePdf(n) {
   const s = state.sales.find(x => x.n === n); if (!s) return;
   const d = new Date(s.t), p = k => String(k).padStart(2, '0');
@@ -715,6 +679,8 @@ $('#rc-toggle').addEventListener('change', e => { state.receipt.on = e.target.ch
 
 $('#vat-toggle').addEventListener('change', e => { state.vat.on = e.target.checked; save(); renderAdmin(); });
 
+$('#restore-file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) backupRestore(f); });
+
 // --- Versteckter Zugang: Titel 1,5 s halten oder 5× schnell antippen
 let hold = null;
 const cancelHold = () => { clearTimeout(hold); hold = null; };
@@ -724,6 +690,11 @@ $('#title').addEventListener('contextmenu', e => e.preventDefault());
 let taps = [];
 $('#title').addEventListener('pointerdown', () => { const n = Date.now(); taps = taps.filter(x => n - x < 2500); taps.push(n); if (taps.length >= 5) { taps = []; cancelHold(); openAdmin(); } });
 
+if (IS_TEST) { document.body.classList.add('is-test'); document.title = 'Kasse TEST'; }
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}   // iPadOS/Android sollen die Daten nicht von selbst löschen
+let wakeLock = null;                                                                                    // Bildschirm bleibt während des Verkaufs an
+async function keepAwake() { try { if ('wakeLock' in navigator && document.visibilityState === 'visible' && (!wakeLock || wakeLock.released)) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {} }
+document.addEventListener('visibilitychange', keepAwake); document.addEventListener('pointerdown', keepAwake, { passive: true }); keepAwake();
 build();
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});

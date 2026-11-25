@@ -1,6 +1,8 @@
 # Kasse – Weihnachtsmarkt
 
-Einfaches Kassensystem als installierbare Web-App (PWA) für iPad und Android-Tablets. Keine Abhängigkeiten, läuft offline.
+Einfaches Kassensystem als installierbare Web-App (PWA) für iPad und Android-Tablets. Keine Abhängigkeiten zur Laufzeit, läuft offline.
+
+Test- und Live-Version, Tests und Freigabe: siehe `ENTWICKLUNG.md`. Bedienung: `ANLEITUNG.md`. Verlauf: `CHANGELOG.md`.
 
 - Drei Seiten: **Crêpes**, **Burger & Spezi**, **Karten**. Kachel antippen = Artikel kommt auf den **Bon** (rechts).
 - **Bezahlen** → Wechselgeld-Rechner (Schnellwahl 5/10/20/50/100 €, „Passend“, Ziffernblock) → **Verbuchen**.

@@ -224,3 +224,9 @@ body.editing .bon,body.editing .bottom{display:none}
 .field-row small{display:block;color:var(--label2);font-size:14px;font-weight:400;margin-top:2px}
 .field-row select{min-height:50px;border-radius:12px;border:1px solid var(--sep);background:var(--bg);color:var(--label);font-size:17px;padding:0 12px}
 .qr-amount{margin-top:8px;font-size:17px}
+
+/* ---- v18: Testversion, Datensicherung ---- */
+body.is-test::before{content:"TESTVERSION – hier entstehen keine echten Buchungen";position:fixed;top:0;left:0;right:0;z-index:100;padding:calc(4px + env(safe-area-inset-top)) 8px 4px;text-align:center;font-weight:700;font-size:14px;background:#FF9F0A;color:#000;pointer-events:none}
+body.is-test .app{padding-top:calc(28px + env(safe-area-inset-top))}
+#backup-card .muted{margin:4px 0}
+#backup-card .actions-card{margin-top:10px}

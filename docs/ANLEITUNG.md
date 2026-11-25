@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v11** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v18** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -17,7 +17,7 @@ Stand dieser Anleitung: Version **v11** (die Versionsnummer steht oben rechts in
 **iPad:** Adresse in **Safari** öffnen → Teilen-Symbol → **„Zum Home-Bildschirm“** → Hinzufügen.
 **Android-Tablet:** Adresse in **Chrome** öffnen → Menü (⋮) → **„App installieren“** (oder „Zum Startbildschirm“).
 
-Danach immer die App über das Symbol auf dem Home-Bildschirm starten, nicht über den Browser. Die App läuft auch ohne Internet. Nur für Updates und für PayPal braucht das Tablet Netz.
+Danach immer die App über das Symbol auf dem Home-Bildschirm starten, nicht über den Browser. Die App läuft nach dem ersten Laden auch **ohne Internet**. Nur für Updates und für PayPal braucht das Tablet Netz. Starte sie vor dem Markt einmal mit Internet, damit sie sich vollständig speichert.
 
 **Passwort festlegen (wichtig, vor dem Übergeben des Tablets):**
 1. Titel oben links **5-mal schnell antippen** (oder 1,5 Sekunden gedrückt halten).
@@ -103,6 +103,14 @@ Inhalt: Anzahl und Umsatz je Produkt, Summen je Stand, Gesamtsumme, Zahlarten (B
 
 ---
 
+## 5a. Datensicherung (Datei zum Wiederherstellen)
+
+Verwaltung → **„Datensicherung“**:
+- **Sicherung speichern (Datei):** erzeugt eine `.json`-Datei mit allen Buchungen, dem Sortiment und den Einstellungen (ohne Passwort). Auf dem iPad kommt das Teilen-Menü (In Dateien sichern, AirDrop, Mail), auf Android wird die Datei heruntergeladen.
+- **Sicherung wiederherstellen …:** liest so eine Datei wieder ein, zum Beispiel auf einem Ersatztablet. Die aktuellen Daten des Geräts werden dabei ersetzt, das Passwort bleibt.
+- Die App zeigt, wann die letzte Sicherung war und wie viele Buchungen seitdem dazugekommen sind.
+- **Empfehlung:** Sicherung mittags, abends und am Ende jedes Markttags, und die Datei an dich selbst schicken.
+
 ## 6. Checkliste
 
 **Vor dem Markt (zu Hause, mit Internet):**
@@ -112,7 +120,11 @@ Inhalt: Anzahl und Umsatz je Produkt, Summen je Stand, Gesamtsumme, Zahlarten (B
 - [ ] PayPal-Link hinterlegt; **Test-Bon mit PayPal**: QR-Code mit dem Handy scannen und prüfen, dass Betrag und Empfänger stimmen
 - [ ] MwSt.-Rechner nach Bedarf ein- oder ausgeschaltet; Steuersätze geprüft
 - [ ] Testbuchungen entfernt: Verwaltung → „Alle Buchungen auf diesem Gerät löschen“
-- [ ] Tablets geladen, Bildschirmsperre/Automatische Sperre nicht zu kurz eingestellt
+- [ ] Tablets geladen, Ladekabel oder Powerbank dabei, automatische Sperre auf „nie“ oder mindestens 5 Minuten
+- [ ] **Geführter Zugriff** (iPad: Einstellungen → Bedienungshilfen) oder Bildschirmfixierung (Android) eingeschaltet
+- [ ] App einmal mit Internet gestartet und danach im **Flugmodus** getestet: Sie muss starten und einen Bon verbuchen können
+- [ ] Ersatztablet mit installierter App bereit; Sicherungsdatei zum Einspielen
+- [ ] Letzte Freigabe liegt mindestens einen Tag zurück (Änderungsstopp), siehe `docs/ENTWICKLUNG.md`
 
 **Während des Markts:**
 - Bei Zweifeln zählt die Buchungsliste in der Verwaltung.
