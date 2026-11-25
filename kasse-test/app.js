@@ -1,0 +1,706 @@
+'use strict';
+const { parse, vatPart, normalizeLink, migrateCatalog, enc, wrapText, makePdf } = Kasse; // Rechenlogik: siehe logic.js (getestet)
+// Preise in Cent, damit nie Rundungsfehler entstehen.
+const DEFAULT_STANDS = [
+  { id: 'crepes', label: 'Crêpes', groups: [
+    { name: 'Crêpes', color: '#FF9F0A', items: [
+      { id: 'c-zimt',   name: 'Zimt und Zucker', price: 300 },
+      { id: 'c-apfel',  name: 'Apfelmus', price: 350 },
+      { id: 'c-nutella', name: 'Nutella', price: 400 },
+      { id: 'c-nutbana', name: 'Nutella Banane', price: 450 },
+      { id: 'c-kaese',  name: 'Käse', price: 350 },
+      { id: 'c-kraeuter', name: 'Käse mit Kräutern / Röstzwiebeln', price: 400 },
+      { id: 'c-schinken', name: 'Käse mit Schinken', price: 450 },
+    ]},
+  ]},
+  { id: 'burger', label: 'Burger & Spezi', groups: [
+    { name: 'Maultaschenburger', color: '#34C759', items: [
+      { id: 'b-maul-v', name: 'Maultaschen auf karamellisierten Zwiebeln – Vegi', sub: 'Vegetarische Füllung', price: 600 },
+      { id: 'b-maul-f', name: 'Maultaschen auf karamellisierten Zwiebeln – Fleisch', sub: 'Fleischfüllung', price: 600 },
+      { id: 'b-spezial-v', name: 'Glabbicher Weihnachtsmarkt Spezial-Maultaschenburger – Vegi', sub: 'Vegetarische Füllung', price: 750 },
+      { id: 'b-spezial-f', name: 'Glabbicher Weihnachtsmarkt Spezial-Maultaschenburger – Fleisch', sub: 'Fleischfüllung', price: 750 },
+    ]},
+    { name: 'Getränke', color: '#30B0C7', items: [
+      { id: 'g-spezi', name: 'Paulaner Spezi', sub: '0,5 l', price: 300, autoAdd: 'g-pfand' },
+      { id: 'g-pfand', name: 'Pfand', sub: 'pro Flasche', price: 200, kind: 'pfand' },
+      { id: 'g-pfand-rueck', name: 'Pfand zurück', sub: 'wird ausgezahlt', price: -200, kind: 'pfand' },
+    ]},
+  ]},
+  { id: 'karten', label: 'Karten', groups: [
+    { name: 'Handgemachte Weihnachtskarten', color: '#FF3B30', items: [
+      { id: 'k-1', name: 'Eine Karte', price: 300 },
+      { id: 'k-2', name: 'Zwei Karten', price: 500 },
+    ]},
+  ]},
+];
+const VERSION = 18;
+// Fokus ins erste Feld – aber nur, wenn die Eingabe nicht schon in einem anderen Feld des Fensters begonnen hat
+const focusFirst = sel => setTimeout(() => { const el = document.querySelector(sel), d = el.closest('dialog'); if (!d.contains(document.activeElement) || document.activeElement === d) el.focus(); }, 50);
+// Test- und Live-Version liegen auf derselben Domain: getrennter Speicher, damit sich die Daten nie vermischen
+const IS_TEST = /\/kasse-test\//.test(location.pathname);
+const KEY = IS_TEST ? 'kasse-test-v2' : 'kasse-v2';
+const $ = s => document.querySelector(s);
+const euro = c => (c / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+const items = s => s.groups.flatMap(g => g.items);
+
+const defVat = id => (id === 'g-spezi' || id.startsWith('k-') || id.startsWith('g-pfand')) ? 19 : 7;
+const isPfand = id => id.startsWith('g-pfand');
+const clone = o => JSON.parse(JSON.stringify(o));
+const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const PALETTE = ['#FF9F0A', '#34C759', '#30B0C7', '#FF3B30', '#AF52DE', '#5856D6', '#FF2D55', '#007AFF'];
+
+const RC_DEFAULT = { name: 'Evangelische Kirchengemeinde Kleinglattbach', addr: 'Kirchstraße 15; 71665 Vaihingen an der Enz', foot: 'Vielen Dank, Guten Appetit & frohe Weihnachten!' };
+let state = { lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
+try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
+let STANDS, ALL = {};
+function setCatalog(c) {
+  STANDS = state.catalog = c;
+  STANDS.forEach(s => s.groups.forEach((g, i) => { if (!g.id) g.id = s.id + '-g' + i; g.items.forEach(it => { if (typeof it.vat !== 'number') it.vat = defVat(it.id); }); }));
+  ALL = {};
+  STANDS.forEach(s => s.groups.forEach(g => g.items.forEach(it => { ALL[it.id] = { ...it, stand: s.id }; })));
+  if (!STANDS.some(s => s.id === state.stand)) state.stand = STANDS[0].id;
+}
+if (Array.isArray(state.catalog) && state.catalog.length && !state.mig17) migrateCatalog(state.catalog);
+state.mig17 = true;
+setCatalog(Array.isArray(state.catalog) && state.catalog.length ? state.catalog : clone(DEFAULT_STANDS));
+// Bon-Kopf: Vorgaben übernehmen, solange nichts Eigenes eingetragen ist
+if (!state.receipt.name && !state.receipt.addr) { state.receipt.name = RC_DEFAULT.name; state.receipt.addr = RC_DEFAULT.addr; }
+if (!state.receipt.foot || state.receipt.foot === 'Vielen Dank für Ihren Einkauf!') state.receipt.foot = RC_DEFAULT.foot;
+if (!state.ppMode) state.ppMode = state.ppAmount === false ? 'none' : 'amount'; // Standard: dokumentiertes Format ohne Währungskürzel
+let editing = false;
+if (state.paypal) state.paypal = normalizeLink(state.paypal); // alte, fehlerhaft gespeicherte Links reparieren
+// MwSt.: Preise sind Bruttopreise. Vorschlagswerte (bitte prüfen!): Speisen 7 %, Getränke und Karten 19 %. Je Produkt änderbar.
+const vatOf = (info, id) => info && info[id] && typeof info[id].vat === 'number' ? info[id].vat : (ALL[id] ? ALL[id].vat : 7);
+const pct = r => String(r).replace('.', ',') + ' %';
+const vatText = gr => { const e = Object.entries(gr).sort((a, b) => a[0] - b[0]); const v = e.reduce((s, [r, g]) => s + vatPart(g, +r), 0), g = e.reduce((s, [, x]) => s + x, 0);
+  return { vat: v, net: g - v, text: `Netto ${euro(g - v)} · ` + e.map(([r, x]) => `MwSt ${pct(r)}: ${euro(vatPart(x, +r))}`).join(' · ') }; };
+const snap = lines => Object.fromEntries(Object.keys(lines).filter(id => ALL[id]).map(id => [id, { name: ALL[id].name, price: ALL[id].price, vat: ALL[id].vat }]));
+const labelOf = id => { const s = STANDS.find(x => x.id === id); if (s) return s.label; const k = state.sales.find(x => x.stand === id); return (k && k.sl) || 'Gelöschte Seite'; };
+const itemName = (s, id) => (s.info && s.info[id] ? s.info[id].name : ALL[id] ? ALL[id].name : 'Gelöschter Artikel');
+// Übernahme der Zähler aus der Vorgängerversion (v1: nur Zähler, keine Buchungen)
+if (!state.migrated) {
+  try {
+    const old = JSON.parse(localStorage.getItem('kasse-v1'));
+    const by = {};
+    for (const [id, n] of Object.entries((old && old.counts) || {})) if (n > 0 && ALL[id]) (by[ALL[id].stand] = by[ALL[id].stand] || {})[id] = n;
+    for (const [st, lines] of Object.entries(by)) {
+      const total = Object.entries(lines).reduce((a, [id, n]) => a + ALL[id].price * n, 0);
+      state.sales.push({ n: ++state.seq, t: Date.now(), stand: st, sl: labelOf(st), lines, info: snap(lines), total, given: total, change: 0, void: false, note: 'Übernommen aus Vorversion' });
+    }
+  } catch (e) {}
+  state.migrated = true;
+}
+const hash = location.hash.slice(1);
+if (STANDS.some(s => s.id === hash)) state.stand = hash;
+if (!STANDS.some(s => s.id === state.stand)) state.stand = STANDS[0].id;
+
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+const stand = () => STANDS.find(s => s.id === state.stand);
+const cart = () => state.cart[state.stand] || (state.cart[state.stand] = {});
+const cartTotal = () => Object.entries(cart()).reduce((a, [id, n]) => a + (ALL[id] ? ALL[id].price * n : 0), 0);
+const buzz = () => { try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} };
+
+function sold() { // verbuchte (nicht stornierte) Verkäufe; Preise/Namen stammen aus dem Bon-Zeitpunkt
+  const perS = {}, revS = {}, rev = {}, cnt = {}, gr = {}, grS = {};
+  for (const s of state.sales) if (!s.void) {
+    rev[s.stand] = (rev[s.stand] || 0) + s.total;
+    const P = perS[s.stand] = perS[s.stand] || {}, R = revS[s.stand] = revS[s.stand] || {};
+    for (const [id, n] of Object.entries(s.lines)) {
+      const pr = s.info && s.info[id] ? s.info[id].price : ALL[id] ? ALL[id].price : 0;
+      P[id] = (P[id] || 0) + n; R[id] = (R[id] || 0) + n * pr; if (!isPfand(id)) cnt[s.stand] = (cnt[s.stand] || 0) + n;
+      const v = vatOf(s.info, id); gr[v] = (gr[v] || 0) + n * pr; (grS[s.stand] = grS[s.stand] || {})[v] = ((grS[s.stand] || {})[v] || 0) + n * pr;
+    }
+  }
+  return { perS, revS, rev, cnt, gr, grS };
+}
+
+function cartAdd(id, d) {
+  const c = cart();
+  c[id] = (c[id] || 0) + d;
+  if (c[id] <= 0) delete c[id];
+  const link = ALL[id] && ALL[id].autoAdd;   // z. B. Spezi → Pfand automatisch mit auf den Bon
+  if (link && ALL[link]) {
+    if (d > 0) c[link] = (c[link] || 0) + d;
+    else if (c[link] > 0) { c[link] += d; if (c[link] <= 0) delete c[link]; }
+  }
+  save(); update();
+}
+
+function build() {
+  document.body.classList.toggle('editing', editing);
+  $('#tabs').innerHTML = STANDS.map(s =>
+    `<button role="tab" data-stand="${s.id}" aria-selected="${s.id === state.stand}">${esc(s.label)}</button>`).join('')
+    + (editing ? '<button data-addstand aria-label="Seite hinzufügen">＋</button>' : '');
+  const s = stand();
+  $('#title').textContent = s.label;
+  $('#edit-bar').hidden = !editing;
+  if (editing) return buildEdit();
+  $('#main').innerHTML = s.groups.map(g => `
+    <section class="group" style="--accent:${g.color}">
+      <h2>${esc(g.name)}</h2>
+      <div class="grid n${g.items.length}">${g.items.map(it => `
+        <div class="tile-wrap">
+          <button class="tile" data-add="${it.id}" aria-label="${esc(it.name)} zum Bon hinzufügen">
+            <span class="badge" data-count="${it.id}">0</span>
+            <span class="name">${esc(it.name)}</span>
+            ${it.sub ? `<span class="sub">${esc(it.sub)}</span>` : ''}
+            <span class="price">${euro(it.price)}</span>
+            <span class="rev" data-sold="${it.id}"></span>
+          </button>
+          <button class="minus" data-sub="${it.id}" aria-label="${esc(it.name)} vom Bon entfernen">−</button>
+        </div>`).join('')}
+      </div>
+    </section>`).join('') || '<p class="empty">Diese Seite hat noch keine Produkte. Bearbeitungsmodus: Titel 5× antippen → Verwaltung.</p>';
+  update();
+}
+
+function buildEdit() {
+  const s = stand();
+  $('#edit-bar').innerHTML = `<span class="eb-t">Bearbeitungsmodus · Seite „${esc(s.label)}“</span><span class="eb-a">
+    <button class="btn" data-renamestand>Seite umbenennen</button><button class="btn destructive" data-delstand>Seite löschen</button>
+    <button class="btn primary" data-editdone>Fertig</button></span>`;
+  $('#main').innerHTML = s.groups.map((g, i) => `
+    <section class="group" style="--accent:${g.color}">
+      <div class="g-head"><h2>${esc(g.name)}</h2><span class="g-actions">
+        <button class="btn sm" data-gup="${g.id}" ${i === 0 ? 'disabled' : ''} aria-label="Nach oben">↑</button>
+        <button class="btn sm" data-gdown="${g.id}" ${i === s.groups.length - 1 ? 'disabled' : ''} aria-label="Nach unten">↓</button>
+        <button class="btn sm" data-gren="${g.id}">Umbenennen</button>
+        <button class="btn sm destructive" data-gdel="${g.id}">Löschen</button></span></div>
+      <div class="grid">${g.items.map(it => `
+        <div class="tile-wrap"><button class="tile edit" data-edit="${it.id}">
+          <span class="pencil">✎</span><span class="name">${esc(it.name)}</span>
+          ${it.sub ? `<span class="sub">${esc(it.sub)}</span>` : ''}<span class="price">${euro(it.price)}</span></button></div>`).join('')}
+        <div class="tile-wrap"><button class="tile add-tile" data-newitem="${g.id}">＋ Produkt</button></div>
+      </div>
+    </section>`).join('') + '<button class="btn wide" data-newgroup>＋ Unterkategorie hinzufügen</button>';
+}
+
+function update() {
+  if (editing) return;
+  const s = stand(), c = cart(), { perS } = sold(), per = perS[state.stand] || {};
+  for (const it of items(s)) {
+    const n = c[it.id] || 0;
+    const b = document.querySelector(`[data-count="${it.id}"]`);
+    b.textContent = n; b.closest('.tile').classList.toggle('has', n > 0);
+    document.querySelector(`[data-sold="${it.id}"]`).textContent = per[it.id] ? `verkauft: ${per[it.id]}` : '';
+    document.querySelector(`[data-sub="${it.id}"]`).disabled = !n;
+  }
+  const lines = items(s).filter(it => c[it.id]);
+  $('#bon-lines').innerHTML = lines.length ? lines.map(it => `
+    <li><span class="bl-n">${c[it.id]}×</span><span class="bl-name">${esc(it.name)}</span>
+    <span class="bl-sum">${euro(c[it.id] * it.price)}</span>
+    <button class="bl-minus" data-sub="${it.id}" aria-label="${esc(it.name)} entfernen">−</button></li>`).join('')
+    : '<li class="empty">Kachel antippen, um einen Artikel hinzuzufügen</li>';
+  const t = cartTotal();
+  $('#bon-sum').textContent = euro(t);
+  const bg = {}; for (const [id, n] of Object.entries(c)) if (ALL[id]) bg[ALL[id].vat] = (bg[ALL[id].vat] || 0) + n * ALL[id].price;
+  $('#bon-vat').innerHTML = state.vat.on && t ? Object.entries(bg).sort((x, y) => x[0] - y[0]).map(([r, g]) => `<div><span>darin MwSt ${pct(r)}</span><span>${euro(vatPart(g, +r))}</span></div>`).join('') : '';
+  const empty = !Object.keys(c).length;
+  $('#pay').disabled = $('#clear').disabled = empty;
+  $('#pay').textContent = empty ? 'Bezahlen' : t < 0 ? `Auszahlen · ${euro(-t)}` : t === 0 ? 'Verbuchen · 0,00 €' : `Bezahlen · ${euro(t)}`;
+}
+
+// --- Schnelles Tippen: Artikel landet schon beim Aufsetzen des Fingers auf dem Bon
+document.addEventListener('pointerdown', e => {
+  if (e.button > 0) return;
+  const t = e.target.closest('[data-add]'); if (!t) return;
+  cartAdd(t.dataset.add, 1); buzz();
+  const b = t.querySelector('.badge'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
+});
+
+// --- Bezahlen / Wechselgeld
+let given = '', tip = '', target = 'given', method = 'bar';
+// Inhalt des QR-Codes (state.ppMode): 'amount' | 'amountEur' | 'none' – siehe logic.js
+const ppEmbeds = () => Kasse.ppEmbeds(state.paypal, state.ppMode);
+const paypalUrl = total => Kasse.paypalUrl(state.paypal, state.ppMode, total);
+// QR als Bild (GIF-Data-URL) statt SVG: sieht auf allen Browsern gleich aus, auch auf älteren iPads
+function qrImg(url, target) {
+  try {
+    const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+    const n = qr.getModuleCount(), cell = Math.max(3, Math.floor(target / (n + 8))), size = (n + 8) * cell;
+    return `<img class="qr" alt="QR-Code" src="${qr.createDataURL(cell, cell * 4)}" width="${size}" height="${size}">`;
+  } catch (e) { return ''; }
+}
+function qrSvg(url) { try { const qr = qrcode(0, 'M'); qr.addData(url); qr.make(); return qr.createSvgTag({ scalable: true, margin: 2 }); } catch (e) { return ''; } }
+function payUpdate() {
+  const total = cartTotal(), g = parse(given), ch = $('#p-change'), pp = method === 'paypal', T = state.tip.on;
+  const tp = Math.max(0, parse(tip) || 0);
+  $('#p-total').textContent = euro(total);
+  const settle = total <= 0;   // nur Pfand-Rückgabe o. Ä.: nichts zu kassieren, ggf. auszahlen
+  $('#p-method').hidden = settle;
+  if (settle) {
+    ['#p-cash', '#p-given-b', '#p-tip-b', '#p-qr'].forEach(s => $(s).hidden = true);
+    ch.hidden = false; ch.className = 'change ok';
+    ch.innerHTML = `<span class="cap">${total < 0 ? 'Auszahlen' : 'Nichts zu zahlen'}</span><b>${euro(-total)}</b>`;
+    $('#p-ok').textContent = total < 0 ? 'Ausgezahlt · Verbuchen' : 'Verbuchen'; $('#p-ok').disabled = false; return;
+  }
+  document.querySelectorAll('#p-method button').forEach(b => b.setAttribute('aria-selected', b.dataset.method === method));
+  ['#p-cash', '#p-given-b', '#p-change'].forEach(s => $(s).hidden = pp);
+  $('#p-cash').hidden = pp;
+  $('#p-tip-b').hidden = pp || !T; $('#p-tipq').hidden = !T;
+  $('#p-qr').hidden = !pp;
+  $('#p-ok').textContent = pp ? 'PayPal-Zahlung erhalten · Verbuchen' : 'Verbuchen';
+  if (pp) {
+    const url = state.paypal ? paypalUrl(total) : '';
+    const img = url ? qrImg(url, 300) : '';
+    const note = ppEmbeds() ? `Betrag im Link: <b>${euro(total)}</b>` : `<b>Bitte im PayPal-Fenster ${euro(total)} eingeben</b>`;
+    $('#p-qr-img').innerHTML = img ? img + `<div class="qr-amount">${note}</div><small class="muted qr-url">${esc(url)}</small>`
+      : `<p class="err">${state.paypal ? 'Der QR-Code konnte nicht erzeugt werden (Link zu lang oder ungültig).' : 'Kein PayPal-Link hinterlegt.'}<br>Bitte in der Verwaltung unter „PayPal-Link festlegen“ prüfen.</p>`;
+    $('#p-ok').disabled = false; return;
+  }
+  document.querySelectorAll('.pay-field').forEach(b => b.classList.toggle('active', b.dataset.target === target));
+  $('#p-given').textContent = given ? given + ' €' : '–';
+  $('#p-tip').textContent = tip ? tip + ' €' : '–';
+  ch.className = 'change';
+  const cp = Kasse.calcPay(total, given, tip, T), need = cp.need;
+  if (g === null) ch.innerHTML = '<span class="cap">Rückgeld</span><b>–</b>';
+  else if (g >= need) { ch.classList.add('ok'); ch.innerHTML = `<span class="cap">Rückgeld${T && tp ? ' (nach Spende)' : ''}</span><b>${euro(g - need)}</b>`; }
+  else { ch.classList.add('short'); ch.innerHTML = `<span class="cap">Es fehlen</span><b>${euro(need - g)}</b>`; }
+  $('#p-ok').disabled = !cp.ok;
+}
+function openPay() { if (!Object.keys(cart()).length) return; given = ''; tip = ''; target = 'given'; method = 'bar'; payUpdate(); $('#pay-dlg').showModal(); }
+const fmtIn = c => (c / 100).toFixed(2).replace('.', ',').replace(/,00$/, '');
+function key(k) {
+  let v = target === 'tip' ? tip : given;
+  if (k === 'back') v = v.slice(0, -1);
+  else if (k === ',') { if (!v.includes(',')) v = (v || '0') + ','; }
+  else {
+    const dec = v.split(',')[1];
+    if (dec !== undefined && dec.length >= 2) return;
+    if (v.replace(',', '').length >= 7) return;
+    v = v === '0' ? k : v + k;
+  }
+  if (target === 'tip') tip = v; else given = v;
+  payUpdate();
+}
+function book() {
+  const total = cartTotal();
+  if (total <= 0) { // Auszahlung (z. B. Pfand zurück) oder 0 €: bar, nichts einzunehmen
+    state.sales.push({ method: 'bar', n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: { ...cart() }, info: snap(cart()), total, given: 0, tip: 0, change: -total, payout: total < 0, void: false });
+    state.cart[state.stand] = {}; save(); update(); $('#pay-dlg').close(); buzz(); showToast(state.sales[state.sales.length - 1]); return;
+  }
+  const pp = method === 'paypal', cp = Kasse.calcPay(total, given, tip, state.tip.on), tp = pp ? 0 : cp.tp, g = pp ? total : cp.g; if (!pp && !cp.ok) return;
+  state.sales.push({ method, n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: { ...cart() }, info: snap(cart()), total, given: g, tip: tp, change: g - total - tp, void: false });
+  state.cart[state.stand] = {}; save(); update(); $('#pay-dlg').close(); buzz(); showToast(state.sales[state.sales.length - 1]);
+}
+
+// --- Bestätigungsdialog
+function ask(title, text, ok) {
+  return new Promise(res => {
+    $('#c-title').textContent = title; $('#c-text').textContent = text; $('#c-ok').textContent = ok;
+    const d = $('#confirm'); d.returnValue = ''; d.showModal();
+    d.addEventListener('close', () => res(d.returnValue === 'ok'), { once: true });
+  });
+}
+
+// --- Passwort
+async function hashPw(s) {
+  const data = new TextEncoder().encode('kasse|' + s);
+  if (window.crypto && crypto.subtle) { const h = await crypto.subtle.digest('SHA-256', data); return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, '0')).join(''); }
+  let h = 5381; for (const c of s) h = ((h << 5) + h + c.charCodeAt(0)) | 0; return 'x' + h;
+}
+let pwMode = null;
+const recCode = () => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', r = crypto.getRandomValues(new Uint8Array(8)); return [...r].map(x => c[x % c.length]).join('').replace(/(.{4})/, '$1-'); };
+function pwDialog(mode) {
+  pwMode = mode;
+  const enter = mode === 'enter';
+  $('#pw-title').textContent = enter ? 'Passwort eingeben' : mode === 'change' ? 'Neues Passwort' : 'Passwort festlegen';
+  $('#pw-text').textContent = enter ? 'Das Passwort gilt nur für dieses Gerät.' : 'Dieses Gerät hat noch kein eigenes Passwort bzw. du vergibst ein neues. Mindestens 4 Zeichen (Buchstaben und Zahlen möglich). Zur Sicherheit zweimal eingeben.';
+  $('#pw-input').value = ''; $('#pw-input2').value = ''; $('#pw-err').textContent = '';
+  $('#pw-input2').hidden = enter; $('#pw-forgot').hidden = !enter || !state.rec;
+  $('#pw-show').checked = false; setPwVisible(false);
+  $('#pw-dlg').showModal(); focusFirst('#pw-input');
+}
+function setPwVisible(on) { ['#pw-input', '#pw-input2'].forEach(s => $(s).classList.toggle('secret', !on)); }
+$('#pw-show').addEventListener('change', e => setPwVisible(e.target.checked));
+$('#pw-forgot').addEventListener('click', async () => {
+  $('#pw-dlg').close();
+  const c = await promptText('Wiederherstellungscode eingeben', '', 'XXXX-XXXX');
+  if (c && state.rec && await hashPw('rec|' + c.toUpperCase().replace(/[^A-Z0-9]/g, '')) === state.rec) pwDialog('recover');
+  else if (c) { await ask('Code falsch', 'Der Wiederherstellungscode stimmt nicht.', 'OK'); pwDialog('enter'); }
+});
+$('#pw-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const v = $('#pw-input').value.trim();
+  if (pwMode === 'enter') {
+    if (await hashPw(v) === state.pw) { $('#pw-dlg').close(); showAdmin(); }
+    else { $('#pw-err').textContent = 'Falsches Passwort. Das Passwort gilt nur für dieses Gerät.'; $('#pw-input').value = ''; }
+  } else {
+    if (v.length < 4) { $('#pw-err').textContent = 'Mindestens 4 Zeichen'; return; }
+    if (v !== $('#pw-input2').value.trim()) { $('#pw-err').textContent = 'Die beiden Eingaben stimmen nicht überein'; return; }
+    state.pw = await hashPw(v);
+    const code = recCode(); state.rec = await hashPw('rec|' + code.replace('-', '')); save(); $('#pw-dlg').close();
+    await ask('Wiederherstellungscode', `Bitte notieren (nicht auf dem Gerät): ${code} – Damit kannst du ein vergessenes Passwort neu setzen, ohne Daten zu verlieren.`, 'Notiert');
+    if (pwMode !== 'change') showAdmin();
+  }
+});
+$('#pw-cancel').addEventListener('click', () => $('#pw-dlg').close());
+
+// --- Verwaltung (extra Seite): Buchungen, Storno, Speichern
+function openAdmin() { hold = null; buzz(); pwDialog(state.pw ? 'enter' : 'set'); }
+function showAdmin() { renderAdmin(); $('#admin').hidden = false; document.body.classList.add('noscroll'); }
+function hideAdminKeep() { $('#admin').hidden = true; document.body.classList.remove('noscroll'); }
+function hideAdmin() { hideAdminKeep(); build(); }
+const fmtTS = t => new Date(t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+const fmtT = t => new Date(t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+const lineText = s => Object.entries(s.lines).map(([id, n]) => `${n}× ${itemName(s, id)}`).join(', ');
+const standIds = () => { const ids = STANDS.map(s => s.id); state.sales.forEach(s => { if (!ids.includes(s.stand)) ids.push(s.stand); }); return ids; };
+// Kassenstand (Bargeld): Anfangsbestand + bar bezahlte Beträge + Spenden; PayPal und stornierte Buchungen ändern ihn nicht
+const cashSeries = () => Kasse.cashSeries(state.sales, state.cash.start);
+const payTotals = () => Kasse.payTotals(state.sales);
+function renderAdmin() {
+  const { rev, cnt, gr, grS } = sold();
+  $('#vat-toggle').checked = state.vat.on;
+  $('#rc-toggle').checked = state.receipt.on;
+  $('#tip-toggle').checked = state.tip.on;
+  $('#paypal-state').textContent = state.paypal ? `Hinterlegt: ${state.paypal}` : 'Noch kein Link hinterlegt.';
+  $('#paypal-off').hidden = !state.paypal;
+  $('#pp-mode').value = state.ppMode;
+  const pv = state.paypal ? paypalUrl(1000) : '';
+  $('#paypal-preview').innerHTML = pv ? `<div class="pv">${qrImg(pv, 200)}</div><small class="muted">Vorschau des QR-Codes (Beispiel 10,00 €):<br>${esc(pv)}<br>Scanne ihn einmal mit dem Handy und prüfe den Empfänger.</small><a class="btn" href="${esc(pv)}" target="_blank" rel="noopener">Link zum Testen öffnen</a>` : '';
+  $('#vat-summary').hidden = !state.vat.on;
+  if (state.vat.on) {
+    const rates = Object.keys(gr).sort((x, y) => x - y), T = vatText(gr);
+    $('#vat-summary').innerHTML = '<h3>Mehrwertsteuer (enthalten in den Bruttopreisen)</h3>' + (rates.length ? rates.map(r => `<div class="sum-row vat"><span>Satz ${pct(r)}</span><span>Brutto ${euro(gr[r])} · Netto ${euro(gr[r] - vatPart(gr[r], +r))}</span><b>${euro(vatPart(gr[r], +r))}</b></div>`).join('') + `<div class="sum-row total"><span>Gesamt MwSt</span><span>Brutto ${euro(Object.values(gr).reduce((s, x) => s + x, 0))} · Netto ${euro(T.net)}</span><b>${euro(T.vat)}</b></div>` : '<p class="empty">Noch keine Verkäufe.</p>');
+  }
+  const pay = payTotals(), cs = cashSeries();
+  $('#cash-card').innerHTML = `<h3>Kassenstand (Bargeld)</h3>
+    <div class="sum-row"><span>Anfangsbestand</span><span>${state.cash.at ? 'festgelegt am ' + fmtTS(state.cash.at) : 'noch nicht festgelegt'}</span><b>${euro(state.cash.start)}</b></div>
+    <div class="sum-row"><span>+ Barverkäufe</span><span></span><b>${euro(cs.sales)}</b></div>
+    <div class="sum-row"><span>+ Spenden</span><span></span><b>${euro(cs.tips)}</b></div>
+    <div class="sum-row total"><span>Aktuell in der Kasse</span><span>PayPal ist nicht enthalten</span><b>${euro(cs.bal)}</b></div>
+    <button class="btn" id="cash-start">Anfangsbestand festlegen</button>`;
+  $('#admin-summary').innerHTML = '<h3>Zwischenstand dieses Geräts</h3>' + standIds().map(id => {
+    const k = state.sales.filter(x => x.stand === id), g = k.filter(x => !x.void).length, v = k.length - g;
+    return `<div class="sum-row"><span>${esc(labelOf(id))}</span><span>${g} ${g === 1 ? 'Buchung' : 'Buchungen'} · ${cnt[id] || 0} Artikel${v ? ` · ${v} storniert` : ''}</span><b>${euro(rev[id] || 0)}</b></div>${state.vat.on && grS[id] ? `<div class="vat-sub">${vatText(grS[id]).text}</div>` : ''}`;
+  }).join('') + `<div class="sum-row total"><span>Gesamt</span><span>Bar ${euro(pay.bar)} · PayPal ${euro(pay.paypal)}${pay.tip ? ` · Spenden ${euro(pay.tip)} (nicht enthalten)` : ''}</span><b>${euro(Object.values(rev).reduce((a, b) => a + b, 0))}</b></div>`;
+  $('#restore').hidden = !state.backup;
+  const lb = state.lastBackup, since = state.sales.filter(s => s.t > (lb || 0)).length;
+  $('#backup-status').textContent = lb ? `Letzte Sicherung: ${fmtTS(lb)} · seitdem ${since} neue ${since === 1 ? 'Buchung' : 'Buchungen'}` : `Noch keine Sicherung erstellt (${state.sales.length} Buchungen auf diesem Gerät).`;
+  storageInfo().then(t => { $('#storage-info').textContent = t; });
+  const saleVat = s => { const g = {}; for (const [id, n] of Object.entries(s.lines)) { const pr = s.info && s.info[id] ? s.info[id].price : ALL[id] ? ALL[id].price : 0, r = vatOf(s.info, id); g[r] = (g[r] || 0) + n * pr; } return vatText(g).vat; };
+  const list = [...state.sales].reverse();
+  $('#sales-list').innerHTML = list.length ? list.map(s => `
+    <div class="sale${s.void ? ' void' : ''}">
+      <div class="sale-main">
+        <div class="sale-head"><b>#${s.n}</b> · ${fmtTS(s.t)} · ${esc(labelOf(s.stand))}${s.method === 'paypal' ? ' · <span class="tag pp">PayPal</span>' : ''}${s.void ? ' · <span class="tag">storniert</span>' : ''}</div>
+        <div class="sale-lines">${esc(lineText(s))}</div>
+        <div class="sale-cash">${s.void ? 'storniert – Kassenstand unverändert' : s.method === 'paypal' ? 'PayPal – Kassenstand unverändert' : `Kasse ${s.total + (s.tip || 0) < 0 ? '−' : '+'}${euro(Math.abs(s.total + (s.tip || 0)))}`} → <b>${euro(cs.m[s.n])}</b></div>
+        <div class="sale-pay">${s.note ? esc(s.note) : s.method === 'paypal' ? 'Bezahlt mit PayPal' : s.payout ? `Ausgezahlt ${euro(-s.total)}` : `Gegeben ${euro(s.given)}${s.tip ? ` · Spende ${euro(s.tip)}` : ''} · Rückgeld ${euro(s.change)}`}${state.vat.on ? ` · MwSt ${euro(saleVat(s))}` : ''}</div>
+      </div>
+      <b class="sale-sum">${euro(s.total)}</b>
+      <div class="sale-btns">${state.receipt.on ? `<button class="btn" data-pdf="${s.n}">PDF</button><button class="btn" data-print="${s.n}">Drucken</button>` : ''}
+      <button class="btn ${s.void ? '' : 'destructive'}" data-void="${s.n}">${s.void ? 'Storno aufheben' : 'Stornieren'}</button></div>
+    </div>`).join('') : '<p class="empty">Noch keine Buchungen.</p>';
+}
+
+// --- Datensicherung (Datei zum Wiederherstellen)
+const BACKUP_KEYS = ['catalog', 'sales', 'seq', 'vat', 'tip', 'cash', 'receipt', 'paypal', 'ppMode'];
+async function deliver(file, title) {
+  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title }); return true; } }
+  catch (err) { if (err.name === 'AbortError') return false; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 8000); return true;
+}
+async function backupSave() {
+  const data = {}; BACKUP_KEYS.forEach(k => { data[k] = state[k]; });
+  const d = new Date(), p = k => String(k).padStart(2, '0');
+  const name = `kasse-sicherung-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.json`;
+  const file = new File([JSON.stringify({ app: 'kasse', version: VERSION, savedAt: Date.now(), data })], name, { type: 'application/json' });
+  if (await deliver(file, 'Kasse Sicherung')) { state.lastBackup = Date.now(); save(); renderAdmin(); }
+}
+async function backupRestore(file) {
+  let b;
+  try { b = JSON.parse(await file.text()); } catch (e) { b = null; }
+  if (!b || b.app !== 'kasse' || !b.data || !Array.isArray(b.data.sales) || !Array.isArray(b.data.catalog)) { await ask('Keine gültige Sicherung', 'Diese Datei ist keine Kasse-Sicherung (.json).', 'OK'); return; }
+  const ok = await ask('Sicherung wiederherstellen?', `Sicherung vom ${fmtTS(b.savedAt)} mit ${b.data.sales.length} Buchungen. Die aktuellen Daten dieses Geräts (${state.sales.length} Buchungen) werden ersetzt. Das Passwort bleibt unverändert.`, 'Wiederherstellen');
+  if (!ok) return;
+  BACKUP_KEYS.forEach(k => { if (b.data[k] !== undefined) state[k] = b.data[k]; });
+  state.cart = {}; migrateCatalog(state.catalog); state.mig17 = true; setCatalog(state.catalog);
+  save(); build(); renderAdmin();
+}
+async function storageInfo() {
+  try { const p = navigator.storage && navigator.storage.persisted ? await navigator.storage.persisted() : null; return p === null ? '' : p ? 'Dauerhafter Speicher: ja' : 'Dauerhafter Speicher: nicht zugesagt (Daten bitte regelmäßig sichern)'; } catch (e) { return ''; }
+}
+
+// --- Speichern: CSV-Datei (iPad: „In Dateien sichern“ / Teilen-Menü, Android: Download)
+async function exportFile() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  const stamp = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  const q = v => `"${String(v).replace(/"/g, '""')}"`, num = c => (c / 100).toFixed(2).replace('.', ','), row = a => a.map(q).join(';');
+  const { perS, revS, rev, gr, grS } = sold(), V = state.vat.on, cs = cashSeries();
+  const rows = [row(['Stand', 'Produkt', 'Einzelpreis (€)', 'Anzahl', 'Umsatz (€)'].concat(V ? ['MwSt-Satz', 'MwSt (€)'] : []))];
+  let all = 0;
+  for (const sid of standIds()) {
+    const cat = STANDS.find(s => s.id === sid), seen = new Set();
+    const add = (id, name, price, r) => { seen.add(id); const g = (revS[sid] || {})[id] || 0; rows.push(row([labelOf(sid), name, price === null ? '' : num(price), (perS[sid] || {})[id] || 0, num(g)].concat(V ? [pct(r), num(vatPart(g, r))] : []))); };
+    if (cat) items(cat).forEach(it => add(it.id, it.name + (it.sub ? ` (${it.sub})` : ''), it.price, it.vat));
+    for (const id of Object.keys(perS[sid] || {})) if (!seen.has(id)) {
+      const k = state.sales.find(x => x.stand === sid && x.info && x.info[id]);
+      add(id, (k ? k.info[id].name : 'Gelöschter Artikel') + ' (nicht mehr im Sortiment)', k ? k.info[id].price : null, vatOf(k && k.info, id));
+    }
+    rows.push(row([labelOf(sid), 'SUMME', '', '', num(rev[sid] || 0)].concat(V ? ['', num(vatText(grS[sid] || {}).vat)] : []))); all += rev[sid] || 0;
+  }
+  rows.push(row(['', 'GESAMT (dieses Gerät)', '', '', num(all)]), row(['', 'davon Bar', '', '', num(payTotals().bar)]), row(['', 'davon PayPal', '', '', num(payTotals().paypal)]), row(['', 'Spenden gesamt (nicht im Umsatz)', '', '', num(payTotals().tip)]), row(['', 'Kassenstand Anfang (Bargeld)', '', '', num(state.cash.start)]), row(['', 'Kassenstand aktuell (Bargeld, ohne PayPal)', '', '', num(cs.bal)]), row(['Stand der Daten', stamp]));
+  if (V) { rows.push('', row(['Mehrwertsteuer', 'Satz', 'Brutto (€)', 'Netto (€)', 'MwSt (€)'])); for (const r of Object.keys(gr).sort((x, y) => x - y)) rows.push(row(['', pct(r), num(gr[r]), num(gr[r] - vatPart(gr[r], +r)), num(vatPart(gr[r], +r))])); const T = vatText(gr); rows.push(row(['', 'GESAMT', num(all), num(T.net), num(T.vat)])); }
+  rows.push('', row(['Bon-Nr.', 'Zeit', 'Stand', 'Artikel', 'Summe (€)', 'Gegeben (€)', 'Rückgeld (€)', 'Status', 'Zahlart', 'Spende (€)', 'Kassenstand danach (€)'].concat(V ? ['MwSt (€)'] : [])));
+  for (const s of state.sales) rows.push(row([s.n, fmtTS(s.t), labelOf(s.stand), lineText(s), num(s.total), num(s.given), num(s.change), s.void ? 'storniert' : 'gültig', s.method === 'paypal' ? 'PayPal' : 'Bar', num(s.tip || 0), num(cs.m[s.n])].concat(V ? [num((() => { const g = {}; for (const [id, n] of Object.entries(s.lines)) { const pr = s.info && s.info[id] ? s.info[id].price : ALL[id] ? ALL[id].price : 0, r = vatOf(s.info, id); g[r] = (g[r] || 0) + n * pr; } return vatText(g).vat; })())] : [])));
+  const name = `kasse-${stamp.replace(' ', '-').replace(':', '')}.csv`;
+  const file = new File(['\ufeff' + rows.join('\r\n')], name, { type: 'text/csv' });
+  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Kasse' }); return; } }
+  catch (err) { if (err.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+// --- Bearbeitungsmodus: Produkte, Unterkategorien und Seiten
+function promptText(title, value = '', placeholder = '') {
+  return new Promise(res => {
+    $('#t-title').textContent = title; $('#t-input').value = value; $('#t-input').placeholder = placeholder; $('#t-err').textContent = '';
+    const d = $('#text-dlg'); d.returnValue = ''; d.showModal(); focusFirst('#t-input');
+    const f = $('#text-form'), done = ok => { f.onsubmit = null; $('#t-cancel').onclick = null; d.close(); res(ok ? $('#t-input').value.trim() : null); };
+    f.onsubmit = e => { e.preventDefault(); if (!$('#t-input').value.trim()) { $('#t-err').textContent = 'Bitte einen Namen eingeben'; return; } done(true); };
+    $('#t-cancel').onclick = () => done(false);
+  });
+}
+const findGroup = id => stand().groups.find(g => g.id === id);
+const commit = () => { setCatalog(STANDS); save(); build(); };
+let editItemId = null, editGroupId = null;
+function openItem(id, gid) {
+  editItemId = id; editGroupId = gid;
+  const it = id ? ALL[id] : { name: '', sub: '', price: 0, vat: 7 };
+  $('#i-vat').value = String(it.vat);
+  const pf = ALL['g-pfand'] && id !== 'g-pfand' && id !== 'g-pfand-rueck';
+  $('#i-auto-l').hidden = !pf; $('#i-auto').value = pf && it.autoAdd ? it.autoAdd : '';
+  const g = id ? stand().groups.find(x => x.items.some(i => i.id === id)) : findGroup(gid);
+  $('#i-title').textContent = id ? 'Produkt bearbeiten' : 'Neues Produkt';
+  $('#i-name').value = it.name; $('#i-sub').value = it.sub || '';
+  $('#i-price').value = id ? (Math.abs(it.price) / 100).toFixed(2).replace('.', ',') : '';
+  $('#i-group').innerHTML = stand().groups.map(x => `<option value="${x.id}" ${g && x.id === g.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
+  $('#i-del').hidden = !id; $('#i-err').textContent = '';
+  $('#item-dlg').showModal(); if (!id) focusFirst('#i-name');
+}
+$('#item-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const name = $('#i-name').value.trim(), sub = $('#i-sub').value.trim(), price = parse($('#i-price').value.trim()), gid = $('#i-group').value, vat = +$('#i-vat').value, auto = $('#i-auto').value;
+  if (!name) { $('#i-err').textContent = 'Bitte einen Namen eingeben'; return; }
+  if (price === null || price < 0) { $('#i-err').textContent = 'Bitte einen Preis eingeben, z. B. 3,50'; return; }
+  const target = findGroup(gid);
+  if (editItemId) {
+    const from = stand().groups.find(x => x.items.some(i => i.id === editItemId)), it = from.items.find(i => i.id === editItemId);
+    Object.assign(it, { name, price: editItemId === 'g-pfand-rueck' ? -Math.abs(price) : price, vat }); if (sub) it.sub = sub; else delete it.sub;
+    if (auto) it.autoAdd = auto; else delete it.autoAdd;
+    if (editItemId === 'g-pfand') STANDS.forEach(s => s.groups.forEach(g => g.items.forEach(i => { if (i.id === 'g-pfand-rueck') i.price = -price; }))); // Rückgabe = Pfand
+    if (from !== target) { from.items.splice(from.items.indexOf(it), 1); target.items.push(it); }
+  } else { const n = { id: uid('i'), name, price, vat }; if (sub) n.sub = sub; if (auto) n.autoAdd = auto; target.items.push(n); }
+  $('#item-dlg').close(); commit();
+});
+$('#i-cancel').addEventListener('click', () => $('#item-dlg').close());
+$('#i-del').addEventListener('click', async () => {
+  const it = ALL[editItemId];
+  if (!await ask('Produkt löschen?', `„${it.name}“ wird aus dem Sortiment entfernt. Bereits verbuchte Verkäufe bleiben erhalten.`, 'Löschen')) return;
+  stand().groups.forEach(g => { g.items = g.items.filter(i => i.id !== editItemId); });
+  Object.values(state.cart).forEach(c => delete c[editItemId]);
+  $('#item-dlg').close(); commit();
+});
+
+async function editAction(t) {
+  const d = t.dataset, s = stand();
+  if (d.edit) openItem(d.edit);
+  else if (d.newitem) openItem(null, d.newitem);
+  else if (d.newgroup !== undefined) {
+    const n = await promptText('Neue Unterkategorie'); if (!n) return;
+    s.groups.push({ id: uid('g'), name: n, color: PALETTE[STANDS.reduce((a, x) => a + x.groups.length, 0) % PALETTE.length], items: [] }); commit();
+  }
+  else if (d.gren) { const g = findGroup(d.gren), n = await promptText('Unterkategorie umbenennen', g.name); if (n) { g.name = n; commit(); } }
+  else if (d.gdel) {
+    const g = findGroup(d.gdel);
+    if (await ask('Unterkategorie löschen?', `„${g.name}“ mit ${g.items.length} Produkt(en) wird entfernt. Bereits verbuchte Verkäufe bleiben erhalten.`, 'Löschen')) {
+      g.items.forEach(i => Object.values(state.cart).forEach(c => delete c[i.id])); s.groups = s.groups.filter(x => x !== g); commit();
+    }
+  }
+  else if (d.gup || d.gdown) {
+    const i = s.groups.findIndex(g => g.id === (d.gup || d.gdown)), j = d.gup ? i - 1 : i + 1;
+    if (j >= 0 && j < s.groups.length) { [s.groups[i], s.groups[j]] = [s.groups[j], s.groups[i]]; commit(); }
+  }
+  else if (d.addstand !== undefined) {
+    const n = await promptText('Neue Seite'); if (!n) return;
+    const ns = { id: uid('s'), label: n, groups: [] }; STANDS.push(ns); state.stand = ns.id; history.replaceState(null, '', '#' + ns.id); commit();
+  }
+  else if (d.renamestand !== undefined) { const n = await promptText('Seite umbenennen', s.label); if (n) { s.label = n; commit(); } }
+  else if (d.delstand !== undefined) {
+    if (STANDS.length < 2) { await ask('Nicht möglich', 'Die letzte Seite kann nicht gelöscht werden.', 'OK'); return; }
+    if (await ask('Seite löschen?', `„${s.label}“ mit allen Produkten wird entfernt. Bereits verbuchte Verkäufe bleiben in der Verwaltung erhalten.`, 'Löschen')) {
+      delete state.cart[s.id]; STANDS.splice(STANDS.indexOf(s), 1); state.stand = STANDS[0].id; history.replaceState(null, '', '#' + state.stand); commit();
+    }
+  }
+  else if (d.editdone !== undefined) { editing = false; build(); }
+}
+
+// --- Klicks
+document.addEventListener('click', async e => {
+  const t = e.target.closest('button'); if (!t) return;
+  const D = t.dataset;
+  if (D.edit || D.newitem || D.newgroup !== undefined || D.gren || D.gdel || D.gup || D.gdown || D.addstand !== undefined || D.renamestand !== undefined || D.delstand !== undefined || D.editdone !== undefined) return editAction(t);
+  if (t.id === 'pp-amount') return;
+  if (t.id === 'vat-toggle' || t.id === 'rc-toggle' || t.id === 'tip-toggle') return;
+  if (D.pdf) { sharePdf(+D.pdf); return; }
+  if (D.print) { printBon(+D.print); return; }
+  if (t.id === 'toast-x') { $('#toast').hidden = true; return; }
+  if (t.id === 'rc-head') { openReceiptHead(); return; }
+  if (t.id === 'cash-start') {
+    const n = await promptText('Anfangsbestand der Kasse in €', state.cash.at ? fmtIn(state.cash.start) : '', 'z. B. 100');
+    if (n !== null) { const c = parse(n.replace(/[^\d,.]/g, '')); if (c === null || c < 0) await ask('Ungültiger Betrag', 'Bitte einen Betrag wie 100 oder 85,50 eingeben.', 'OK'); else { state.cash = { start: c, at: Date.now() }; save(); renderAdmin(); } }
+    return;
+  }
+  if (D.target) { target = D.target; payUpdate(); return; }
+  if (D.tipq) {
+    const g = parse(given), total = cartTotal();
+    tip = D.tipq === 'none' ? '' : D.tipq === 'rest' ? (g !== null && g > total ? fmtIn(g - total) : '') : fmtIn(Math.max(0, parse(tip) || 0) + (+D.tipq)); // +0,50 / +1 / +2 addieren sich
+    payUpdate(); return;
+  }
+  if (D.method) { method = D.method; payUpdate(); return; }
+  if (t.id === 'paypal-link') {
+    const n = await promptText('PayPal-Link einfügen', state.paypal || '', 'https://paypal.me/DeinName');
+    if (n) { const u = normalizeLink(n); if (u) { state.paypal = u; save(); renderAdmin(); } else await ask('Link nicht erkannt', 'Bitte den Link so einfügen, wie ihn PayPal anzeigt, z. B. https://paypal.me/DeinName', 'OK'); }
+    return;
+  }
+  if (t.id === 'paypal-off') { state.paypal = ''; save(); renderAdmin(); return; }
+  if (t.id === 'edit-mode') { hideAdminKeep(); editing = true; build(); return; }
+  if (t.id === 'defaults') {
+    if (await ask('Sortiment zurücksetzen?', 'Alle eigenen Seiten, Kategorien und Produkte werden durch das ursprüngliche Sortiment ersetzt. Bereits verbuchte Verkäufe bleiben erhalten.', 'Zurücksetzen')) { state.cart = {}; setCatalog(clone(DEFAULT_STANDS)); save(); build(); renderAdmin(); }
+    return;
+  }
+  if (t.dataset.add) { if (e.detail === 0) cartAdd(t.dataset.add, 1); } // nur Tastatur; Touch läuft über pointerdown
+  else if (t.dataset.sub) cartAdd(t.dataset.sub, -1);
+  else if (t.dataset.stand) { state.stand = t.dataset.stand; save(); history.replaceState(null, '', '#' + state.stand); build(); }
+  else if (t.id === 'pay') openPay();
+  else if (t.id === 'clear') { state.cart[state.stand] = {}; save(); update(); }
+  else if (t.dataset.key) key(t.dataset.key);
+  else if (t.dataset.quick) { target = 'given'; given = t.dataset.quick === 'total' ? (cartTotal() / 100).toFixed(2).replace('.', ',').replace(/,00$/, '') : t.dataset.quick; payUpdate(); }
+  else if (t.id === 'p-ok') book();
+  else if (t.id === 'p-cancel') $('#pay-dlg').close();
+  else if (t.id === 'admin-close') hideAdmin();
+  else if (t.id === 'save') exportFile();
+  else if (t.id === 'backup-save') backupSave();
+  else if (t.id === 'backup-restore') $('#restore-file').click();
+  else if (t.id === 'pw-change') pwDialog('change');
+  else if (t.dataset.void) {
+    const s = state.sales.find(x => x.n === +t.dataset.void); if (!s) return;
+    const ok = await ask(s.void ? 'Storno aufheben?' : `Bon #${s.n} stornieren?`, `${lineText(s)} · ${euro(s.total)}`, s.void ? 'Aufheben' : 'Stornieren');
+    if (ok) { s.void = !s.void; save(); renderAdmin(); }
+  }
+  else if (t.id === 'wipe') {
+    if (await ask('Alle Buchungen löschen?', `${state.sales.length} Buchungen werden von diesem Gerät gelöscht. Sie werden vorher intern gesichert und lassen sich wiederherstellen. Tipp: erst „Zahlen speichern“.`, 'Löschen')) {
+      state.backup = { sales: state.sales, seq: state.seq }; state.sales = []; state.seq = 0; save(); renderAdmin();
+    }
+  }
+  else if (t.id === 'restore' && state.backup) { state.sales = state.backup.sales; state.seq = state.backup.seq; state.backup = null; save(); renderAdmin(); }
+});
+$('#pay-dlg').addEventListener('cancel', () => {}); // Esc schließt wie Abbrechen
+
+// --- Bons: Zeitstempel, PDF und Druck
+const money = c => euro(c).replace(/ | /g, ' ');
+function receiptLines(s) {
+  const N = 36, L = [], R = state.receipt;
+  const l = (t, b) => L.push({ t, b: !!b });
+  const c = (t, b) => l(' '.repeat(Math.max(0, Math.floor((N - t.length) / 2))) + t, b);
+  const hr = ch => l((ch || '-').repeat(N));
+  const lr = (left, right, b) => { const w = wrapText(left, Math.max(8, N - right.length - 1)); w.forEach((x, i) => l(i === w.length - 1 ? x.padEnd(N - right.length) + right : x, b)); };
+  if (R.name) wrapText(R.name, N).forEach(x => c(x, true));
+  String(R.addr || '').split(/\n|;/).map(x => x.trim()).filter(Boolean).forEach(x => wrapText(x, N).forEach(y => c(y)));
+  if (R.tax) c(R.tax);
+  if (R.name || R.addr || R.tax) hr();
+  if (s.void) { c('*** STORNIERT ***', true); }
+  c('BON NR. ' + String(s.n).padStart(4, '0'), true);
+  const d = new Date(s.t);
+  l('Datum:  ' + d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }));
+  l('Uhrzeit: ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+  l('Stand:  ' + labelOf(s.stand));
+  hr();
+  const g = {};
+  for (const [id, n] of Object.entries(s.lines)) {
+    const pr = s.info && s.info[id] ? s.info[id].price : ALL[id] ? ALL[id].price : 0, r = vatOf(s.info, id);
+    lr(`${n}x ${itemName(s, id)}`, money(n * pr));
+    if (n > 1) l(`   à ${money(pr)}`);
+    g[r] = (g[r] || 0) + n * pr;
+  }
+  hr(); lr('SUMME', money(s.total), true);
+  if (s.method === 'paypal') lr('Bezahlt mit PayPal', money(s.total));
+  else if (s.payout) lr('Ausgezahlt', money(-s.total));
+  else if (s.total === 0) { /* nichts zu zahlen */ }
+  else if (!s.note) { lr('Bar gegeben', money(s.given)); if (s.tip) lr('Spende', money(s.tip)); lr('Rückgeld', money(s.change)); }
+  if (state.vat.on) {
+    hr(); l('Enthaltene MwSt.:'); const T = vatText(g);
+    Object.entries(g).sort((x, y) => x[0] - y[0]).forEach(([r, x]) => lr(`  MwSt ${pct(r)} (brutto ${money(x)})`, money(vatPart(x, +r))));
+    lr('  Netto gesamt', money(T.net));
+  }
+  hr(); l('Gedruckt: ' + new Date().toLocaleString('de-DE'));
+  if (R.foot) { l(''); wrapText(R.foot, N).forEach(x => c(x)); }
+  if (s.void) { l(''); c('*** STORNIERT ***', true); }
+  return L;
+}
+async function sharePdf(n) {
+  const s = state.sales.find(x => x.n === n); if (!s) return;
+  const d = new Date(s.t), p = k => String(k).padStart(2, '0');
+  const name = `bon-${String(n).padStart(4, '0')}-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.pdf`;
+  const file = new File([makePdf(receiptLines(s))], name, { type: 'application/pdf' });
+  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: `Bon ${n}` }); return; } }
+  catch (err) { if (err.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 8000);
+}
+function printBon(n) {
+  const s = state.sales.find(x => x.n === n); if (!s) return;
+  $('#print-area').textContent = receiptLines(s).map(l => l.t).join('\n');
+  window.print();
+}
+let toastTimer = null;
+function showToast(s) {
+  if (!state.receipt.on || !s) return;
+  $('#toast').innerHTML = `<span>Bon #${s.n} gebucht · ${new Date(s.t).toLocaleTimeString('de-DE')}</span><button data-pdf="${s.n}">PDF</button><button data-print="${s.n}">Drucken</button><button id="toast-x" aria-label="Schließen">✕</button>`;
+  $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 12000);
+}
+function openReceiptHead() {
+  const R = state.receipt;
+  $('#r-name').value = R.name; $('#r-addr').value = R.addr; $('#r-tax').value = R.tax; $('#r-foot').value = R.foot;
+  $('#rc-dlg').showModal();
+}
+$('#rc-form').addEventListener('submit', e => {
+  e.preventDefault();
+  Object.assign(state.receipt, { name: $('#r-name').value.trim(), addr: $('#r-addr').value.trim(), tax: $('#r-tax').value.trim(), foot: $('#r-foot').value.trim() });
+  save(); $('#rc-dlg').close();
+});
+$('#r-cancel').addEventListener('click', () => $('#rc-dlg').close());
+$('#pp-mode').addEventListener('change', e => { state.ppMode = e.target.value; save(); renderAdmin(); });
+$('#tip-toggle').addEventListener('change', e => { state.tip.on = e.target.checked; save(); renderAdmin(); });
+$('#rc-toggle').addEventListener('change', e => { state.receipt.on = e.target.checked; save(); renderAdmin(); });
+
+$('#vat-toggle').addEventListener('change', e => { state.vat.on = e.target.checked; save(); renderAdmin(); });
+
+$('#restore-file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) backupRestore(f); });
+
+// --- Versteckter Zugang: Titel 1,5 s halten oder 5× schnell antippen
+let hold = null;
+const cancelHold = () => { clearTimeout(hold); hold = null; };
+$('#title').addEventListener('pointerdown', () => { cancelHold(); hold = setTimeout(openAdmin, 1500); });
+['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => $('#title').addEventListener(ev, cancelHold));
+$('#title').addEventListener('contextmenu', e => e.preventDefault());
+let taps = [];
+$('#title').addEventListener('pointerdown', () => { const n = Date.now(); taps = taps.filter(x => n - x < 2500); taps.push(n); if (taps.length >= 5) { taps = []; cancelHold(); openAdmin(); } });
+
+if (IS_TEST) { document.body.classList.add('is-test'); document.title = 'Kasse TEST'; }
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}   // iPadOS/Android sollen die Daten nicht von selbst löschen
+let wakeLock = null;                                                                                    // Bildschirm bleibt während des Verkaufs an
+async function keepAwake() { try { if ('wakeLock' in navigator && document.visibilityState === 'visible' && (!wakeLock || wakeLock.released)) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {} }
+document.addEventListener('visibilitychange', keepAwake); document.addEventListener('pointerdown', keepAwake, { passive: true }); keepAwake();
+build();
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
+  let had = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !document.querySelector('dialog[open]') && $('#admin').hidden) location.reload(); had = true; });
+}
+
+// Sehr alte iPads (vor iPadOS 15.4) kennen <dialog> nicht: Hinweis statt stiller Fehler
+if (!window.HTMLDialogElement || !HTMLDialogElement.prototype.showModal) document.body.insertAdjacentHTML('afterbegin', '<div style="background:#FF3B30;color:#fff;padding:12px 16px;font-weight:600">Dieses Gerät ist zu alt (iPadOS bzw. Browser 15.4 oder neuer nötig). Bezahlen und Verwaltung funktionieren hier nicht.</div>');

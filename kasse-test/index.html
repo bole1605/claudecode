@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Kasse</title>
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kasse TEST">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css?v=18">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1 id="title">Kasse</h1>
+    <div class="segmented" role="tablist" aria-label="Stand wählen" id="tabs"></div>
+    <div class="top-spacer"><span class="ver">v18</span></div>
+  </header>
+
+  <div class="edit-bar" id="edit-bar" hidden></div>
+
+  <div class="body">
+    <main id="main"></main>
+    <aside class="bon" aria-label="Aktueller Bon">
+      <h2>Bon</h2>
+      <ul id="bon-lines"></ul>
+      <div class="bon-vat" id="bon-vat"></div>
+      <div class="bon-total"><span>Summe</span><b id="bon-sum">0,00 €</b></div>
+      <button class="btn primary" id="pay" disabled>Bezahlen</button>
+      <button class="btn destructive" id="clear" disabled>Bon leeren</button>
+    </aside>
+  </div>
+
+</div>
+
+<!-- Bezahlen / Wechselgeld -->
+<dialog id="pay-dlg">
+  <div class="segmented pay-method" id="p-method" role="tablist" aria-label="Zahlart">
+    <button data-method="bar" aria-selected="true">Bar</button><button data-method="paypal" aria-selected="false">PayPal</button>
+  </div>
+  <div class="pay-grid">
+    <div class="pay-info">
+      <div class="cap">Zu zahlen</div><div class="pay-big" id="p-total">0,00 €</div>
+      <button class="pay-field active" id="p-given-b" data-target="given"><span class="cap">Gegeben</span><span class="pay-big given" id="p-given">–</span></button>
+      <button class="pay-field" id="p-tip-b" data-target="tip"><span class="cap">Spende (antippen, dann eintippen)</span><span class="pay-big tipv" id="p-tip">–</span></button>
+      <div class="change" id="p-change"></div>
+    </div>
+    <div class="pay-input">
+      <div class="pay-qr" id="p-qr" hidden>
+        <div id="p-qr-img"></div>
+        <p>Mit der PayPal-App scannen. Erst verbuchen, wenn die Zahlung angekommen ist.</p>
+      </div>
+      <div id="p-cash">
+      <div class="quick" id="p-quick">
+        <button class="btn" data-quick="total">Passend</button>
+        <button class="btn" data-quick="5">5 €</button><button class="btn" data-quick="10">10 €</button>
+        <button class="btn" data-quick="20">20 €</button><button class="btn" data-quick="50">50 €</button>
+        <button class="btn" data-quick="100">100 €</button>
+      </div>
+      <div class="quick tipq" id="p-tipq">
+        <button class="btn" data-tipq="none">Keine Spende</button><button class="btn" data-tipq="50">+0,50 €</button><button class="btn" data-tipq="100">+1 €</button>
+        <button class="btn" data-tipq="200">+2 €</button><button class="btn" data-tipq="rest" style="grid-column:span 2">Rest als Spende</button>
+      </div>
+      <div class="keypad" id="p-keys">
+        <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
+        <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
+        <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
+        <button data-key=",">,</button><button data-key="0">0</button><button data-key="back" aria-label="Löschen">⌫</button>
+      </div>
+      </div>
+    </div>
+  </div>
+  <div class="dlg-actions">
+    <button class="btn" id="p-cancel">Abbrechen</button>
+    <button class="btn primary" id="p-ok" disabled>Verbuchen</button>
+  </div>
+</dialog>
+
+<!-- Passwort -->
+<dialog id="pw-dlg">
+  <form id="pw-form">
+    <h2 id="pw-title">Passwort</h2>
+    <p id="pw-text"></p>
+    <input id="pw-input" class="secret" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="next" placeholder="Passwort">
+    <input id="pw-input2" class="secret" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="Passwort wiederholen" hidden>
+    <label class="show-pw"><input type="checkbox" id="pw-show"> Eingabe anzeigen</label>
+    <button type="button" class="btn link" id="pw-forgot" hidden>Passwort vergessen?</button>
+    <p class="err" id="pw-err"></p>
+    <div class="dlg-actions">
+      <button type="button" class="btn" id="pw-cancel">Abbrechen</button>
+      <button type="submit" class="btn primary">OK</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Verwaltung (extra Seite) -->
+<div id="admin" class="page" hidden>
+  <header class="top">
+    <h1>Verwaltung</h1>
+    <button class="btn primary" id="admin-close">Fertig</button>
+  </header>
+  <div class="page-body">
+    <section class="card" id="cash-card"></section>
+    <section class="card" id="admin-summary"></section>
+    <section class="card" id="vat-summary" hidden></section>
+    <section class="card switch-card">
+      <label class="switch-row"><span><b>Spende bei Barzahlung</b><small>Beim Bezahlen kann eine Spende erfasst werden. Es zählt nicht zu den Einnahmen und wird getrennt ausgewiesen.</small></span>
+      <input type="checkbox" role="switch" id="tip-toggle"></label>
+    </section>
+    <section class="card switch-card">
+      <label class="switch-row"><span><b>Bons (PDF &amp; Druck)</b><small>Nach dem Verbuchen erscheint „PDF“ und „Drucken“. Jeder Bon trägt Nummer, Datum und Uhrzeit mit Sekunden.</small></span>
+      <input type="checkbox" role="switch" id="rc-toggle"></label>
+      <button class="btn" id="rc-head">Bon-Kopf und Fußzeile festlegen</button>
+    </section>
+    <section class="card switch-card">
+      <label class="switch-row"><span><b>Mehrwertsteuer-Rechner</b><small>Zeigt die in den Bruttopreisen enthaltene MwSt. am Bon, hier in der Verwaltung und in der Datei.</small></span>
+      <input type="checkbox" role="switch" id="vat-toggle"></label>
+    </section>
+    <section class="card"><b>PayPal</b><small class="muted" id="paypal-state"></small>
+      <div id="paypal-preview"></div>
+      <label class="field-row"><span><b>Inhalt des QR-Codes</b><small>Wenn PayPal beim Scannen nur die Startseite zeigt, hier eine andere Einstellung probieren und mit dem Test-Link prüfen.</small></span>
+        <select id="pp-mode"><option value="amount">paypal.me mit Betrag (Standard)</option><option value="amountEur">paypal.me mit Betrag und „EUR“</option><option value="none">Link ohne Betrag (Käufer tippt Betrag)</option></select></label>
+      <small class="muted"><b>Zum Testen:</b> Scanne den Code nicht mit dem PayPal-Konto, dem der Link gehört. PayPal kann sich nicht selbst bezahlen und zeigt dann nur die Startseite an. Nimm ein anderes Konto oder öffne den Link im Browser, ohne angemeldet zu sein.</small>
+      <small class="muted">Der Link wird im QR-Code beim Bezahlen angezeigt. Bei einem paypal.me-Link wird der Betrag automatisch eingetragen.</small>
+      <button class="btn destructive" id="paypal-off" hidden>PayPal-Link entfernen</button></section>
+    <section class="card" id="backup-card">
+      <h3>Datensicherung</h3>
+      <small class="muted" id="backup-status"></small><small class="muted" id="storage-info"></small>
+      <div class="actions-card" style="padding:0">
+        <button class="btn primary" id="backup-save">Sicherung speichern (Datei)</button>
+        <button class="btn" id="backup-restore">Sicherung wiederherstellen …</button>
+      </div>
+      <input type="file" id="restore-file" accept=".json,application/json" hidden>
+    </section>
+    <section class="card actions-card">
+      <button class="btn primary" id="edit-mode">Bearbeitungsmodus (Produkte & Seiten)</button>
+      <button class="btn" id="paypal-link">PayPal-Link festlegen</button>
+      <button class="btn" id="save">Zahlen speichern (Datei)</button>
+      <button class="btn" id="pw-change">Passwort ändern</button>
+      <button class="btn" id="restore" hidden>Gelöschte Buchungen wiederherstellen</button>
+      <button class="btn" id="defaults">Sortiment auf Standard zurücksetzen …</button>
+      <button class="btn destructive" id="wipe">Alle Buchungen auf diesem Gerät löschen …</button>
+    </section>
+    <h3 class="list-h">Buchungen</h3>
+    <section class="card" id="sales-list"></section>
+  </div>
+</div>
+
+<dialog id="rc-dlg" class="form-dlg">
+  <form id="rc-form">
+    <h2>Bon-Kopf und Fußzeile</h2>
+    <label>Name des Veranstalters / Vereins<input id="r-name" autocomplete="off"></label>
+    <label>Adresse (mehrere Zeilen mit Semikolon trennen)<input id="r-addr" autocomplete="off" placeholder="Musterstraße 1; 41061 Mönchengladbach"></label>
+    <label>Steuernummer oder USt-IdNr. (optional)<input id="r-tax" autocomplete="off" placeholder="Steuernr.: 123/456/78901"></label>
+    <label>Fußzeile<input id="r-foot" autocomplete="off"></label>
+    <div class="dlg-actions">
+      <button type="button" class="btn" id="r-cancel">Abbrechen</button>
+      <button type="submit" class="btn primary">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="item-dlg" class="form-dlg">
+  <form id="item-form">
+    <h2 id="i-title"></h2>
+    <label>Name<input id="i-name" autocomplete="off"></label>
+    <label>Zusatz (optional, z. B. „0,5 l“)<input id="i-sub" autocomplete="off"></label>
+    <label>Preis in €<input id="i-price" inputmode="decimal" autocomplete="off" placeholder="3,50"></label>
+    <label>Unterkategorie<select id="i-group"></select></label>
+    <label id="i-auto-l" hidden>Pfand automatisch mit auf den Bon<select id="i-auto"><option value="">Nein</option><option value="g-pfand">Ja, „Pfand“ dazubuchen</option></select></label>
+    <label>MwSt.-Satz (im Preis enthalten)<select id="i-vat"><option value="0">0 %</option><option value="7">7 %</option><option value="19">19 %</option></select></label>
+    <p class="err" id="i-err"></p>
+    <div class="dlg-actions">
+      <button type="button" class="btn destructive" id="i-del">Löschen</button>
+      <button type="button" class="btn" id="i-cancel">Abbrechen</button>
+      <button type="submit" class="btn primary">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="text-dlg" class="form-dlg">
+  <form id="text-form">
+    <h2 id="t-title"></h2>
+    <input id="t-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">
+    <p class="err" id="t-err"></p>
+    <div class="dlg-actions">
+      <button type="button" class="btn" id="t-cancel">Abbrechen</button>
+      <button type="submit" class="btn primary">OK</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="confirm">
+  <form method="dialog">
+    <h2 id="c-title"></h2>
+    <p id="c-text"></p>
+    <div class="dlg-actions">
+      <button value="cancel" class="btn">Abbrechen</button>
+      <button value="ok" class="btn destructive strong" id="c-ok">OK</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" hidden></div>
+<pre id="print-area"></pre>
+
+<script src="qrcode.js?v=18"></script>
+<script src="logic.js?v=18"></script>
+<script src="app.js?v=18"></script>
+</body>
+</html>

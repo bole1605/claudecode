@@ -1,0 +1,15 @@
+{
+  "name": "kasse-tests",
+  "private": true,
+  "description": "Automatische Tests für die Kasse (Weihnachtsmarkt). Start: npm test",
+  "scripts": {
+    "test": "node tests/unit.js && node tests/e2e.js kasse-test && node tests/e2e.js kasse",
+    "test:unit": "node tests/unit.js",
+    "test:e2e": "node tests/e2e.js kasse-test"
+  },
+  "devDependencies": {
+    "jsqr": "^1.4.0",
+    "pngjs": "^7.0.0",
+    "playwright": "1.63.0"
+  }
+}
