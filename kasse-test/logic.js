@@ -111,5 +111,13 @@ async function bonDecode(str) {
 const isEmail = s => /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]{2,}$/.test(String(s || '').trim());
 const mailtoUrl = (to, subject, body) => 'mailto:' + String(to).trim() + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
 
-  return { bonEncode, bonDecode, isEmail, mailtoUrl, parse, vatPart, normalizeLink, migrateCatalog, ppEmbeds, paypalUrl, calcPay, cashSeries, payTotals, enc, wrapText, makePdf };
+// --- Lesbarkeit: Kontrast nach WCAG; textOn() wählt Schwarz oder Weiß, je nachdem, was auf der Farbe besser lesbar ist
+function luminance(hex) {
+  const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+}
+function contrast(a, b) { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+const textOn = hex => contrast('#000000', hex) >= contrast('#ffffff', hex) ? '#000000' : '#ffffff';
+
+  return { luminance, contrast, textOn, bonEncode, bonDecode, isEmail, mailtoUrl, parse, vatPart, normalizeLink, migrateCatalog, ppEmbeds, paypalUrl, calcPay, cashSeries, payTotals, enc, wrapText, makePdf };
 });

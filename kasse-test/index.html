@@ -15,14 +15,14 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=19">
+<link rel="stylesheet" href="styles.css?v=20">
 </head>
 <body>
 <div class="app">
   <header class="top">
     <h1 id="title">Kasse</h1>
     <div class="segmented" role="tablist" aria-label="Stand wählen" id="tabs"></div>
-    <div class="top-spacer"><span class="ver">v19</span></div>
+    <div class="top-spacer"><span class="ver">v20</span></div>
   </header>
 
   <div class="edit-bar" id="edit-bar" hidden></div>
@@ -133,6 +133,11 @@
       <small class="muted"><b>Zum Testen:</b> Scanne den Code nicht mit dem PayPal-Konto, dem der Link gehört. PayPal kann sich nicht selbst bezahlen und zeigt dann nur die Startseite an. Nimm ein anderes Konto oder öffne den Link im Browser, ohne angemeldet zu sein.</small>
       <small class="muted">Der Link wird im QR-Code beim Bezahlen angezeigt. Bei einem paypal.me-Link wird der Betrag automatisch eingetragen.</small>
       <button class="btn destructive" id="paypal-off" hidden>PayPal-Link entfernen</button></section>
+    <section class="card" id="lock-card">
+      <h3>Stand dieses Geräts</h3>
+      <label class="field-row"><span><b>Dieses Tablet nur für einen Stand</b><small>Blendet die Reiter aus, damit am Stand nicht aus Versehen eine andere Seite geöffnet wird. Den Bearbeitungsmodus und diese Verwaltung erreichst du weiterhin über den Titel.</small></span>
+        <select id="lock-select"></select></label>
+    </section>
     <section class="card" id="backup-card">
       <h3>Datensicherung</h3>
       <small class="muted" id="backup-status"></small><small class="muted" id="storage-info"></small>
@@ -230,8 +235,8 @@
 <div id="toast" class="toast" hidden></div>
 <pre id="print-area"></pre>
 
-<script src="qrcode.js?v=19"></script>
-<script src="logic.js?v=19"></script>
-<script src="app.js?v=19"></script>
+<script src="qrcode.js?v=20"></script>
+<script src="logic.js?v=20"></script>
+<script src="app.js?v=20"></script>
 </body>
 </html>

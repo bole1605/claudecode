@@ -27,13 +27,13 @@ const DEFAULT_STANDS = [
     ]},
   ]},
   { id: 'karten', label: 'Karten', groups: [
-    { name: 'Handgemachte Weihnachtskarten', color: '#FF3B30', items: [
+    { name: 'Handgemachte Weihnachtskarten', color: '#5856D6', items: [
       { id: 'k-1', name: 'Eine Karte', price: 300 },
       { id: 'k-2', name: 'Zwei Karten', price: 500 },
     ]},
   ]},
 ];
-const VERSION = 19;
+const VERSION = 20;
 // Fokus ins erste Feld – aber nur, wenn die Eingabe nicht schon in einem anderen Feld des Fensters begonnen hat
 const focusFirst = sel => setTimeout(() => { const el = document.querySelector(sel), d = el.closest('dialog'); if (!d.contains(document.activeElement) || document.activeElement === d) el.focus(); }, 50);
 // Test- und Live-Version liegen auf derselben Domain: getrennter Speicher, damit sich die Daten nie vermischen
@@ -48,10 +48,10 @@ const isPfand = id => id.startsWith('g-pfand');
 const clone = o => JSON.parse(JSON.stringify(o));
 const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const PALETTE = ['#FF9F0A', '#34C759', '#30B0C7', '#FF3B30', '#AF52DE', '#5856D6', '#FF2D55', '#007AFF'];
+const PALETTE = ['#FF9F0A', '#34C759', '#30B0C7', '#5856D6', '#AF52DE', '#007AFF', '#A2845E', '#00C7BE'];   // kein Rot: Rot ist für Löschen/Storno/Minus reserviert
 
 const RC_DEFAULT = { name: 'Evangelische Kirchengemeinde Kleinglattbach', addr: 'Kirchstraße 15; 71665 Vaihingen an der Enz', foot: 'Vielen Dank, Guten Appetit & frohe Weihnachten!' };
-let state = { share: { on: true }, lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
+let state = { lock: null, mig20: false, share: { on: true }, lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
 try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
 let STANDS, ALL = {};
 function setCatalog(c) {
@@ -60,9 +60,12 @@ function setCatalog(c) {
   ALL = {};
   STANDS.forEach(s => s.groups.forEach(g => g.items.forEach(it => { ALL[it.id] = { ...it, stand: s.id }; })));
   if (!STANDS.some(s => s.id === state.stand)) state.stand = STANDS[0].id;
+  if (state.lock && !STANDS.some(s => s.id === state.lock)) state.lock = null;   // gesperrter Stand wurde gelöscht
+  if (state.lock) state.stand = state.lock;
 }
 if (Array.isArray(state.catalog) && state.catalog.length && !state.mig17) migrateCatalog(state.catalog);
 state.mig17 = true;
+if (!state.mig20) { (state.catalog || []).forEach(s => s.groups.forEach(g => { if (/^#(FF3B30|FF2D55)$/i.test(g.color)) g.color = '#5856D6'; })); state.mig20 = true; }
 setCatalog(Array.isArray(state.catalog) && state.catalog.length ? state.catalog : clone(DEFAULT_STANDS));
 // Bon-Kopf: Vorgaben übernehmen, solange nichts Eigenes eingetragen ist
 if (!state.receipt.name && !state.receipt.addr) { state.receipt.name = RC_DEFAULT.name; state.receipt.addr = RC_DEFAULT.addr; }
@@ -92,7 +95,7 @@ if (!state.migrated) {
   state.migrated = true;
 }
 const hash = location.hash.slice(1);
-if (STANDS.some(s => s.id === hash)) state.stand = hash;
+if (STANDS.some(s => s.id === hash) && !state.lock) state.stand = hash;
 if (!STANDS.some(s => s.id === state.stand)) state.stand = STANDS[0].id;
 
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
@@ -129,6 +132,7 @@ function cartAdd(id, d) {
 
 function build() {
   document.body.classList.toggle('editing', editing);
+  $('#tabs').hidden = !!state.lock && !editing;   // Gerät ist auf einen Stand festgelegt: keine Reiter
   $('#tabs').innerHTML = STANDS.map(s =>
     `<button role="tab" data-stand="${s.id}" aria-selected="${s.id === state.stand}">${esc(s.label)}</button>`).join('')
     + (editing ? '<button data-addstand aria-label="Seite hinzufügen">＋</button>' : '');
@@ -137,7 +141,7 @@ function build() {
   $('#edit-bar').hidden = !editing;
   if (editing) return buildEdit();
   $('#main').innerHTML = s.groups.map(g => `
-    <section class="group" style="--accent:${g.color}">
+    <section class="group" style="--accent:${g.color};--on:${Kasse.textOn(g.color)}">
       <h2>${esc(g.name)}</h2>
       <div class="grid n${g.items.length}">${g.items.map(it => `
         <div class="tile-wrap">
@@ -161,7 +165,7 @@ function buildEdit() {
     <button class="btn" data-renamestand>Seite umbenennen</button><button class="btn destructive" data-delstand>Seite löschen</button>
     <button class="btn primary" data-editdone>Fertig</button></span>`;
   $('#main').innerHTML = s.groups.map((g, i) => `
-    <section class="group" style="--accent:${g.color}">
+    <section class="group" style="--accent:${g.color};--on:${Kasse.textOn(g.color)}">
       <div class="g-head"><h2>${esc(g.name)}</h2><span class="g-actions">
         <button class="btn sm" data-gup="${g.id}" ${i === 0 ? 'disabled' : ''} aria-label="Nach oben">↑</button>
         <button class="btn sm" data-gdown="${g.id}" ${i === s.groups.length - 1 ? 'disabled' : ''} aria-label="Nach unten">↓</button>
@@ -202,12 +206,24 @@ function update() {
 }
 
 // --- Schnelles Tippen: Artikel landet schon beim Aufsetzen des Fingers auf dem Bon
+function addTile(t) {
+  cartAdd(t.dataset.add, 1); buzz();
+  const b = t.querySelector('.badge'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
+}
+// Passt die Seite auf den Bildschirm, zählt schon das Berühren (schnellste Variante).
+// Muss die Seite gescrollt werden, zählt erst das Loslassen – und nur, wenn der Finger nicht gewandert ist (Wischen = kein Verkauf).
+const scrollable = () => { const m = $('#main'); return m.scrollHeight > m.clientHeight + 2; };
+let pending = null;
 document.addEventListener('pointerdown', e => {
   if (e.button > 0) return;
   const t = e.target.closest('[data-add]'); if (!t) return;
-  cartAdd(t.dataset.add, 1); buzz();
-  const b = t.querySelector('.badge'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
+  if (!scrollable()) addTile(t); else pending = { t, x: e.clientX, y: e.clientY, id: e.pointerId };
 });
+document.addEventListener('pointerup', e => {
+  if (pending && pending.id === e.pointerId && Math.hypot(e.clientX - pending.x, e.clientY - pending.y) < 10) addTile(pending.t);
+  pending = null;
+});
+document.addEventListener('pointercancel', () => { pending = null; });
 
 // --- Bezahlen / Wechselgeld
 let given = '', tip = '', target = 'given', method = 'bar';
@@ -353,6 +369,7 @@ function renderAdmin() {
   const { rev, cnt, gr, grS } = sold();
   $('#vat-toggle').checked = state.vat.on;
   $('#rc-toggle').checked = state.receipt.on;
+  $('#lock-select').innerHTML = '<option value="">Alle Seiten (Reiter sichtbar)</option>' + STANDS.map(s => `<option value="${s.id}">Nur „${esc(s.label)}“</option>`).join(''); $('#lock-select').value = state.lock || '';
   $('#share-toggle').checked = state.share.on; $('#share-toggle').disabled = !state.receipt.on;
   $('#tip-toggle').checked = state.tip.on;
   $('#paypal-state').textContent = state.paypal ? `Hinterlegt: ${state.paypal}` : 'Noch kein Link hinterlegt.';
@@ -579,7 +596,7 @@ document.addEventListener('click', async e => {
   }
   if (t.dataset.add) { if (e.detail === 0) cartAdd(t.dataset.add, 1); } // nur Tastatur; Touch läuft über pointerdown
   else if (t.dataset.sub) cartAdd(t.dataset.sub, -1);
-  else if (t.dataset.stand) { state.stand = t.dataset.stand; save(); history.replaceState(null, '', '#' + state.stand); build(); }
+  else if (t.dataset.stand) { if (state.lock && !editing) return; state.stand = t.dataset.stand; save(); history.replaceState(null, '', '#' + state.stand); build(); }
   else if (t.id === 'pay') openPay();
   else if (t.id === 'clear') { state.cart[state.stand] = {}; save(); update(); }
   else if (t.dataset.key) key(t.dataset.key);
@@ -710,6 +727,7 @@ $('#rc-form').addEventListener('submit', e => {
 $('#r-cancel').addEventListener('click', () => $('#rc-dlg').close());
 $('#pp-mode').addEventListener('change', e => { state.ppMode = e.target.value; save(); renderAdmin(); });
 $('#tip-toggle').addEventListener('change', e => { state.tip.on = e.target.checked; save(); renderAdmin(); });
+$('#lock-select').addEventListener('change', e => { state.lock = e.target.value || null; if (state.lock) state.stand = state.lock; save(); renderAdmin(); });
 $('#share-toggle').addEventListener('change', e => { state.share.on = e.target.checked; save(); renderAdmin(); });
 $('#rc-toggle').addEventListener('change', e => { state.receipt.on = e.target.checked; save(); renderAdmin(); });
 

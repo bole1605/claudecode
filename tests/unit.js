@@ -71,6 +71,13 @@ t('Sortiment-Umstellung (Burger, Pfand)', () => {
   assert.strictEqual(cat[0].groups[1].items[0].autoAdd, 'g-pfand');
   const again = JSON.stringify(cat); K.migrateCatalog(cat); assert.strictEqual(JSON.stringify(cat), again);   // zweimal ausführen ändert nichts
 });
+t('Lesbarkeit: Schrift auf Kategorie-Farben', () => {
+  if (!K.textOn) return;
+  assert.ok(K.contrast('#000000', '#ffffff') > 20.9);
+  assert.strictEqual(K.textOn('#FF9F0A'), '#000000'); assert.strictEqual(K.textOn('#5856D6'), '#ffffff');
+  for (const col of ['#FF9F0A', '#34C759', '#30B0C7', '#5856D6', '#AF52DE', '#007AFF', '#A2845E', '#00C7BE'])
+    assert.ok(K.contrast(K.textOn(col), col) >= 4.5, col + ' ' + K.contrast(K.textOn(col), col).toFixed(2));   // WCAG AA für normalen Text
+});
 (async () => {
   const sample = { v: 1, n: 7, t: 1764000000000, s: 'Burger & Spezi', m: 'b', tot: 1250, giv: 2000, tip: 150, chg: 600, po: 0, x: 1,
     L: [['Maultaschen auf karamellisierten Zwiebeln – Vegi', 2, 600, 7], ['Paulaner Spezi', 1, 300, 19], ['Käse, süß & "scharf" ü', 1, 50, 7]],

@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v19** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v20** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -33,7 +33,8 @@ Danach immer die App über das Symbol auf dem Home-Bildschirm starten, nicht üb
 Oben wählst du den Stand (Crêpes / Burger & Spezi / Karten). Jeder Stand benutzt nur seine Seite.
 
 1. **Kachel antippen** = Artikel kommt auf den **Bon** (rechts). Mehrfach tippen = mehrfach. Die Zahl oben rechts an der Kachel zeigt, wie oft der Artikel auf dem aktuellen Bon liegt.
-2. **Korrigieren:** „−“ an der Kachel oder in der Bon-Zeile nimmt einen Artikel wieder herunter. „Bon leeren“ räumt alles ab.
+2. **Zähler:** Die Zahl an der Kachel erscheint erst, wenn der Artikel auf dem Bon liegt. Eine Kachel mit Zähler hat einen farbigen Rahmen.
+3. **Korrigieren:** „−“ an der Kachel oder in der Bon-Zeile nimmt einen Artikel wieder herunter. „Bon leeren“ räumt alles ab.
 3. **Bezahlen** antippen. Oben wählst du die Zahlart:
    - **Bar:** Gib das gegebene Geld ein (Schnelltasten 5/10/20/50/100 €, „Passend“ oder Ziffernblock). Unten steht groß das **Rückgeld**. Fehlt Geld, steht in Rot „Es fehlen …“. Dann **Verbuchen**.
    - **PayPal:** Es erscheint ein **QR-Code**. Kundin oder Kunde scannt ihn mit der PayPal-App. **Erst wenn die Zahlung bei dir angekommen ist**, auf „PayPal-Zahlung erhalten · Verbuchen“ tippen.
@@ -103,6 +104,10 @@ Inhalt: Anzahl und Umsatz je Produkt, Summen je Stand, Gesamtsumme, Zahlarten (B
 **Empfehlung:** Speichere die Zahlen **am Ende jedes Markttags** und schicke dir die Datei selbst zu. Die Zählungen jedes Tablets stehen nur dort, einen Gesamtstand über alle Tablets gibt es nicht. Die Dateien der drei Stände rechnest du von Hand zusammen.
 
 ---
+
+## 5c. Tablet auf einen Stand festlegen
+
+Verwaltung → **„Stand dieses Geräts“** → „Nur Crêpes“ / „Nur Burger & Spezi“ / „Nur Karten“. Dann verschwinden die Reiter oben, und am Stand kann nicht aus Versehen eine andere Seite geöffnet werden. Auch ein Link mit `#burger` oder ein Neustart ändert daran nichts. Die Verwaltung und der Bearbeitungsmodus bleiben über den Titel erreichbar. Zurück: „Alle Seiten (Reiter sichtbar)“.
 
 ## 5b. Bon für den Kunden: QR-Code und E-Mail
 
