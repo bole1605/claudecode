@@ -56,14 +56,19 @@ function calcPay(total, givenStr, tipStr, tipOn) {
 }
 
 // --- Kassenstand (Bargeld): Anfangsbestand + bar bezahlte Beträge + Spenden; PayPal und stornierte Buchungen ändern ihn nicht
-function cashSeries(sales, start) {
-  let bal = start, tot = 0, tips = 0; const m = {};
-  for (const s of sales) {
-    if (!s.void && s.method !== 'paypal') { bal += s.total + (s.tip || 0); tot += s.total; tips += s.tip || 0; }
-    m[s.n] = bal;
+function cashSeries(sales, start, moves) {
+  let bal = start, tot = 0, tips = 0, ein = 0, ent = 0; const m = {};
+  const ev = [...sales.map(s => ({ t: s.t || 0, s })), ...(moves || []).filter(x => !x.void).map(x => ({ t: x.t || 0, x }))]
+    .map((e, i) => ({ ...e, i })).sort((a, b) => a.t - b.t || a.i - b.i);   // Einlagen/Entnahmen und Verkäufe in zeitlicher Reihenfolge
+  for (const e of ev) {
+    if (e.s) { const s = e.s; if (!s.void && s.method !== 'paypal') { bal += s.total + (s.tip || 0); tot += s.total; tips += s.tip || 0; } m[s.n] = bal; }
+    else { bal += e.x.amt; if (e.x.amt > 0) ein += e.x.amt; else ent -= e.x.amt; }
   }
-  return { m, bal, sales: tot, tips };
+  return { m, bal, sales: tot, tips, ein, ent };
 }
+// Stückelung für den Kassensturz (in Cent) und Summe einer Zählung { "2000": 3, ... }
+const DENOMS = [50000, 20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
+const countTotal = counts => Object.entries(counts || {}).reduce((s, [d, n]) => s + (+d) * Math.max(0, Math.floor(+n) || 0), 0);
 const payTotals = sales => sales.reduce((o, s) => { if (!s.void) { o[s.method === 'paypal' ? 'paypal' : 'bar'] += s.total; o.tip += s.tip || 0; } return o; }, { bar: 0, paypal: 0, tip: 0 });
 
 // --- Bon als PDF (Courier, 80 mm breit)
@@ -77,19 +82,25 @@ function wrapText(t, n) {
   }
   if (cur) out.push(cur); return out.length ? out : [''];
 }
-function makePdf(lines) {
-  const FS = 9, LH = 12.5, M = 14, W = 227, H = Math.max(120, lines.length * LH + 2 * M);
+function makePdf(lines, o) {
+  o = o || {};
+  const FS = o.fs || 9, LH = o.lh || 12.5, M = o.m || 14, W = o.w || 227;
+  const per = o.h ? Math.max(1, Math.floor((o.h - 2 * M) / LH)) : Math.max(1, lines.length), H = o.h || Math.max(120, lines.length * LH + 2 * M);
+  const pages = []; for (let i = 0; i < Math.max(lines.length, 1); i += per) pages.push(lines.slice(i, i + per));
   const esc2 = s => s.replace(/[\\()]/g, m => '\\' + m);
-  const content = lines.map((l, i) => `BT /${l.b ? 'F2' : 'F1'} ${FS} Tf ${M} ${(H - M - FS - i * LH).toFixed(2)} Td (${esc2(enc(l.t))}) Tj ET`).join('\n');
   let out = '%PDF-1.4\n'; const offs = [];
   const add = (n, body) => { offs[n] = out.length; out += `${n} 0 obj\n${body}\nendobj\n`; };
-  add(1, '<< /Type /Catalog /Pages 2 0 R >>'); add(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
-  add(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H.toFixed(2)}] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>`);
-  add(4, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
-  add(5, '<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>');
-  add(6, '<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold /Encoding /WinAnsiEncoding >>');
-  const x = out.length;
-  out += 'xref\n0 7\n0000000000 65535 f \n' + [1, 2, 3, 4, 5, 6].map(n => String(offs[n]).padStart(10, '0') + ' 00000 n \n').join('') + `trailer\n<< /Size 7 /Root 1 0 R >>\nstartxref\n${x}\n%%EOF`;
+  add(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  add(2, `<< /Type /Pages /Kids [${pages.map((_, k) => `${5 + 2 * k} 0 R`).join(' ')}] /Count ${pages.length} >>`);
+  add(3, '<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>');
+  add(4, '<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold /Encoding /WinAnsiEncoding >>');
+  pages.forEach((pl, k) => {
+    const content = pl.map((l, i) => `BT /${l.b ? 'F2' : 'F1'} ${FS} Tf ${M} ${(H - M - FS - i * LH).toFixed(2)} Td (${esc2(enc(l.t))}) Tj ET`).join('\n');
+    add(5 + 2 * k, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H.toFixed(2)}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${6 + 2 * k} 0 R >>`);
+    add(6 + 2 * k, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+  });
+  const N = 5 + 2 * pages.length, x = out.length;
+  out += `xref\n0 ${N}\n0000000000 65535 f \n` + Array.from({ length: N - 1 }, (_, i) => String(offs[i + 1]).padStart(10, '0') + ' 00000 n \n').join('') + `trailer\n<< /Size ${N} /Root 1 0 R >>\nstartxref\n${x}\n%%EOF`;
   const u = new Uint8Array(out.length); for (let i = 0; i < out.length; i++) u[i] = out.charCodeAt(i) & 255; return u;
 }
 
@@ -119,5 +130,5 @@ function luminance(hex) {
 function contrast(a, b) { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
 const textOn = hex => contrast('#000000', hex) >= contrast('#ffffff', hex) ? '#000000' : '#ffffff';
 
-  return { luminance, contrast, textOn, bonEncode, bonDecode, isEmail, mailtoUrl, parse, vatPart, normalizeLink, migrateCatalog, ppEmbeds, paypalUrl, calcPay, cashSeries, payTotals, enc, wrapText, makePdf };
+  return { DENOMS, countTotal, luminance, contrast, textOn, bonEncode, bonDecode, isEmail, mailtoUrl, parse, vatPart, normalizeLink, migrateCatalog, ppEmbeds, paypalUrl, calcPay, cashSeries, payTotals, enc, wrapText, makePdf };
 });
