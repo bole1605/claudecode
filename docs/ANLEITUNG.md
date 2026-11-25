@@ -10,9 +10,11 @@ Stand dieser Anleitung: Version **v21** (die Versionsnummer steht oben rechts in
 
 | Stand | Adresse |
 |---|---|
-| Crêpes | `https://bole1605.github.io/claudecode/kasse/#crepes` |
-| Burger & Spezi | `https://bole1605.github.io/claudecode/kasse/#burger` |
-| Karten | `https://bole1605.github.io/claudecode/kasse/#karten` |
+| Crêpes | `https://bole1605.github.io/code/kasse/#crepes` |
+| Burger & Spezi | `https://bole1605.github.io/code/kasse/#burger` |
+| Karten | `https://bole1605.github.io/code/kasse/#karten` |
+
+**Neue Adresse seit der Umbenennung des Repositorys (`claudecode` → `code`):** Die alten Adressen `…/claudecode/…` funktionieren nicht mehr. Wer die App schon vom Home-Bildschirm nutzt, muss sie **einmal neu installieren**. Die Daten des alten Symbols wandern **nicht** automatisch mit. Deshalb vorher in der alten App unter Verwaltung → Datensicherung eine **Sicherung speichern**, die App am neuen Link installieren und die Sicherung dort **wiederherstellen**. Das Passwort wird dabei nicht übertragen, du legst es neu fest.
 
 **iPad:** Adresse in **Safari** öffnen → Teilen-Symbol → **„Zum Home-Bildschirm“** → Hinzufügen.
 **Android-Tablet:** Adresse in **Chrome** öffnen → Menü (⋮) → **„App installieren“** (oder „Zum Startbildschirm“).
