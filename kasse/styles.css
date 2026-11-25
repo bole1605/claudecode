@@ -218,3 +218,9 @@ body.editing .bon,body.editing .bottom{display:none}
 
 #paypal-preview .btn{display:inline-flex;align-items:center;text-decoration:none;margin:4px 0 10px}
 #paypal-preview+.switch-row,.card .switch-row+.muted{margin-top:10px}
+
+/* ---- v16: PayPal-Modus ---- */
+.field-row{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.field-row small{display:block;color:var(--label2);font-size:14px;font-weight:400;margin-top:2px}
+.field-row select{min-height:50px;border-radius:12px;border:1px solid var(--sep);background:var(--bg);color:var(--label);font-size:17px;padding:0 12px}
+.qr-amount{margin-top:8px;font-size:17px}

@@ -40,7 +40,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const PALETTE = ['#FF9F0A', '#34C759', '#30B0C7', '#FF3B30', '#AF52DE', '#5856D6', '#FF2D55', '#007AFF'];
 
 const RC_DEFAULT = { name: 'Evangelische Kirchengemeinde Kleinglattbach', addr: 'Kirchstraße 15; 71665 Vaihingen an der Enz', foot: 'Vielen Dank, Guten Appetit & frohe Weihnachten!' };
-let state = { rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppAmount: true, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
+let state = { rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
 try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
 let STANDS, ALL = {};
 function setCatalog(c) {
@@ -54,6 +54,7 @@ setCatalog(Array.isArray(state.catalog) && state.catalog.length ? state.catalog 
 // Bon-Kopf: Vorgaben übernehmen, solange nichts Eigenes eingetragen ist
 if (!state.receipt.name && !state.receipt.addr) { state.receipt.name = RC_DEFAULT.name; state.receipt.addr = RC_DEFAULT.addr; }
 if (!state.receipt.foot || state.receipt.foot === 'Vielen Dank für Ihren Einkauf!') state.receipt.foot = RC_DEFAULT.foot;
+if (!state.ppMode) state.ppMode = state.ppAmount === false ? 'none' : 'amount'; // Standard: dokumentiertes Format ohne Währungskürzel
 let editing = false;
 if (state.paypal) state.paypal = normalizeLink(state.paypal); // alte, fehlerhaft gespeicherte Links reparieren
 // MwSt.: Preise sind Bruttopreise. Vorschlagswerte (bitte prüfen!): Speisen 7 %, Getränke und Karten 19 %. Je Produkt änderbar.
@@ -202,10 +203,19 @@ document.addEventListener('pointerdown', e => {
 // --- Bezahlen / Wechselgeld
 let given = '', tip = '', target = 'given', method = 'bar';
 const parse = s => { if (!s) return null; const v = parseFloat(s.replace(',', '.')); return isNaN(v) ? null : Math.round(v * 100); };
+// Inhalt des QR-Codes (state.ppMode):
+//  'amount'    paypal.me/Name/7.50       (so ist es bei PayPal dokumentiert)
+//  'amountEur' paypal.me/Name/7.50EUR    (mit Währungskürzel)
+//  'none'      der Link genau so, wie er hinterlegt ist (Käufer gibt den Betrag selbst ein)
+const isPaypalMe = u => /(^|\.)paypal\.me$/i.test(u.hostname) && u.pathname.split('/').filter(Boolean).length === 1;
+function ppEmbeds() { try { return state.ppMode !== 'none' && isPaypalMe(new URL(normalizeLink(state.paypal))); } catch (e) { return false; } }
 function paypalUrl(total) {
   try {
-    const u = new URL(normalizeLink(state.paypal)), seg = u.pathname.split('/').filter(Boolean);
-    if (state.ppAmount && /(^|\.)paypal\.me$/i.test(u.hostname) && seg.length === 1) return `${u.origin}/${seg[0]}/${total % 100 === 0 ? total / 100 : (total / 100).toFixed(2)}EUR`; // Betrag wird eingetragen
+    const u = new URL(normalizeLink(state.paypal));
+    if (ppEmbeds()) {
+      const name = u.pathname.split('/').filter(Boolean)[0], amt = total % 100 === 0 ? String(total / 100) : (total / 100).toFixed(2);
+      return `${u.origin}/${name}/${amt}${state.ppMode === 'amountEur' ? 'EUR' : ''}`;
+    }
     return u.href;
   } catch (e) { return ''; }
 }
@@ -230,7 +240,8 @@ function payUpdate() {
   if (pp) {
     const url = state.paypal ? paypalUrl(total) : '';
     const img = url ? qrImg(url, 300) : '';
-    $('#p-qr-img').innerHTML = img ? img + `<small class="muted qr-url">${esc(url)}</small>`
+    const note = ppEmbeds() ? `Betrag im Link: <b>${euro(total)}</b>` : `<b>Bitte im PayPal-Fenster ${euro(total)} eingeben</b>`;
+    $('#p-qr-img').innerHTML = img ? img + `<div class="qr-amount">${note}</div><small class="muted qr-url">${esc(url)}</small>`
       : `<p class="err">${state.paypal ? 'Der QR-Code konnte nicht erzeugt werden (Link zu lang oder ungültig).' : 'Kein PayPal-Link hinterlegt.'}<br>Bitte in der Verwaltung unter „PayPal-Link festlegen“ prüfen.</p>`;
     $('#p-ok').disabled = false; return;
   }
@@ -343,7 +354,7 @@ function renderAdmin() {
   $('#tip-toggle').checked = state.tip.on;
   $('#paypal-state').textContent = state.paypal ? `Hinterlegt: ${state.paypal}` : 'Noch kein Link hinterlegt.';
   $('#paypal-off').hidden = !state.paypal;
-  $('#pp-amount').checked = state.ppAmount;
+  $('#pp-mode').value = state.ppMode;
   const pv = state.paypal ? paypalUrl(1000) : '';
   $('#paypal-preview').innerHTML = pv ? `<div class="pv">${qrImg(pv, 200)}</div><small class="muted">Vorschau des QR-Codes (Beispiel 10,00 €):<br>${esc(pv)}<br>Scanne ihn einmal mit dem Handy und prüfe den Empfänger.</small><a class="btn" href="${esc(pv)}" target="_blank" rel="noopener">Link zum Testen öffnen</a>` : '';
   $('#vat-summary').hidden = !state.vat.on;
@@ -494,7 +505,6 @@ document.addEventListener('click', async e => {
   const t = e.target.closest('button'); if (!t) return;
   const D = t.dataset;
   if (D.edit || D.newitem || D.newgroup !== undefined || D.gren || D.gdel || D.gup || D.gdown || D.addstand !== undefined || D.renamestand !== undefined || D.delstand !== undefined || D.editdone !== undefined) return editAction(t);
-  if (t.id === 'pp-amount') return;
   if (t.id === 'vat-toggle' || t.id === 'rc-toggle' || t.id === 'tip-toggle') return;
   if (D.pdf) { sharePdf(+D.pdf); return; }
   if (D.print) { printBon(+D.print); return; }
@@ -645,7 +655,7 @@ $('#rc-form').addEventListener('submit', e => {
   save(); $('#rc-dlg').close();
 });
 $('#r-cancel').addEventListener('click', () => $('#rc-dlg').close());
-$('#pp-amount').addEventListener('change', e => { state.ppAmount = e.target.checked; save(); renderAdmin(); });
+$('#pp-mode').addEventListener('change', e => { state.ppMode = e.target.value; save(); renderAdmin(); });
 $('#tip-toggle').addEventListener('change', e => { state.tip.on = e.target.checked; save(); renderAdmin(); });
 $('#rc-toggle').addEventListener('change', e => { state.receipt.on = e.target.checked; save(); renderAdmin(); });
 
