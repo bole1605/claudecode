@@ -239,3 +239,15 @@ body.is-test .app{padding-top:calc(28px + env(safe-area-inset-top))}
 #share-dlg label{text-align:left}
 .sh-row{display:flex;gap:8px;margin-bottom:12px}.sh-row .btn{flex:1;min-height:50px}
 .sh-done{width:100%;min-height:58px;font-size:19px}
+
+/* ---- v20: Lesbarkeit und Ruhe ---- */
+.tile .price{color:var(--label);font-weight:700;font-size:18px}
+.tile .name{font-weight:650}
+.badge{display:none;min-width:56px;height:56px;border-radius:28px;font-size:30px;background:var(--accent);color:var(--on)}
+.tile.has .badge{display:grid;background:var(--accent);color:var(--on)}
+.tile.edit .pencil{color:var(--label2)}
+.tile.has{box-shadow:0 0 0 3px var(--accent),0 1px 3px rgba(0,0,0,.08)}
+.grid{grid-template-columns:repeat(auto-fill,minmax(172px,1fr))}
+.grid.n1,.grid.n2{grid-template-columns:repeat(2,1fr)}
+.tile .name{overflow-wrap:anywhere;hyphens:auto;-webkit-hyphens:auto}
+.top-spacer{grid-column:3}

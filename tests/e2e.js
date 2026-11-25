@@ -25,7 +25,7 @@ async function test(name, fn) {
     const p = await ctx.newPage(); p.on('pageerror', e => errs.push(e.message)); await p.addInitScript(({ k, v }) => { if (!localStorage.getItem(k)) localStorage.setItem(k, v); }, { k: dir === 'kasse-test' ? 'kasse-test-v2' : 'kasse-v2', v: JSON.stringify({ share: { on: !!opts.share }, ...(opts.seed || {}) }) });   // Bon-QR nur in den Tests, die ihn prüfen
     await p.goto(base + hash); p.ctx = ctx; return p;
   };
-  const tap = (p, id) => p.dispatchEvent(`[data-add=${id}]`, 'pointerdown', { button: 0 });
+  const tap = async (p, id) => { const s = `[data-add=${id}]`; await p.dispatchEvent(s, 'pointerdown', { button: 0, clientX: 5, clientY: 5 }); await p.dispatchEvent(s, 'pointerup', { button: 0, clientX: 5, clientY: 5 }); };
   const pay = async (p, a) => { await p.click('#pay'); if (a) await a(); await p.click('#p-ok'); };
   const admin = async (p, first) => {
     for (let i = 0; i < 5; i++) await p.dispatchEvent('#title', 'pointerdown', { button: 0 });
@@ -210,6 +210,48 @@ async function test(name, fn) {
     assert.ok(!(await p.evaluate(() => JSON.stringify(localStorage))).includes('kunde@example.de'), 'E-Mail-Adresse darf nicht gespeichert werden');
     const v = await p.ctx.newPage(); await v.goto(base.replace('index.html', 'bon.html') + '#kaputt');
     assert.ok((await txt(v, 'body')).includes('ungültig'));
+    await p.ctx.close();
+  });
+
+  if (has('logic.js') && dir === 'kasse-test') await test('Design: Zähler erst ab 1, Preis kräftig, Farbe mit Kontrast, Karten nicht mehr rot', async errs => {
+    const p = await open(errs);
+    assert.strictEqual(await p.evaluate(() => getComputedStyle(document.querySelector('[data-count="b-maul-v"]')).display), 'none');
+    await tap(p, 'b-maul-v');
+    const st = await p.evaluate(() => { const b = document.querySelector('[data-count="b-maul-v"]'), pr = document.querySelector('[data-add="b-maul-v"] .price');
+      return { disp: getComputedStyle(b).display, bg: getComputedStyle(b).backgroundColor, fg: getComputedStyle(b).color, price: getComputedStyle(pr).color, label: getComputedStyle(document.body).color }; });
+    assert.strictEqual(st.disp, 'grid'); assert.strictEqual(st.bg, 'rgb(52, 199, 89)'); assert.strictEqual(st.fg, 'rgb(0, 0, 0)');
+    assert.strictEqual(st.price, st.label, 'Preis nicht in Kategorie-Farbe');
+    const cat = await p.evaluate(() => STANDS.find(s => s.id === 'karten').groups[0].color); assert.strictEqual(cat, '#5856D6');
+    await p.ctx.close();
+  });
+
+  if (has('logic.js') && dir === 'kasse-test') await test('Rote Kategorie aus altem Sortiment wird zu Indigo', async errs => {
+    const p = await open(errs, '#karten', { seed: { mig17: true, stand: 'karten', catalog: [{ id: 'karten', label: 'Karten', groups: [{ id: 'k1', name: 'Karten', color: '#FF3B30', items: [{ id: 'k-1', name: 'Eine Karte', price: 300, vat: 19 }] }] }] } });
+    assert.strictEqual(await p.evaluate(() => STANDS[0].groups[0].color), '#5856D6'); await p.ctx.close();
+  });
+
+  if (has('logic.js') && dir === 'kasse-test') await test('Gerät auf einen Stand festlegen: keine Reiter, Link und Neustart ändern nichts', async errs => {
+    const p = await open(errs, '#burger'); await admin(p, true);
+    await p.selectOption('#lock-select', 'karten'); await p.click('#admin-close');
+    assert.strictEqual(await p.isHidden('#tabs'), true); assert.strictEqual(await txt(p, '#title'), 'Karten');
+    assert.ok((await p.$$eval('[data-add] .name', e => e.map(x => x.textContent))).includes('Eine Karte'));
+    await p.evaluate(() => { location.hash = '#crepes'; }); await p.reload(); assert.strictEqual(await txt(p, '#title'), 'Karten');   // Link ändert nichts
+    await admin(p, false); await p.click('#edit-mode'); assert.strictEqual(await p.isVisible('#tabs'), true, 'im Bearbeitungsmodus sind die Reiter da'); await p.click('[data-editdone]');
+    await admin(p, false); await p.selectOption('#lock-select', ''); await p.click('#admin-close'); assert.strictEqual(await p.isVisible('#tabs'), true);
+    await p.ctx.close();
+  });
+
+  if (has('logic.js') && dir === 'kasse-test') await test('Wischen zählt nicht als Verkauf, wenn die Seite gescrollt werden muss', async errs => {
+    const p = await open(errs); const s = '[data-add=b-maul-v]', n = () => p.evaluate(() => (cart()['b-maul-v'] || 0));
+    await p.evaluate(() => { $('#main').style.maxHeight = '260px'; $('#main').style.overflow = 'auto'; });   // Seite länger als der Bildschirm
+    assert.strictEqual(await p.evaluate(() => scrollable()), true);
+    await p.dispatchEvent(s, 'pointerdown', { button: 0, clientX: 10, clientY: 10, pointerId: 3 }); assert.strictEqual(await n(), 0, 'Berühren allein zählt nicht');
+    await p.dispatchEvent(s, 'pointerup', { button: 0, clientX: 12, clientY: 11, pointerId: 3 }); assert.strictEqual(await n(), 1, 'Tippen zählt beim Loslassen');
+    await p.dispatchEvent(s, 'pointerdown', { button: 0, clientX: 10, clientY: 10, pointerId: 4 }); await p.dispatchEvent(s, 'pointerup', { button: 0, clientX: 10, clientY: 90, pointerId: 4 }); assert.strictEqual(await n(), 1, 'Wischen zählt nicht');
+    await p.dispatchEvent(s, 'pointerdown', { button: 0, clientX: 10, clientY: 10, pointerId: 5 }); await p.dispatchEvent(s, 'pointercancel', { pointerId: 5 }); await p.dispatchEvent(s, 'pointerup', { button: 0, clientX: 10, clientY: 10, pointerId: 5 }); assert.strictEqual(await n(), 1, 'Abbruch (Scrollen) zählt nicht');
+    await p.evaluate(() => { $('#main').style.maxHeight = ''; $('#main').style.overflow = ''; }); await p.setViewportSize({ width: 1180, height: 1800 });   // passt auf den Bildschirm: Berühren zählt sofort
+    assert.strictEqual(await p.evaluate(() => scrollable()), false);
+    await p.dispatchEvent(s, 'pointerdown', { button: 0, clientX: 10, clientY: 10, pointerId: 6 }); assert.strictEqual(await n(), 2, 'ohne Scrollen zählt schon das Berühren');
     await p.ctx.close();
   });
 
