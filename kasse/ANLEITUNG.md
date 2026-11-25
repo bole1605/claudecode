@@ -124,6 +124,16 @@ Inhalt: Anzahl und Umsatz je Produkt, Summen je Stand, Gesamtsumme, Zahlarten (B
 
 ---
 
+## 6a. PayPal: Wenn der QR-Code nur die PayPal-Startseite öffnet
+
+1. **Nicht mit dem eigenen Konto scannen.** PayPal kann sich nicht selbst bezahlen. Teste mit dem Handy einer anderen Person, die mit einem anderen PayPal-Konto angemeldet ist.
+2. Verwaltung → PayPal → **„Inhalt des QR-Codes“** ausprobieren und jeweils mit „Link zum Testen öffnen“ prüfen:
+   - **paypal.me mit Betrag** (Standard): `paypal.me/Name/7.50`, so ist es bei PayPal dokumentiert.
+   - **paypal.me mit Betrag und „EUR“:** `paypal.me/Name/7.50EUR`.
+   - **Link ohne Betrag:** Der QR-Code enthält nur `paypal.me/Name`. Die Käuferin oder der Käufer tippt den Betrag, der groß unter dem Code steht, selbst ein.
+3. Prüfe, ob der Link im **Browser** (ohne PayPal-App, abgemeldet) die PayPal.Me-Seite mit deinem Namen zeigt. Wenn nicht, stimmt der Link selbst nicht: PayPal-App → Profil → PayPal.Me.
+4. Als Notlösung kannst du den Link auch als Text vorlesen: `paypal.me/DeinName`.
+
 ## 7. Worauf du achten solltest
 
 - **Daten bleiben nur im Tablet.** Browserdaten oder Website-Daten löschen, die App vom Home-Bildschirm entfernen und neu anlegen oder das Tablet zurücksetzen löscht **alle Buchungen**. Speichere vorher die Zahlen.
