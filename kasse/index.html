@@ -15,12 +15,32 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=30">
-<script src="logic.js?v=30"></script>
-<script src="theme.js?v=30"></script>
+<link rel="stylesheet" href="styles.css?v=32">
+<script src="logic.js?v=32"></script>
+<script src="theme.js?v=32"></script>
 </head>
 <body>
 <div id="wm" aria-hidden="true"></div>
+<div id="xmas-scene" aria-hidden="true"><svg viewBox="0 0 1200 220" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <g id="xs"><rect x="0" y="-70" width="160" height="70" fill="var(--sc-wood)"/><rect x="14" y="-62" width="132" height="30" fill="var(--sc-glow)"/><rect x="-6" y="-34" width="172" height="9" fill="var(--sc-wood2)"/>
+      <path d="M-12,-70 L80,-110 L172,-70 Z" fill="var(--sc-roof)"/><path d="M-8,-72 L80,-106 L168,-72 L150,-75 L80,-98 L10,-75 Z" fill="var(--sc-snow)"/>
+      <g fill="var(--sc-glow)"><circle cx="10" cy="-66" r="3.5"/><circle cx="38" cy="-64" r="3.5"/><circle cx="66" cy="-63" r="3.5"/><circle cx="94" cy="-63" r="3.5"/><circle cx="122" cy="-64" r="3.5"/><circle cx="150" cy="-66" r="3.5"/></g>
+      <rect x="30" y="-52" width="16" height="18" rx="3" fill="var(--sc-roof)"/><rect x="64" y="-52" width="16" height="18" rx="3" fill="var(--sc-tree)"/><rect x="98" y="-52" width="16" height="18" rx="3" fill="var(--sc-roof)"/></g>
+    <g id="fir"><polygon points="0,0 46,0 23,-52" fill="var(--sc-tree)"/><polygon points="4,-34 42,-34 23,-78" fill="var(--sc-tree)"/><polygon points="9,-62 37,-62 23,-100" fill="var(--sc-tree)"/></g>
+    <g id="lamp"><rect x="-2" y="-84" width="4" height="84" fill="var(--sc-wood2)"/><circle cx="0" cy="-88" r="7" fill="var(--sc-glow)"/></g>
+  </defs>
+  <g transform="translate(0,200)">
+    <use href="#fir" x="20" transform="scale(1)"/><use href="#fir" x="1130"/><use href="#fir" x="270" transform="translate(0,6) scale(.8)"/><use href="#fir" x="880" transform="translate(0,6) scale(.8)"/>
+    <use href="#xs" x="130"/><use href="#xs" x="340"/><use href="#xs" x="800"/><use href="#xs" x="1010"/>
+    <use href="#lamp" x="520"/><use href="#lamp" x="680"/>
+    <g transform="translate(600,0)"><polygon points="-62,0 62,0 0,-80" fill="var(--sc-tree)"/><polygon points="-50,-52 50,-52 0,-122" fill="var(--sc-tree)"/><polygon points="-36,-100 36,-100 0,-160" fill="var(--sc-tree)"/>
+      <polygon points="0,-176 5,-164 18,-164 8,-156 12,-143 0,-151 -12,-143 -8,-156 -18,-164 -5,-164" fill="var(--sc-glow)"/>
+      <g fill="var(--sc-roof)"><circle cx="-20" cy="-30" r="5"/><circle cx="24" cy="-56" r="5"/><circle cx="-12" cy="-86" r="5"/><circle cx="12" cy="-118" r="5"/></g></g>
+  </g>
+  <path d="M0,220 L0,176 C70,160 150,184 240,178 C330,172 410,158 510,174 C610,190 700,168 800,172 C900,176 980,158 1080,168 C1140,174 1180,166 1200,156 L1200,220 Z" fill="var(--sc-snow2)"/>
+  <path d="M0,220 L0,190 C90,176 170,196 270,190 C380,184 450,176 560,190 C660,203 760,186 860,190 C960,194 1060,178 1130,188 C1170,194 1190,190 1200,184 L1200,220 Z" fill="var(--sc-snow)"/>
+</svg></div>
 <div class="app">
   <header class="top">
     <h1 id="title">Kasse</h1>
@@ -54,7 +74,7 @@
     </aside>
   </div>
 
-  <footer class="foot"><span>coded by Leo B. - 2026</span><span class="ver">v30</span></footer>
+  <footer class="foot"><span>Copyright by Leo B. und Pascal B. - 2026</span><span class="ver">v32</span></footer>
 
 </div>
 
@@ -141,6 +161,7 @@
   <div class="page-body">
     <section class="card" id="cash-card"></section>
     <section class="card" id="admin-summary"></section>
+    <section class="card" id="exp-card"></section>
     <section class="card" id="vat-summary" hidden></section>
     <section class="card switch-card">
       <label class="switch-row"><span><b>Spende bei Barzahlung</b><small>Beim Bezahlen kann eine Spende erfasst werden. Es zählt nicht zu den Einnahmen und wird getrennt ausgewiesen.</small></span>
@@ -180,11 +201,15 @@
     </section>
     <section class="card" id="sound-card">
       <h3>Töne</h3>
-      <label class="switch-row"><span><b>Töne</b><small>Genau zwei Signale: wenn ein Einkauf (oder eine Spende) fertig verbucht ist und wenn eine Bestellung fertig zubereitet ist. Sie spielen auch bei stummgeschaltetem iPad.</small></span>
+      <label class="switch-row"><span><b>Töne</b><small>Zwei Signale, einzeln schaltbar: ein Schiffshorn, wenn ein Einkauf (oder eine Spende) verbucht ist, und ein heller Dreiklang, wenn eine Bestellung abholbereit ist. Sonst ist die Kasse still. Sie spielen auch bei stummgeschaltetem iPad.</small></span>
         <input type="checkbox" role="switch" id="sound-toggle"></label>
+      <label class="switch-row" style="margin-top:12px"><span><b>Verbucht (Schiffshorn)</b><small>Wenn ein Einkauf oder eine Spende verbucht ist.</small></span>
+        <input type="checkbox" role="switch" id="sound-booked"></label>
+      <label class="switch-row" style="margin-top:12px"><span><b>Abholbereit</b><small>Wenn eine Bestellung als „Fertig“ gemeldet wird.</small></span>
+        <input type="checkbox" role="switch" id="sound-ready"></label>
       <label class="field-row"><span><b>Lautstärke</b></span>
         <select id="sound-vol"><option value="low">Leise</option><option value="mid">Mittel</option><option value="high">Laut</option></select></label>
-      <button class="btn" id="sound-test">Ton testen</button>
+      <div class="actions-card" style="padding:0"><button class="btn" id="sound-test">Schiffshorn testen</button><button class="btn" id="sound-test-ready">Abholbereit testen</button></div>
     </section>
     <section class="card" id="kitchen-card">
       <h3>Bestellungen und Küchenanzeige</h3>
@@ -192,6 +217,7 @@
         <input type="checkbox" role="switch" id="kitchen-toggle"></label>
       <label class="field-row"><span><b>Bestellnummer</b><small>Automatisch: C1, B1 … je Sparte. Von Hand: beim Verbuchen die Nummer des Märkchens eintippen.</small></span>
         <select id="order-mode"><option value="auto">Automatisch</option><option value="manual">Von Hand (Märkchen)</option></select></label>
+      <div id="ord-stands"></div>
       <small class="muted" id="ord-state"></small>
       <div class="actions-card" style="padding:0;margin-top:8px">
         <button class="btn" id="ord-reset">Bestellnummern zurücksetzen …</button>
@@ -275,6 +301,21 @@
   </div>
 </dialog>
 
+<dialog id="exp-dlg" class="form-dlg">
+  <form id="exp-form">
+    <h2>Ausgabe erfassen</h2>
+    <label>Betrag in €<input id="exp-amt" inputmode="decimal" autocomplete="off" placeholder="24,90"></label>
+    <label>Bezeichnung (z. B. „Einkauf Metro“)<input id="exp-note" autocomplete="off"></label>
+    <label>Sparte<select id="exp-stand"></select></label>
+    <label class="switch-row" style="margin-top:8px"><span><b>Aus der Kasse bezahlt</b><small>Mindert den Kassenstand (wird als Entnahme gebucht).</small></span><input type="checkbox" role="switch" id="exp-cash"></label>
+    <p class="err" id="exp-err"></p>
+    <div class="dlg-actions">
+      <button type="button" class="btn" id="exp-cancel">Abbrechen</button>
+      <button type="submit" class="btn primary">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="mv-dlg" class="form-dlg">
   <form id="mv-form">
     <h2>Einlage / Entnahme</h2>
@@ -325,7 +366,7 @@
     <h2 id="i-title"></h2>
     <label>Name<input id="i-name" autocomplete="off"></label>
     <label>Zusatz (optional, z. B. „0,5 l“)<input id="i-sub" autocomplete="off"></label>
-    <label>Preis in €<input id="i-price" inputmode="decimal" autocomplete="off" placeholder="3,50"></label>
+    <label>Preis in € (0 = Gratis)<input id="i-price" inputmode="decimal" autocomplete="off" placeholder="3,50"></label>
     <label>Unterkategorie<select id="i-group"></select></label>
     <label id="i-auto-l" hidden>Pfand automatisch mit auf den Bon<select id="i-auto"><option value="">Nein</option><option value="g-pfand">Ja, „Pfand“ dazubuchen</option></select></label>
     <label>MwSt.-Satz (im Preis enthalten)<select id="i-vat"><option value="0">0 %</option><option value="7">7 %</option><option value="19">19 %</option></select></label>
@@ -380,8 +421,8 @@
 <div id="toast" class="toast" hidden></div>
 <pre id="print-area"></pre>
 
-<script src="qrcode.js?v=30"></script>
-<script src="sound.js?v=30"></script>
-<script src="app.js?v=30"></script>
+<script src="qrcode.js?v=32"></script>
+<script src="sound.js?v=32"></script>
+<script src="app.js?v=32"></script>
 </body>
 </html>

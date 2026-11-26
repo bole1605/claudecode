@@ -348,3 +348,16 @@ body.is-test .page{padding-top:calc(28px + env(safe-area-inset-top))}
 #num-dlg #n-err{margin:4px 0 14px;min-height:1.4em;color:var(--red);font-size:15px}
 #num-dlg .keypad{gap:10px;margin:0 0 18px}
 #num-dlg .keypad button{min-height:68px}
+
+/* v31: Weihnachtsdesign unten: Schneehaufen und kleiner Weihnachtsmarkt (nur mit dem Weihnachtsdesign) */
+#xmas-scene{display:none;position:fixed;left:0;right:0;bottom:0;height:clamp(130px,24vh,230px);z-index:0;pointer-events:none;
+  --sc-tree:#7FA88F;--sc-wood:#8B5A3C;--sc-wood2:#6B422B;--sc-roof:#B3261E;--sc-glow:#FFD27A;--sc-snow:#FFFFFF;--sc-snow2:#DCE7F3}
+:root[data-scheme=dark] #xmas-scene{--sc-tree:#1F4A36;--sc-wood:#5B3A27;--sc-wood2:#3E271A;--sc-roof:#8F2A24;--sc-glow:#FFC857;--sc-snow:#EEF3F9;--sc-snow2:#BCCADC}
+body.theme-xmas #xmas-scene{display:block}
+#xmas-scene svg{display:block;width:100%;height:100%}
+body.theme-xmas .foot{position:relative;z-index:2;color:#44505F}body.theme-xmas .foot .ver{opacity:.85}
+
+/* v32: Schalter in Formular-Fenstern (Ausgabe erfassen) */
+.form-dlg .switch-row{display:flex;align-items:center;justify-content:space-between;gap:16px;text-align:left;color:var(--label);font-size:16px;margin-bottom:12px}
+.form-dlg .switch-row small{font-weight:400}
+.form-dlg .switch-row input{width:51px;height:31px;min-height:0;margin:0;padding:0;border:0;display:block;flex:none}
