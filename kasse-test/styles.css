@@ -327,3 +327,16 @@ body.theme-xmas .logo-wrap::after{content:"";position:absolute;left:-4px;top:-12
 
 /* ---- Küche/Verwaltung: Platz für den Testversion-Balken ---- */
 body.is-test .page{padding-top:calc(28px + env(safe-area-inset-top))}
+
+/* v27: Bestellungen in der Kasse */
+.bon .segmented{margin-bottom:2px}.bon .segmented button{flex:1;padding:0 8px}
+.bon .segmented b{display:inline-block;min-width:20px;padding:0 6px;border-radius:10px;background:var(--brand);color:var(--brand-ink);font-size:13px;line-height:20px}
+.bon .pane{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0}.bon .pane[hidden]{display:none}
+.ord-list{display:flex;flex-direction:column;gap:10px;overflow:auto;flex:1;min-height:0}
+.ord{border-radius:14px;background:var(--fill);border-left:8px solid var(--c);padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.ord-h{display:flex;gap:8px;align-items:baseline}.ord-h b{font-size:28px;letter-spacing:.5px}.ord-h span{flex:1;color:var(--label2);font-size:14px}.ord-h time{color:var(--label2);font-variant-numeric:tabular-nums}
+.ord-i{font-size:17px;font-weight:600;overflow-wrap:anywhere}
+.bon .ready{display:flex;gap:8px;flex-wrap:wrap}
+.bon .rd{min-height:50px;padding:0 16px;border-radius:12px;background:var(--card);border:2px solid var(--c);font-size:22px;font-weight:800;display:inline-flex;align-items:center;gap:6px}
+.bon .rd small{font-size:12px;font-weight:600;color:var(--label2)}
+#monitor-dlg p{margin:0 0 10px}

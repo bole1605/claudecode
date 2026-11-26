@@ -305,7 +305,7 @@ async function test(name, fn) {
     assert.strictEqual(await p.evaluate(() => state.sales[1].on), 'C2');
     await p.click('[data-stand=burger]'); await tap(p, 'b-maul-f'); await p.click('#pay'); await p.click('[data-quick="10"]'); await p.click('#p-ok');
     assert.strictEqual(await p.evaluate(() => state.sales[2].on), 'B1');                                   // jede Sparte zählt für sich
-    assert.deepStrictEqual(await p.evaluate(() => __s.filter(x => x === 'tick' || x === 'booked')), ['tick', 'tick', 'booked', 'tick', 'booked', 'tick', 'booked'], 'Töne beim Antippen und Verbuchen');
+    assert.deepStrictEqual(await p.evaluate(F => __s.filter(x => F || x === 'tick' || x === 'booked'), feat('ord-pane')), feat('ord-pane') ? ['booked', 'booked', 'booked'] : ['tick', 'tick', 'booked', 'tick', 'booked', 'tick', 'booked'], 'Töne beim Verbuchen');
     assert.strictEqual(await txt(p, '#k-count'), '3');
     // zweites Fenster (gleicher Browser) mit der Küchenanzeige für Crêpes
     const k = await p.ctx.newPage(); k.on('pageerror', x => errs.push(x.message));
@@ -373,9 +373,8 @@ async function test(name, fn) {
     const p = await open(errs); await admin(p, true);
     assert.strictEqual(await p.isChecked('#sound-toggle'), true); assert.strictEqual(await p.inputValue('#sound-vol'), 'mid');
     for (const n of await p.evaluate(() => Sound.names)) await p.evaluate(x => Sound.play(x), n);   // kein Fehler
-    assert.ok((await p.evaluate(() => Sound.names)).length >= 9);
+    if (feat('ord-pane')) assert.deepStrictEqual(await p.evaluate(() => Sound.names), ['booked', 'ready'], 'nur zwei Töne');
     await p.selectOption('#sound-vol', 'high'); assert.deepStrictEqual(await p.evaluate(() => [Sound.config.vol, state.sound.vol]), ['high', 'high']);
-    await p.click('.switch-row:has(#sound-tap)'); assert.strictEqual(await p.evaluate(() => Sound.config.tap), false);
     await p.evaluate(() => { window.__o = 0; const f = AudioContext.prototype.createOscillator; AudioContext.prototype.createOscillator = function () { window.__o++; return f.call(this); }; });
     await p.evaluate(() => Sound.play('booked')); assert.strictEqual(await p.evaluate(() => window.__o), 3, '„booked“ besteht aus drei Tönen');
     await p.evaluate(() => { window.__o = 0; });
@@ -445,6 +444,27 @@ async function test(name, fn) {
     await p.selectOption('#d-theme', 'xmas');
     const k = await p.ctx.newPage(); await k.goto(base.replace('index.html', 'display.html') + '#all');
     assert.deepStrictEqual(await k.evaluate(() => [document.documentElement.dataset.theme, getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()]), ['xmas', '#F7F0E3']);
+    await p.ctx.close();
+  });
+
+  if (feat('ord-pane')) await test('Bestellungen in der Kasse: Fertig/abgeholt per Touch, Ton nur bei fertig, Monitor-Ansicht ohne Bedienung', async errs => {
+    const p = await open(errs, '#crepes');
+    await p.evaluate(() => { window.__s = []; const o = Sound.play; Sound.play = n => { __s.push(n); o.call(Sound, n); }; });
+    await tap(p, 'c-nutella'); await tap(p, 'c-kaese'); await p.click('#pay'); await p.click('[data-quick="20"]'); await p.click('#p-ok'); await p.click('#toast-x').catch(() => {});
+    await p.click('[data-tab=ord]'); assert.strictEqual(await p.isVisible('#ord-pane'), true); assert.strictEqual(await p.isVisible('#pay'), false);
+    assert.strictEqual(await p.locator('#ord-open .ord').count(), 1); assert.ok((await txt(p, '#ord-open')).includes('C1'));
+    await p.click('[data-ord-done]'); assert.strictEqual(await p.evaluate(() => readOrders().orders[0].status), 'ready');
+    assert.deepStrictEqual(await p.evaluate(() => __s), ['booked', 'ready'], 'zwei Töne: verbucht, fertig');
+    await p.click('[data-ord-pick]'); assert.strictEqual(await p.evaluate(() => readOrders().orders[0].status), 'done');
+    await p.click('#ord-undo'); assert.strictEqual(await p.evaluate(() => readOrders().orders[0].status), 'ready');
+    await p.click('[data-tab=bon]'); assert.strictEqual(await p.isVisible('#pay'), true);
+    // Monitor-Ansicht: keine Bedienelemente, kein Zurück-Link; normale Ansicht hat den Link zur Kasse
+    const k = await p.ctx.newPage(); await k.goto(base.replace('index.html', 'display.html') + '?view=1#all');
+    await tap(p, 'c-zimt'); await p.click('#pay'); await p.click('[data-quick="5"]'); await p.click('#p-ok');
+    await k.waitForSelector('.tk');
+    assert.deepStrictEqual(await k.evaluate(() => ['.done', '#undo', '#back'].map(s => { const e = document.querySelector(s); return !e || getComputedStyle(e).display === 'none' || e.hidden; })), [true, true, true], 'Monitor ohne Bedienelemente');
+    const k2 = await p.ctx.newPage(); await k2.goto(base.replace('index.html', 'display.html') + '#all');
+    assert.strictEqual(await k2.isVisible('#back'), true, 'Link zurück zur Kasse');
     await p.ctx.close();
   });
 
