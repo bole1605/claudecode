@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v27** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v28** (die Versionsnummer steht oben rechts in der App).
 
 ---
 

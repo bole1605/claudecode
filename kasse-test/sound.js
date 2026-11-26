@@ -24,7 +24,7 @@
     const n = 8000, b = new Uint8Array(44 + n), dv = new DataView(b.buffer), w = (o, s) => { for (let i = 0; i < s.length; i++) b[o + i] = s.charCodeAt(i); };
     w(0, 'RIFF'); dv.setUint32(4, 36 + n, true); w(8, 'WAVEfmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
     dv.setUint32(24, 8000, true); dv.setUint32(28, 8000, true); dv.setUint16(32, 1, true); dv.setUint16(34, 8, true); w(36, 'data'); dv.setUint32(40, n, true);
-    for (let i = 0; i < n; i++) b[44 + i] = 128 + (i % 2);   // fast Stille (Mitte ±1)
+    for (let i = 0; i < n; i++) b[44 + i] = 128;   // echte Stille (Mittellage, kein Ton)
     return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
   }
 
