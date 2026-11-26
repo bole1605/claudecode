@@ -25,4 +25,5 @@
 | v21 | **Kassensturz** (Stückelung zählen, Differenz zum Soll, Protokoll), **Einlagen/Entnahmen**, **Kassenbericht** als A4-PDF und zum Drucken, auch in CSV und Sicherung |
 | v22 | **Spende ohne Einkauf**, **Bestellnummern je Sparte** (C1, B1 …) und **Küchenanzeige** als zweites Fenster/Overlay, **Töne**, Logo der ev. Jugend (hell/dunkel) und Fußzeile „coded by Leo B. - 2026“ |
 | v23 | **Kachelfarben aus dem Logo der ev. Jugend:** Lila (Crêpes), Grau (Burger), Flieder (Getränke), Dunkelgrau (Karten); gespeicherte Sortimente werden einmal umgestellt, eigene Farben bleiben |
-| **v24** | **Design:** Knöpfe in Logo-Lila, Logo im Hintergrund, einstellbares Design (Thema, hell/dunkel, Knopffarbe, Logo, Schnee) und ein Weihnachtsdesign (Lichterkette, Mütze, festliche Farben, Schnee) |
+| v24 | **Design:** Knöpfe in Logo-Lila, Logo im Hintergrund, einstellbares Design (Thema, hell/dunkel, Knopffarbe, Logo, Schnee) und ein Weihnachtsdesign (Lichterkette, Mütze, festliche Farben, Schnee) |
+| **v25** | **Töne überarbeitet:** weiche Sinus-Töne mit sanftem Einsatz, Tiefpass und Sicherung gegen Übersteuern, schnelles Tippen wird gedrosselt, Klang beim Antippen „Weich“ oder „Tief“, Messtests für die Tonqualität |

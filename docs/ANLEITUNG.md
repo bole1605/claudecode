@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v24** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v25** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -144,6 +144,8 @@ Verwaltung → **„Design“**. Alles wirkt sofort, auch auf der Küchenanzeige
 ## 5g. Töne
 
 Verwaltung → **„Töne“**: ein/aus, Lautstärke (leise, mittel, laut), „Ton beim Antippen“ extra abschaltbar, „Ton testen“. Es gibt kurze Signale beim Antippen und Entfernen, beim Verbuchen, bei einer Spende, bei Fehlern (zum Beispiel falsches Passwort, Kassensturz mit Differenz), bei Storno, bei einer neuen Bestellung in der Küche und wenn die Küche „fertig“ meldet. Auf dem iPad bleiben Töne aus, wenn der **Seitenschalter auf stumm** steht oder die Lautstärke ganz unten ist.
+
+**Klingt das Tippen scheppernd oder verzerrt?** Unter „Klang beim Antippen“ gibt es **Weich** (leises Plopp, Standard) und **Tief** (dumpfer, für kleine Lautsprecher). Mit „Tipp-Töne testen“ hörst du beide Varianten. Hilft das nicht, schalte „Ton beim Antippen“ aus. Die Bestätigungstöne beim Verbuchen bleiben dann erhalten. Sehr schnelles Tippen wird gedrosselt, damit sich Töne nicht überlagern.
 
 ## 5d. Kassensturz und Kassenbericht
 
