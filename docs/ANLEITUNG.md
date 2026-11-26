@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v22** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v24** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -71,6 +71,7 @@ Einstellungen (alle in der Verwaltung):
 | **Zahlen speichern (Datei)** | Erzeugt eine CSV-Datei (siehe 5.). |
 | **Passwort ändern** | Neues Passwort festlegen (erzeugt auch einen neuen Wiederherstellungscode). |
 | **QR-Code / E-Mail nach dem Verbuchen** | Schalter im Bereich „Bons“, siehe Abschnitt 5b. |
+| **Design** | Thema (Logo-Lila, Weihnachten, Klassisch), hell/dunkel, Farbe der Knöpfe, Logo im Hintergrund, Schnee (Abschnitt 5h). |
 | **Töne** | Ein/aus, Lautstärke, Ton beim Antippen, Test (Abschnitt 5g). |
 | **Küchenanzeige / Bestellnummern** | Ein/aus, Nummern zurücksetzen, Anzeige leeren (Abschnitt 5f). |
 | **Bons (PDF & Druck)** | Schalter und „Bon-Kopf und Fußzeile festlegen“. Nach dem Verbuchen erscheint „PDF“ und „Drucken“, später auch bei jeder Buchung in der Liste. |
@@ -128,6 +129,17 @@ Unter dem Bon steht die Taste **„Spende buchen“**. Du wählst **Bar** oder *
 - Storniert die Kasse einen Bon, verschwindet die Bestellung aus der Anzeige.
 - Der Austausch läuft **nur auf demselben Gerät** (kein Server, keine Verbindung zu anderen Tablets). Auf dem iPad gilt: Eine **zum Home-Bildschirm hinzugefügte App** und ein Safari-Fenster haben getrennte Speicher. Nutze dort „Küche“ (Anzeige über der Kasse) oder öffne beide Fenster in Safari.
 - Aus: Verwaltung → „Küchenanzeige“ ausschalten (Bestellnummern gibt es weiter).
+
+## 5h. Design
+
+Verwaltung → **„Design“**. Alles wirkt sofort, auch auf der Küchenanzeige.
+- **Thema:** **Logo-Lila** (Standard, Knöpfe in Lila, Kacheln in Lila, Grau, Flieder und Dunkelgrau), **Weihnachten 🎄** (ein Spaß für den Markt: Lichterkette oben, Weihnachtsmütze auf dem Logo, Creme-Hintergrund bzw. dunkles Tannengrün, Kacheln in Rot, Grün, Gold und Tannengrün, Schneefall) oder **Klassisch (Blau)** wie in den ersten Versionen.
+- **Darstellung:** Automatisch (wie das Tablet), **Immer hell** oder **Immer dunkel**. Draußen in der Sonne ist „Immer hell“ oft besser lesbar.
+- **Farbe der Knöpfe:** „Automatisch“ (Farbe des Themas), fünf Farben oder **eine eigene Farbe** über das Farbfeld. Die Schrift auf den Knöpfen wird automatisch schwarz oder weiß, und Textknöpfe werden bei Bedarf abgedunkelt oder aufgehellt, damit sie lesbar bleiben.
+- **Logo im Hintergrund:** Aus, Dezent oder Deutlich. Es liegt hinter den Kacheln und ist nur in den freien Flächen zu sehen.
+- **Schneefall:** nur im Weihnachtsdesign, ein-/ausschaltbar. Er blockiert keine Berührung. Bei der Tablet-Einstellung „Bewegung reduzieren“ gibt es keinen Schnee.
+- **Design zurücksetzen** stellt alles wieder auf Logo-Lila, Automatisch und Logo dezent.
+- Das Design gilt **für dieses Tablet**; es steht auch in der Sicherung.
 
 ## 5g. Töne
 

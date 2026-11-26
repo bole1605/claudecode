@@ -33,7 +33,7 @@ const DEFAULT_STANDS = [
     ]},
   ]},
 ];
-const VERSION = 23;
+const VERSION = 24;
 // Fokus ins erste Feld – aber nur, wenn die Eingabe nicht schon in einem anderen Feld des Fensters begonnen hat
 const focusFirst = sel => setTimeout(() => { const el = document.querySelector(sel), d = el.closest('dialog'); if (!d.contains(document.activeElement) || document.activeElement === d) el.focus(); }, 50);
 // Test- und Live-Version liegen auf derselben Domain: getrennter Speicher, damit sich die Daten nie vermischen
@@ -51,7 +51,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const PALETTE = Kasse.PALETTE;   // Logo-Farben; kein Rot: Rot ist für Löschen/Storno/Minus reserviert
 
 const RC_DEFAULT = { name: 'Evangelische Kirchengemeinde Kleinglattbach', addr: 'Kirchstraße 15; 71665 Vaihingen an der Enz', foot: 'Vielen Dank, Guten Appetit & frohe Weihnachten!' };
-let state = { mig23: false, sound: { on: true, vol: 'mid', tap: true }, kitchen: { on: true }, orderNo: { day: '', seq: {} }, moves: [], counts: [], lock: null, mig20: false, share: { on: true }, lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
+let state = { design: { theme: 'standard', mode: 'auto', accent: null, logo: 'low', snow: true }, mig23: false, sound: { on: true, vol: 'mid', tap: true }, kitchen: { on: true }, orderNo: { day: '', seq: {} }, moves: [], counts: [], lock: null, mig20: false, share: { on: true }, lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
 try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
 let STANDS, ALL = {};
 function setCatalog(c) {
@@ -100,6 +100,7 @@ if (STANDS.some(s => s.id === hash) && !state.lock) state.stand = hash;
 if (!STANDS.some(s => s.id === state.stand)) state.stand = STANDS[0].id;
 
 Sound.setup(state.sound);
+Theme.apply(state.design);
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
 
 // --- Bestellungen für die Küchenanzeige (zweites Fenster: display.html) ---------------------------------------------------
@@ -452,6 +453,10 @@ function renderAdmin() {
   $('#vat-toggle').checked = state.vat.on;
   $('#rc-toggle').checked = state.receipt.on;
   $('#lock-select').innerHTML = '<option value="">Alle Seiten (Reiter sichtbar)</option>' + STANDS.map(s => `<option value="${s.id}">Nur „${esc(s.label)}“</option>`).join(''); $('#lock-select').value = state.lock || '';
+  { const D = Theme.resolve(state.design);
+    $('#d-theme').value = D.theme; $('#d-mode').value = D.mode; $('#d-logo').value = D.logo; $('#d-snow').checked = D.snow; $('#d-snow-row').hidden = D.theme !== 'xmas';
+    $('#d-swatches').innerHTML = `<button class="sw auto" data-acc="" aria-pressed="${!D.accent}">Automatisch</button>` + Theme.SWATCHES.map(s => `<button class="sw" style="background:${s.c}" data-acc="${s.c}" aria-label="${s.n}" aria-pressed="${(D.accent || '').toUpperCase() === s.c}"></button>`).join('')
+      + `<input type="color" id="d-custom" value="${D.accent || '#A10DBC'}" aria-label="Eigene Farbe wählen">`; }
   $('#sound-toggle').checked = state.sound.on; $('#sound-tap').checked = state.sound.tap; $('#sound-vol').value = state.sound.vol; $('#kitchen-toggle').checked = state.kitchen.on;
   { const on = state.orderNo && state.orderNo.day === today() ? state.orderNo.seq : {};
     $('#ord-state').textContent = 'Nächste Bestellnummern: ' + STANDS.map(s => standPrefix(s) + ((on[s.id] || 0) + 1)).join(' · ') + ' (zählt jeden Tag neu)'; }
@@ -512,7 +517,7 @@ function renderAdmin() {
 }
 
 // --- Datensicherung (Datei zum Wiederherstellen)
-const BACKUP_KEYS = ['catalog', 'sales', 'seq', 'vat', 'tip', 'cash', 'moves', 'counts', 'receipt', 'paypal', 'ppMode'];
+const BACKUP_KEYS = ['design', 'catalog', 'sales', 'seq', 'vat', 'tip', 'cash', 'moves', 'counts', 'receipt', 'paypal', 'ppMode'];
 async function deliver(file, title) {
   try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title }); return true; } }
   catch (err) { if (err.name === 'AbortError') return false; }
@@ -677,6 +682,8 @@ document.addEventListener('click', async e => {
   if (D.print) { printBon(+D.print); return; }
   if (t.id === 'toast-x') { $('#toast').hidden = true; return; }
   if (t.id === 'rc-head') { openReceiptHead(); return; }
+  if (D.acc !== undefined) { setDesign({ accent: D.acc || null }); return; }
+  if (t.id === 'd-reset') { state.design = { ...Theme.DEFAULT }; save(); Theme.apply(state.design); renderAdmin(); return; }
   if (t.id === 'donate') { donOpen(); return; }
   if (t.id === 'd-cancel') { $('#don-dlg').close(); return; }
   if (t.id === 'd-ok') { donBook(); return; }
@@ -960,6 +967,12 @@ $('#r-cancel').addEventListener('click', () => $('#rc-dlg').close());
 $('#pp-mode').addEventListener('change', e => { state.ppMode = e.target.value; save(); renderAdmin(); });
 $('#tip-toggle').addEventListener('change', e => { state.tip.on = e.target.checked; save(); renderAdmin(); });
 $('#lock-select').addEventListener('change', e => { state.lock = e.target.value || null; if (state.lock) state.stand = state.lock; save(); renderAdmin(); });
+function setDesign(p) { state.design = Object.assign({}, Theme.resolve(state.design), p); save(); Theme.apply(state.design); renderAdmin(); }
+$('#d-theme').addEventListener('change', e => setDesign({ theme: e.target.value }));
+$('#d-mode').addEventListener('change', e => setDesign({ mode: e.target.value }));
+$('#d-logo').addEventListener('change', e => setDesign({ logo: e.target.value }));
+$('#d-snow').addEventListener('change', e => setDesign({ snow: e.target.checked }));
+$('#d-swatches').addEventListener('change', e => { if (e.target.id === 'd-custom') setDesign({ accent: e.target.value }); });
 $('#sound-toggle').addEventListener('change', e => { state.sound.on = e.target.checked; Sound.setup(state.sound); save(); });
 $('#sound-tap').addEventListener('change', e => { state.sound.tap = e.target.checked; Sound.setup(state.sound); save(); });
 $('#sound-vol').addEventListener('change', e => { state.sound.vol = e.target.value; Sound.setup(state.sound); save(); Sound.unlock(); Sound.play('booked'); });

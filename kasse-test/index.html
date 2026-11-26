@@ -15,16 +15,19 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=23">
+<link rel="stylesheet" href="styles.css?v=24">
+<script src="logic.js?v=24"></script>
+<script src="theme.js?v=24"></script>
 </head>
 <body>
+<div id="wm" aria-hidden="true"></div>
 <div class="app">
   <header class="top">
     <h1 id="title">Kasse</h1>
     <div class="segmented" role="tablist" aria-label="Stand wählen" id="tabs"></div>
     <div class="top-spacer">
       <button class="btn sm k-btn" id="kitchen-open" aria-label="Küchenanzeige öffnen">Küche <b id="k-count" hidden>0</b></button>
-      <picture><source srcset="icons/jugend-dunkel.png" media="(prefers-color-scheme: dark)"><img class="logo" src="icons/jugend-hell.png" alt="ev. Jugend Kleinglattbach"></picture>
+      <span class="logo-wrap"><img class="logo l" src="icons/jugend-hell.png" alt="ev. Jugend Kleinglattbach"><img class="logo d" src="icons/jugend-dunkel.png" alt="" aria-hidden="true"></span>
     </div>
   </header>
 
@@ -43,7 +46,7 @@
     </aside>
   </div>
 
-  <footer class="foot"><span>coded by Leo B. - 2026</span><span class="ver">v23</span></footer>
+  <footer class="foot"><span>coded by Leo B. - 2026</span><span class="ver">v24</span></footer>
 
 </div>
 
@@ -139,6 +142,20 @@
       <small class="muted"><b>Zum Testen:</b> Scanne den Code nicht mit dem PayPal-Konto, dem der Link gehört. PayPal kann sich nicht selbst bezahlen und zeigt dann nur die Startseite an. Nimm ein anderes Konto oder öffne den Link im Browser, ohne angemeldet zu sein.</small>
       <small class="muted">Der Link wird im QR-Code beim Bezahlen angezeigt. Bei einem paypal.me-Link wird der Betrag automatisch eingetragen.</small>
       <button class="btn destructive" id="paypal-off" hidden>PayPal-Link entfernen</button></section>
+    <section class="card" id="design-card">
+      <h3>Design</h3>
+      <label class="field-row"><span><b>Thema</b><small>„Weihnachten“ ist ein Spaß für den Markt: Lichterkette, Mütze auf dem Logo, festliche Kachelfarben und Schnee.</small></span>
+        <select id="d-theme"><option value="standard">Logo-Lila (Standard)</option><option value="xmas">Weihnachten 🎄</option><option value="classic">Klassisch (Blau)</option></select></label>
+      <label class="field-row"><span><b>Darstellung</b><small>Draußen bei Sonne ist „Immer hell“ oft besser lesbar.</small></span>
+        <select id="d-mode"><option value="auto">Automatisch (wie das Tablet)</option><option value="light">Immer hell</option><option value="dark">Immer dunkel</option></select></label>
+      <div class="field-row"><span><b>Farbe der Knöpfe</b><small>Gilt für „Bezahlen“, Schalter und Textknöpfe.</small></span>
+        <div class="swatches" id="d-swatches"></div></div>
+      <label class="field-row"><span><b>Logo im Hintergrund</b></span>
+        <select id="d-logo"><option value="off">Aus</option><option value="low">Dezent</option><option value="mid">Deutlich</option></select></label>
+      <label class="switch-row" id="d-snow-row"><span><b>Schneefall</b><small>Nur im Weihnachtsdesign. Aus bei „Bewegung reduzieren“ des Tablets.</small></span>
+        <input type="checkbox" role="switch" id="d-snow"></label>
+      <button class="btn" id="d-reset">Design zurücksetzen</button>
+    </section>
     <section class="card" id="sound-card">
       <h3>Töne</h3>
       <label class="switch-row"><span><b>Töne</b><small>Signale beim Verbuchen, bei Spenden, Fehlern und Storno sowie wenn die Küche „fertig“ meldet. Auf dem iPad bleiben sie aus, wenn der Seitenschalter auf stumm steht.</small></span>
@@ -334,9 +351,8 @@
 <div id="toast" class="toast" hidden></div>
 <pre id="print-area"></pre>
 
-<script src="qrcode.js?v=23"></script>
-<script src="logic.js?v=23"></script>
-<script src="sound.js?v=23"></script>
-<script src="app.js?v=23"></script>
+<script src="qrcode.js?v=24"></script>
+<script src="sound.js?v=24"></script>
+<script src="app.js?v=24"></script>
 </body>
 </html>

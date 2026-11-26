@@ -361,10 +361,11 @@ async function test(name, fn) {
   if (feat('Leo B.') || has('display.html')) await test('Logo (hell/dunkel) und Fußzeile', async errs => {
     const p = await open(errs);
     assert.ok((await txt(p, '.foot')).includes('coded by Leo B. - 2026'));
-    const logo = await p.evaluate(() => { const i = document.querySelector('.top .logo'); return { ok: i.complete && i.naturalWidth > 100, src: i.getAttribute('src'), dark: document.querySelector('.top picture source').getAttribute('srcset'), h: Math.round(i.getBoundingClientRect().height) }; });
-    assert.deepStrictEqual([logo.ok, logo.src, logo.dark], [true, 'icons/jugend-hell.png', 'icons/jugend-dunkel.png']); assert.ok(logo.h >= 40);
+    const vis = sel => p.evaluate(s => { const i = document.querySelector(s); return !!i && getComputedStyle(i).display !== 'none' && i.complete && i.naturalWidth > 100 && i.getBoundingClientRect().height >= 40; }, sel);
+    assert.ok(await vis('.top .logo.l') && !(await p.evaluate(() => getComputedStyle(document.querySelector('.top .logo.d')).display !== 'none')), 'Hell: schwarze Variante');
+    assert.strictEqual(await p.evaluate(() => document.querySelector('.top .logo.l').getAttribute('src')), 'icons/jugend-hell.png');
     const dark = await p.ctx.newPage(); await dark.emulateMedia({ colorScheme: 'dark' }); await dark.goto(base);
-    assert.ok(await dark.evaluate(() => document.querySelector('.top .logo').currentSrc.endsWith('jugend-dunkel.png')), 'Dunkelmodus nimmt die weiße Variante');
+    assert.ok(await dark.evaluate(() => getComputedStyle(document.querySelector('.top .logo.d')).display !== 'none' && getComputedStyle(document.querySelector('.top .logo.l')).display === 'none'), 'Dunkel: weiße Variante');
     await p.ctx.close();
   });
 
@@ -389,6 +390,61 @@ async function test(name, fn) {
       { id: 'b', name: 'Getränke', color: '#30B0C7', items: [] }, { id: 'c', name: 'Eigene', color: '#123456', items: [] }, { id: 'd', name: 'Crêpes', color: '#ff9f0a', items: [] }] }] } });
     assert.deepStrictEqual(await p.evaluate(() => STANDS[0].groups.map(g => g.color)), ['#909090', '#CB7ADA', '#123456', '#A10DBC']);
     await p.reload(); assert.deepStrictEqual(await p.evaluate(() => STANDS[0].groups.map(g => g.color)), ['#909090', '#CB7ADA', '#123456', '#A10DBC'], 'läuft nur einmal');
+    await p.ctx.close();
+  });
+
+  if (has('theme.js')) await test('Design: Standard in Logo-Lila, Knöpfe, Logo im Hintergrund', async errs => {
+    const p = await open(errs, '#burger');
+    const st = await p.evaluate(() => { const b = getComputedStyle(document.querySelector('#pay')), r = getComputedStyle(document.documentElement), wm = getComputedStyle(document.querySelector('#wm'));
+      return { scheme: document.documentElement.dataset.scheme, theme: document.documentElement.dataset.theme, brand: r.getPropertyValue('--brand').trim(), ink: r.getPropertyValue('--brand-ink').trim(), wmOp: wm.opacity, wmImg: wm.backgroundImage }; });
+    assert.deepStrictEqual([st.scheme, st.theme, st.brand, st.ink], ['light', 'standard', '#A10DBC', '#ffffff']);
+    assert.ok(st.wmImg.includes('jugend-hell.png') && Math.abs(+st.wmOp - 0.07) < 0.001, JSON.stringify(st));
+    await tap(p, 'b-maul-v'); assert.strictEqual(await p.evaluate(() => getComputedStyle(document.querySelector('#pay')).backgroundColor), 'rgb(161, 13, 188)', 'Bezahlen-Knopf in Logo-Lila');
+    await p.ctx.close();
+  });
+
+  if (has('theme.js')) await test('Design einstellen: Thema, hell/dunkel, Knopffarbe, Logo, Zurücksetzen, bleibt nach Neustart', async errs => {
+    const p = await open(errs); await admin(p, true);
+    const css = n => p.evaluate(n => getComputedStyle(document.documentElement).getPropertyValue(n).trim(), n);
+    await p.selectOption('#d-theme', 'classic'); assert.strictEqual(await css('--brand'), '#007AFF');
+    await p.click('[data-acc="#1B7F4B"]'); assert.strictEqual(await css('--brand'), '#1B7F4B'); assert.strictEqual(await p.getAttribute('[data-acc="#1B7F4B"]', 'aria-pressed'), 'true');
+    await p.fill('#d-custom', '#d9730d'); await p.waitForTimeout(150); assert.strictEqual(await css('--brand'), '#D9730D', 'eigene Farbe');
+    await p.click('[data-acc=""]'); assert.strictEqual(await css('--brand'), '#007AFF', 'Automatisch = Farbe des Themas');
+    await p.selectOption('#d-mode', 'dark'); assert.deepStrictEqual(await p.evaluate(() => [document.documentElement.dataset.scheme, getComputedStyle(document.body).backgroundColor]), ['dark', 'rgb(0, 0, 0)']);
+    await p.selectOption('#d-mode', 'auto'); assert.strictEqual(await p.evaluate(() => document.documentElement.dataset.scheme), 'light');
+    await p.selectOption('#d-logo', 'off'); assert.strictEqual(await p.evaluate(() => getComputedStyle(document.querySelector('#wm')).opacity), '0');
+    await p.selectOption('#d-logo', 'mid'); assert.strictEqual(await p.evaluate(() => getComputedStyle(document.querySelector('#wm')).opacity), '0.14');
+    await p.selectOption('#d-theme', 'standard'); await p.selectOption('#d-mode', 'dark');
+    await p.reload(); assert.deepStrictEqual(await p.evaluate(() => [document.documentElement.dataset.scheme, getComputedStyle(document.documentElement).getPropertyValue('--brand').trim(), state.design.logo]), ['dark', '#B52FCB', 'mid'], 'Design bleibt nach dem Neustart');
+    await admin(p, false); await p.click('#d-reset');
+    assert.deepStrictEqual(await p.evaluate(() => [document.documentElement.dataset.scheme, state.design.logo, state.design.theme]), ['light', 'low', 'standard']);
+    // „Immer hell“ gilt auch, wenn das Tablet dunkel ist
+    const d = await p.ctx.newPage(); await d.emulateMedia({ colorScheme: 'dark' }); await d.goto(base);
+    assert.strictEqual(await d.evaluate(() => document.documentElement.dataset.scheme), 'dark', 'Automatisch folgt dem Tablet');
+    await d.evaluate(() => { state.design.mode = 'light'; save(); Theme.apply(state.design); }); assert.strictEqual(await d.evaluate(() => document.documentElement.dataset.scheme), 'light');
+    await p.ctx.close();
+  });
+
+  if (has('theme.js')) await test('Weihnachtsdesign: Farben, Lichterkette, Mütze, Schnee ein/aus, Küchenanzeige übernimmt es', async errs => {
+    const p = await open(errs, '#burger'); await admin(p, true);
+    await p.selectOption('#d-theme', 'xmas'); assert.strictEqual(await p.isVisible('#d-snow-row'), true);
+    const x = await p.evaluate(() => { const r = getComputedStyle(document.documentElement), t = getComputedStyle(document.querySelector('.top'), '::before');
+      return { cls: document.body.classList.contains('theme-xmas'), brand: r.getPropertyValue('--brand').trim(), bg: r.getPropertyValue('--bg').trim(), garland: t.content, snow: !!document.querySelector('#snow') }; });
+    assert.deepStrictEqual([x.cls, x.brand, x.bg, x.snow], [true, '#17703F', '#F7F0E3', true]); assert.ok(x.garland !== 'none', 'Lichterkette');
+    await p.click('#admin-close');
+    const acc = await p.evaluate(() => [...document.querySelectorAll('.group')].map(g => getComputedStyle(g).getPropertyValue('--accent').trim()));
+    assert.deepStrictEqual(acc, ['#B3261E', '#1B7F4B'], 'Kachelfarben Rot und Grün');
+    await tap(p, 'b-maul-v'); assert.strictEqual(await p.evaluate(() => getComputedStyle(document.querySelector('[data-count="b-maul-v"]')).backgroundColor), 'rgb(179, 38, 30)', 'Zähler in Weihnachtsrot');
+    assert.strictEqual(await p.evaluate(() => getComputedStyle(document.querySelector('#snow')).pointerEvents), 'none', 'Schnee blockiert keine Berührung');
+    // die Berührung geht durch den Schnee hindurch
+    await tap(p, 'b-maul-f'); assert.strictEqual(await p.evaluate(() => cart()['b-maul-f']), 1);
+    await admin(p, false); await p.click('.switch-row:has(#d-snow)'); assert.strictEqual(await p.evaluate(() => !!document.querySelector('#snow')), false, 'Schnee aus');
+    await p.click('.switch-row:has(#d-snow)'); assert.strictEqual(await p.evaluate(() => !!document.querySelector('#snow')), true, 'Schnee wieder an');
+    await p.selectOption('#d-theme', 'standard'); assert.deepStrictEqual(await p.evaluate(() => [document.body.classList.contains('theme-xmas'), !!document.querySelector('#snow')]), [false, false]);
+    // Küchenanzeige im Weihnachtsdesign
+    await p.selectOption('#d-theme', 'xmas');
+    const k = await p.ctx.newPage(); await k.goto(base.replace('index.html', 'display.html') + '#all');
+    assert.deepStrictEqual(await k.evaluate(() => [document.documentElement.dataset.theme, getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()]), ['xmas', '#F7F0E3']);
     await p.ctx.close();
   });
 
