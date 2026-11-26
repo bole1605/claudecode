@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v26** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v27** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -142,9 +142,17 @@ Verwaltung → **„Design“**. Alles wirkt sofort, auch auf der Küchenanzeige
 - **Design zurücksetzen** stellt alles wieder auf Logo-Lila, Automatisch und Logo dezent.
 - Das Design gilt **für dieses Tablet**; es steht auch in der Sicherung.
 
+### Bestellungen auf dem iPad bearbeiten (v27)
+
+In der rechten Spalte der Kasse gibt es oben **„Bon | Bestellungen“**. Unter „Bestellungen“ stehen die offenen Bestellungen mit **Fertig**; fertige Bestellungen tippst du an, wenn sie abgeholt sind; „Rückgängig“ macht den letzten Schritt zurück. So braucht der zweite Monitor keinen Touch.
+
+### Zweiter Monitor
+
+Taste „Küche“ → **„Zweiter Monitor“**. Die Anzeige im Monitor (`display.html?view=1`) ist nur zum Ansehen, ohne Knöpfe. Als App vom Home-Bildschirm öffnet sie sich nicht als zweites Fenster (das würde die Kasse ersetzen): Die App zeigt dann einen Link zum Kopieren, den du in Safari öffnest. Safari und die App vom Home-Bildschirm haben **getrennte Daten**, deshalb Kasse und Anzeige im selben Programm öffnen (beide in Safari), oder den Monitor einfach **spiegeln**. Die normale Küchenanzeige hat oben „← Zur Kasse“.
+
 ## 5g. Töne
 
-Verwaltung → **„Töne“**: ein/aus, Lautstärke (leise, mittel, laut), „Ton beim Antippen“ extra abschaltbar, „Ton testen“. Es gibt kurze Signale beim Antippen und Entfernen, beim Verbuchen, bei einer Spende, bei Fehlern (zum Beispiel falsches Passwort, Kassensturz mit Differenz), bei Storno, bei einer neuen Bestellung in der Küche und wenn die Küche „fertig“ meldet. Auf dem iPad bleiben Töne aus, wenn der **Seitenschalter auf stumm** steht oder die Lautstärke ganz unten ist.
+Verwaltung → **„Töne“**: ein/aus, Lautstärke (leise, mittel, laut), „Ton testen“. Es gibt **genau zwei Signale**: eines, wenn ein Einkauf (oder eine Spende) fertig verbucht ist, und eines, wenn eine Bestellung fertig zubereitet ist („Fertig“). Sonst ist die Kasse still. Die Töne sollen auch bei stummgeschaltetem iPad (Seitenschalter) zu hören sein; das ließ sich nur im Test-Browser prüfen, nicht auf einem echten iPad. Falls es nicht klappt: einmal die Kasse antippen (der Ton wird erst nach einer Berührung freigeschaltet) und bitte melden.
 
 ## 5d. Kassensturz und Kassenbericht
 

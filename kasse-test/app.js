@@ -33,7 +33,7 @@ const DEFAULT_STANDS = [
     ]},
   ]},
 ];
-const VERSION = 26;
+const VERSION = 27;
 // Fokus ins erste Feld – aber nur, wenn die Eingabe nicht schon in einem anderen Feld des Fensters begonnen hat
 const focusFirst = sel => setTimeout(() => { const el = document.querySelector(sel), d = el.closest('dialog'); if (!d.contains(document.activeElement) || document.activeElement === d) el.focus(); }, 50);
 // Test- und Live-Version liegen auf derselben Domain: getrennter Speicher, damit sich die Daten nie vermischen
@@ -51,7 +51,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const PALETTE = Kasse.PALETTE;   // Logo-Farben; kein Rot: Rot ist für Löschen/Storno/Minus reserviert
 
 const RC_DEFAULT = { name: 'Evangelische Kirchengemeinde Kleinglattbach', addr: 'Kirchstraße 15; 71665 Vaihingen an der Enz', foot: 'Vielen Dank, Guten Appetit & frohe Weihnachten!' };
-let state = { design: { theme: 'standard', mode: 'auto', accent: null, logo: 'low', snow: true }, mig23: false, sound: { on: true, vol: 'mid', tap: true }, kitchen: { on: true }, orderNo: { day: '', seq: {} }, moves: [], counts: [], lock: null, mig20: false, share: { on: true }, lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
+let state = { design: { theme: 'standard', mode: 'auto', accent: null, logo: 'low', snow: true }, mig23: false, sound: { on: true, vol: 'mid' }, kitchen: { on: true }, orderNo: { day: '', seq: {} }, moves: [], counts: [], lock: null, mig20: false, share: { on: true }, lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
 try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
 let STANDS, ALL = {};
 function setCatalog(c) {
@@ -132,13 +132,37 @@ function syncOrder(s) {     // Storno / Storno aufheben
   writeOrders(o);
 }
 const openOrders = () => readOrders().orders.filter(x => x.status === 'open').length;
+// --- Bestellungen auf der Kasse selbst (Touch): offene Bestellungen "Fertig" melden, fertige als abgeholt abhaken
+let asideTab = 'bon', ordUndo = [];
+const ordMins = t => Math.max(0, Math.floor((Date.now() - t) / 60000));
+function renderOrders() {
+  const pane = $('#ord-pane'); if (!pane || pane.hidden) return;
+  const all = readOrders().orders.filter(o => !state.lock || o.st === state.lock).sort((x, y) => x.t - y.t);
+  const open = all.filter(o => o.status === 'open'), ready = all.filter(o => o.status === 'ready');
+  $('#ord-open').innerHTML = open.length ? open.map(o => `<div class="ord" style="--c:${esc(o.col || '#A10DBC')}"><div class="ord-h"><b>${esc(o.no)}</b><span>${esc(o.sl)}</span><time>${ordMins(o.t)} min</time></div>
+    <div class="ord-i">${o.items.map(([n, q]) => `${q}× ${esc(n)}`).join(', ')}</div><button class="btn primary" data-ord-done="${esc(o.no + '|' + o.n)}">Fertig</button></div>`).join('') : '<p class="muted">Keine offenen Bestellungen</p>';
+  $('#ord-ready-h').hidden = !ready.length;
+  $('#ord-ready').innerHTML = ready.map(o => `<button class="rd" style="--c:${esc(o.col || '#909090')}" data-ord-pick="${esc(o.no + '|' + o.n)}">${esc(o.no)} <small>abgeholt</small></button>`).join('');
+  $('#ord-undo').disabled = !ordUndo.length;
+}
+function setAsideTab(t) {
+  asideTab = t; $('#bon-pane').hidden = t !== 'bon'; $('#ord-pane').hidden = t !== 'ord';
+  document.querySelectorAll('#aside-tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === t))); renderOrders();
+}
+function setOrdStatus(id, status, remember) {
+  const o = readOrders(), x = o.orders.find(y => y.no + '|' + y.n === id); if (!x) return;
+  if (remember) ordUndo.push({ id, prev: x.status });
+  x.status = status; writeOrders(o); if (status === 'ready') { knownReady.add(x.no); Sound.play('ready'); } renderOrders();
+}
+setInterval(renderOrders, 20000);
 function kitchenBadge() {
+  const b2 = $('#k-count2'); if (b2) { b2.textContent = openOrders(); b2.hidden = !openOrders(); }
   const b = $('#k-count'), btn = $('#kitchen-open'); if (!b || !btn) return;
   const n = openOrders(); b.textContent = n; b.hidden = !n; btn.hidden = !state.kitchen.on;
 }
 let knownReady = new Set(readOrders().orders.filter(x => x.status === 'ready').map(x => x.no));
 function ordersChanged() {
-  kitchenBadge();
+  kitchenBadge(); renderOrders();
   const rd = readOrders().orders.filter(x => x.status === 'ready').map(x => x.no);
   if (rd.some(no => !knownReady.has(no))) Sound.play('ready');   // Küche meldet: Bestellung fertig
   knownReady = new Set(rd);
@@ -146,6 +170,12 @@ function ordersChanged() {
 if (orderChan) orderChan.onmessage = ordersChanged;
 window.addEventListener('storage', e => { if (e.key === ORD_KEY) ordersChanged(); });
 const kitchenUrl = embed => location.origin + location.pathname.replace(/[^/]*$/, '') + 'display.html' + (embed ? '?embed=1' : '') + '#' + (state.lock || 'all');   // alle Sparten, außer das Gerät ist auf einen Stand festgelegt
+const monitorUrl = () => kitchenUrl(false).replace('display.html', 'display.html?view=1');   // Monitor: nur anzeigen, kein Bedienen
+const standalone = () => (window.navigator.standalone === true) || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+function monitorOpen() {
+  if (standalone()) { document.querySelector('#monitor-url').value = monitorUrl(); document.querySelector('#monitor-dlg').showModal(); return; }   // als App auf dem Home-Bildschirm würde ein neues Fenster die Kasse ersetzen
+  window.open(monitorUrl(), 'kasse-display', 'popup=yes,width=1100,height=760');
+}
 function kitchenOpen() { $('#k-frame').src = kitchenUrl(true); $('#kitchen-ov').hidden = false; document.body.classList.add('noscroll'); }
 function kitchenClose() { $('#kitchen-ov').hidden = true; $('#k-frame').src = 'about:blank'; document.body.classList.remove('noscroll'); kitchenBadge(); }
 
@@ -257,7 +287,7 @@ function update() {
 
 // --- Schnelles Tippen: Artikel landet schon beim Aufsetzen des Fingers auf dem Bon
 function addTile(t) {
-  cartAdd(t.dataset.add, 1); buzz(); Sound.play('tick');
+  cartAdd(t.dataset.add, 1); buzz();
   const b = t.querySelector('.badge'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
 }
 // Passt die Seite auf den Bildschirm, zählt schon das Berühren (schnellste Variante).
@@ -329,7 +359,6 @@ function payUpdate() {
 function openPay() { if (!Object.keys(cart()).length) return; given = ''; tip = ''; target = 'given'; method = 'bar'; payUpdate(); $('#pay-dlg').showModal(); }
 const fmtIn = c => (c / 100).toFixed(2).replace('.', ',').replace(/,00$/, '');
 function key(k) {
-  Sound.play('key');
   let v = target === 'tip' ? tip : given;
   if (k === 'back') v = v.slice(0, -1);
   else if (k === ',') { if (!v.includes(',')) v = (v || '0') + ','; }
@@ -380,7 +409,7 @@ function donUpdate() {
 }
 function donBook() {
   const a = parse(donAmt); if (!(a > 0)) return;
-  finishSale({ method: donMethod, n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: {}, info: {}, total: 0, given: a, tip: a, change: 0, donation: true, void: false }, { sound: 'donation' });
+  finishSale({ method: donMethod, n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: {}, info: {}, total: 0, given: a, tip: a, change: 0, donation: true, void: false }, { sound: 'booked' });
   $('#don-dlg').close();
 }
 
@@ -424,7 +453,7 @@ $('#pw-form').addEventListener('submit', async e => {
   const v = $('#pw-input').value.trim();
   if (pwMode === 'enter') {
     if (await hashPw(v) === state.pw) { $('#pw-dlg').close(); showAdmin(); }
-    else { $('#pw-err').textContent = 'Falsches Passwort. Das Passwort gilt nur für dieses Gerät.'; $('#pw-input').value = ''; Sound.play('error'); }
+    else { $('#pw-err').textContent = 'Falsches Passwort. Das Passwort gilt nur für dieses Gerät.'; $('#pw-input').value = ''; }
   } else {
     if (v.length < 4) { $('#pw-err').textContent = 'Mindestens 4 Zeichen'; return; }
     if (v !== $('#pw-input2').value.trim()) { $('#pw-err').textContent = 'Die beiden Eingaben stimmen nicht überein'; return; }
@@ -457,7 +486,7 @@ function renderAdmin() {
     $('#d-theme').value = D.theme; $('#d-mode').value = D.mode; $('#d-logo').value = D.logo; $('#d-snow').checked = D.snow; $('#d-snow-row').hidden = D.theme !== 'xmas';
     $('#d-swatches').innerHTML = `<button class="sw auto" data-acc="" aria-pressed="${!D.accent}">Automatisch</button>` + Theme.SWATCHES.map(s => `<button class="sw" style="background:${s.c}" data-acc="${s.c}" aria-label="${s.n}" aria-pressed="${(D.accent || '').toUpperCase() === s.c}"></button>`).join('')
       + `<input type="color" id="d-custom" value="${D.accent || '#A10DBC'}" aria-label="Eigene Farbe wählen">`; }
-  $('#sound-toggle').checked = state.sound.on; $('#sound-tap').checked = state.sound.tap; $('#sound-vol').value = state.sound.vol; $('#kitchen-toggle').checked = state.kitchen.on;
+  $('#sound-toggle').checked = state.sound.on; $('#sound-vol').value = state.sound.vol; $('#kitchen-toggle').checked = state.kitchen.on;
   { const on = state.orderNo && state.orderNo.day === today() ? state.orderNo.seq : {};
     $('#ord-state').textContent = 'Nächste Bestellnummern: ' + STANDS.map(s => standPrefix(s) + ((on[s.id] || 0) + 1)).join(' · ') + ' (zählt jeden Tag neu)'; }
   $('#share-toggle').checked = state.share.on; $('#share-toggle').disabled = !state.receipt.on;
@@ -688,13 +717,19 @@ document.addEventListener('click', async e => {
   if (t.id === 'd-cancel') { $('#don-dlg').close(); return; }
   if (t.id === 'd-ok') { donBook(); return; }
   if (D.dmethod) { donMethod = D.dmethod; donUpdate(); return; }
-  if (D.dkey) { Sound.play('key'); donAmt = typeKey(donAmt, D.dkey); donUpdate(); return; }
-  if (D.dq) { Sound.play('key'); donAmt = D.dq; donUpdate(); return; }
+  if (D.dkey) { donAmt = typeKey(donAmt, D.dkey); donUpdate(); return; }
+  if (D.dq) { donAmt = D.dq; donUpdate(); return; }
   if (t.id === 'kitchen-open') { kitchenOpen(); return; }
   if (t.id === 'kitchen-close') { kitchenClose(); return; }
-  if (t.id === 'kitchen-window') { window.open(kitchenUrl(), 'kasse-display', 'popup=yes,width=1100,height=760'); return; }
+  if (t.dataset.tab) { setAsideTab(t.dataset.tab); return; }
+  if (t.dataset.ordDone) { setOrdStatus(t.dataset.ordDone, 'ready', true); return; }
+  if (t.dataset.ordPick) { setOrdStatus(t.dataset.ordPick, 'done', true); return; }
+  if (t.id === 'ord-undo') { const u = ordUndo.pop(); if (u) setOrdStatus(u.id, u.prev, false); return; }
+  if (t.id === 'kitchen-window') { monitorOpen(); return; }
+  if (t.id === 'monitor-copy') { const inp = document.querySelector('#monitor-url'); inp.select(); try { navigator.clipboard.writeText(inp.value); } catch (e) {} return; }
+  if (t.id === 'monitor-close') { document.querySelector('#monitor-dlg').close(); return; }
   if (t.id === 'sound-test') { Sound.unlock(); Sound.play('booked'); return; }
-  if (t.id === 'sound-toggle' || t.id === 'sound-tap' || t.id === 'kitchen-toggle') return;
+  if (t.id === 'sound-toggle' || t.id === 'kitchen-toggle') return;
   if (t.id === 'ord-reset') { if (await ask('Bestellnummern zurücksetzen?', 'Alle Sparten beginnen wieder bei 1 (zum Beispiel C1, B1, K1). Schon vergebene Nummern auf Bons bleiben unverändert.', 'Zurücksetzen')) { state.orderNo = { day: '', seq: {} }; save(); renderAdmin(); } return; }
   if (t.id === 'ord-clear') { if (await ask('Küchenanzeige leeren?', 'Alle offenen und fertigen Bestellungen verschwinden aus der Küchenanzeige. Die Buchungen bleiben erhalten.', 'Leeren')) { writeOrders({ orders: [] }); renderAdmin(); } return; }
   if (t.id === 'cs-open') { csOpen(); return; }
@@ -736,10 +771,10 @@ document.addEventListener('click', async e => {
     return;
   }
   if (t.dataset.add) { if (e.detail === 0) cartAdd(t.dataset.add, 1); } // nur Tastatur; Touch läuft über pointerdown
-  else if (t.dataset.sub) { Sound.play('minus'); cartAdd(t.dataset.sub, -1); }
+  else if (t.dataset.sub) { cartAdd(t.dataset.sub, -1); }
   else if (t.dataset.stand) { if (state.lock && !editing) return; state.stand = t.dataset.stand; save(); history.replaceState(null, '', '#' + state.stand); build(); }
   else if (t.id === 'pay') openPay();
-  else if (t.id === 'clear') { Sound.play('minus'); state.cart[state.stand] = {}; save(); update(); }
+  else if (t.id === 'clear') { state.cart[state.stand] = {}; save(); update(); }
   else if (t.dataset.key) key(t.dataset.key);
   else if (t.dataset.quick) { target = 'given'; given = t.dataset.quick === 'total' ? (cartTotal() / 100).toFixed(2).replace('.', ',').replace(/,00$/, '') : t.dataset.quick; payUpdate(); }
   else if (t.id === 'p-ok') book();
@@ -752,7 +787,7 @@ document.addEventListener('click', async e => {
   else if (t.dataset.void) {
     const s = state.sales.find(x => x.n === +t.dataset.void); if (!s) return;
     const ok = await ask(s.void ? 'Storno aufheben?' : `Bon #${s.n} stornieren?`, `${lineText(s)} · ${euro(s.total)}`, s.void ? 'Aufheben' : 'Stornieren');
-    if (ok) { s.void = !s.void; syncOrder(s); save(); renderAdmin(); Sound.play(s.void ? 'storno' : 'booked'); }
+    if (ok) { s.void = !s.void; syncOrder(s); save(); renderAdmin(); }
   }
   else if (t.id === 'wipe') {
     if (await ask('Alle Buchungen löschen?', `${state.sales.length} Buchungen werden von diesem Gerät gelöscht. Sie werden vorher intern gesichert und lassen sich wiederherstellen. Tipp: erst „Zahlen speichern“.`, 'Löschen')) {
@@ -784,7 +819,6 @@ let csSaved = null;
 function csSave() {
   const counts = csSum(), ist = Kasse.countTotal(counts), soll = cashSeries().bal;
   csSaved = { id: uid('c'), t: Date.now(), soll, ist, diff: ist - soll, denoms: counts, note: $('#cs-note').value.trim() };
-  Sound.play(csSaved.diff === 0 ? 'booked' : 'error');
   state.counts.push(csSaved); save(); renderAdmin();
   $('#cs-before').hidden = true; $('#cs-after').hidden = false;
   $('#cs-result').innerHTML = `Kassensturz gespeichert: gezählt <b>${euro(ist)}</b> · Soll <b>${euro(soll)}</b> · <b class="${csSaved.diff === 0 ? 'ok' : 'bad'}">${csSaved.diff === 0 ? 'Kasse stimmt' : csSaved.diff > 0 ? 'Überschuss ' + euro(csSaved.diff) : 'Fehlbetrag ' + euro(-csSaved.diff)}</b>`;
@@ -974,7 +1008,6 @@ $('#d-logo').addEventListener('change', e => setDesign({ logo: e.target.value })
 $('#d-snow').addEventListener('change', e => setDesign({ snow: e.target.checked }));
 $('#d-swatches').addEventListener('change', e => { if (e.target.id === 'd-custom') setDesign({ accent: e.target.value }); });
 $('#sound-toggle').addEventListener('change', e => { state.sound.on = e.target.checked; Sound.setup(state.sound); save(); });
-$('#sound-tap').addEventListener('change', e => { state.sound.tap = e.target.checked; Sound.setup(state.sound); save(); });
 $('#sound-vol').addEventListener('change', e => { state.sound.vol = e.target.value; Sound.setup(state.sound); save(); Sound.unlock(); Sound.play('booked'); });
 $('#kitchen-toggle').addEventListener('change', e => { state.kitchen.on = e.target.checked; save(); kitchenBadge(); renderAdmin(); });
 $('#share-toggle').addEventListener('change', e => { state.share.on = e.target.checked; save(); renderAdmin(); });
