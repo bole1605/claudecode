@@ -72,7 +72,7 @@ Einstellungen (alle in der Verwaltung):
 | **Passwort ändern** | Neues Passwort festlegen (erzeugt auch einen neuen Wiederherstellungscode). |
 | **QR-Code / E-Mail nach dem Verbuchen** | Schalter im Bereich „Bons“, siehe Abschnitt 5b. |
 | **Design** | Thema (Logo-Lila, Weihnachten, Klassisch), hell/dunkel, Farbe der Knöpfe, Logo im Hintergrund, Schnee (Abschnitt 5h). |
-| **Töne** | Ein/aus, Lautstärke, Ton beim Antippen, Test (Abschnitt 5g). |
+| **Töne** | Ein/aus, Lautstärke, Test: zwei Signale, „verbucht“ und „fertig“ (Abschnitt 5g). |
 | **Küchenanzeige / Bestellnummern** | Ein/aus, Nummern zurücksetzen, Anzeige leeren (Abschnitt 5f). |
 | **Bons (PDF & Druck)** | Schalter und „Bon-Kopf und Fußzeile festlegen“. Nach dem Verbuchen erscheint „PDF“ und „Drucken“, später auch bei jeder Buchung in der Liste. |
 | **Sortiment auf Standard zurücksetzen** | Stellt das ursprüngliche Sortiment wieder her. Gebuchte Verkäufe bleiben erhalten. |
@@ -123,12 +123,12 @@ Unter dem Bon steht die Taste **„Spende buchen“**. Du wählst **Bar** oder *
 
 **Küchenanzeige:** Oben rechts steht die Taste **„Küche“** mit der Zahl der offenen Bestellungen.
 - **Küche** öffnet die Anzeige über der Kasse (Schließen mit „Schließen“). So wechselst du auf einem Tablet zwischen Kasse und Küche.
-- **In neuem Fenster** öffnet sie als eigenes Fenster desselben Geräts, zum Beispiel nebeneinander (iPad: Split View mit zwei Safari-Fenstern, Android: zweites Fenster/Tab). Die Seite heißt `display.html` neben der Kasse, du kannst sie auch direkt öffnen, mit `#crepes`, `#burger` oder `#karten` am Ende für eine Sparte.
+- **Zweiter Monitor** zeigt die Anzeige nur zum Ansehen (ohne Knöpfe, `display.html?view=1`). Läuft die Kasse in **Safari**, öffnet sich ein zweites Fenster, das du auf den Monitor schiebst. Läuft sie als **App vom Home-Bildschirm**, kann kein zweites Fenster geöffnet werden: Die Kasse zeigt einen Link zum Kopieren für Safari (Abschnitt „Zweiter Monitor“ unten). `#crepes`, `#burger` oder `#karten` am Ende des Links zeigen nur eine Sparte.
 - Die Küche zeigt beim Öffnen **alle Sparten** dieses Tablets (ist das Tablet auf einen Stand festgelegt, nur diesen). Mit den Tasten oben (**Alle**, Sparte) wechselst du den Filter.
 - Auf der Küchenanzeige stehen **Nummer, Sparte, Wartezeit** (orange ab 5, rot ab 10 Minuten) und die **Artikel mit Sorte** (zum Beispiel „Fleisch“). Mit den Tasten oben filterst du nach Sparte.
-- **Fertig** schiebt die Bestellung in die Liste „Fertig · zur Abholung“. Die Kasse spielt dann einen Ton. Antippen der Nummer dort heißt „abgeholt“. **Rückgängig** nimmt den letzten Schritt zurück.
+- **Fertig** schiebt die Bestellung in die Liste „Fertig · zur Abholung“. Die Kasse spielt dann einen Ton. Das geht auch direkt in der Kasse im Reiter **„Bestellungen“** (Abschnitt unten). Antippen der Nummer dort heißt „abgeholt“. **Rückgängig** nimmt den letzten Schritt zurück.
 - Storniert die Kasse einen Bon, verschwindet die Bestellung aus der Anzeige.
-- Der Austausch läuft **nur auf demselben Gerät** (kein Server, keine Verbindung zu anderen Tablets). Auf dem iPad gilt: Eine **zum Home-Bildschirm hinzugefügte App** und ein Safari-Fenster haben getrennte Speicher. Nutze dort „Küche“ (Anzeige über der Kasse) oder öffne beide Fenster in Safari.
+- Der Austausch läuft **nur auf demselben Gerät** (kein Server, keine Verbindung zu anderen Tablets). Auf dem iPad gilt: Eine **zum Home-Bildschirm hinzugefügte App** und ein Safari-Fenster haben getrennte Speicher. Nutze dort „Küche“ (Anzeige über der Kasse, Monitor spiegeln) oder öffne beide Fenster in Safari. Dazu braucht es **kein Internet**, sobald die Kasse einmal geladen wurde.
 - Aus: Verwaltung → „Küchenanzeige“ ausschalten (Bestellnummern gibt es weiter).
 
 ## 5h. Design
@@ -197,7 +197,7 @@ Verwaltung → **„Datensicherung“**:
 - [ ] MwSt.-Rechner nach Bedarf ein- oder ausgeschaltet; Steuersätze geprüft
 - [ ] Testbuchungen entfernt: Verwaltung → „Alle Buchungen auf diesem Gerät löschen“
 - [ ] Tablets geladen, Ladekabel oder Powerbank dabei, automatische Sperre auf „nie“ oder mindestens 5 Minuten
-- [ ] **Küchenanzeige** am Crêpes- und am Burger-Tablet einmal ausprobiert (Bestellung buchen, „Fertig“ drücken); Töne laut genug eingestellt
+- [ ] **Küchenanzeige** am Crêpes- und am Burger-Tablet einmal ausprobiert (Bestellung buchen, „Fertig“ drücken); Töne laut genug eingestellt, auch bei stummem Seitenschalter; zweites Fenster in Safari einmal ohne Internet getestet
 - [ ] **Geführter Zugriff** (iPad: Einstellungen → Bedienungshilfen) oder Bildschirmfixierung (Android) eingeschaltet
 - [ ] App einmal mit Internet gestartet und danach im **Flugmodus** getestet: Sie muss starten und einen Bon verbuchen können
 - [ ] Ersatztablet mit installierter App bereit; Sicherungsdatei zum Einspielen
