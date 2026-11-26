@@ -33,7 +33,7 @@ const DEFAULT_STANDS = [
     ]},
   ]},
 ];
-const VERSION = 32;
+const VERSION = 35;
 // Fokus ins erste Feld – aber nur, wenn die Eingabe nicht schon in einem anderen Feld des Fensters begonnen hat
 const focusFirst = sel => setTimeout(() => { const el = document.querySelector(sel), d = el.closest('dialog'); if (!d.contains(document.activeElement) || document.activeElement === d) el.focus(); }, 50);
 // Test- und Live-Version liegen auf derselben Domain: getrennter Speicher, damit sich die Daten nie vermischen
@@ -45,14 +45,14 @@ const euro = c => (c / 100).toLocaleString('de-DE', { style: 'currency', currenc
 const items = s => s.groups.flatMap(g => g.items);
 
 const defVat = id => (id === 'g-spezi' || id.startsWith('k-') || id.startsWith('g-pfand')) ? 19 : 7;
-const isPfand = id => id.startsWith('g-pfand');
+const isPfand = id => id.startsWith('g-pfand') || id.startsWith('disc:');   // „kein Produkt“: Pfand und Rabattzeilen
 const clone = o => JSON.parse(JSON.stringify(o));
 const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const PALETTE = Kasse.PALETTE;   // Logo-Farben; kein Rot: Rot ist für Löschen/Storno/Minus reserviert
 
 const RC_DEFAULT = { name: 'Evangelische Kirchengemeinde Kleinglattbach', addr: 'Kirchstraße 15; 71665 Vaihingen an der Enz', foot: 'Vielen Dank, Guten Appetit & frohe Weihnachten!' };
-let state = { design: { theme: 'standard', mode: 'auto', accent: null, logo: 'low', snow: true }, mig23: false, sound: { on: true, vol: 'mid', tones: { booked: true, ready: false } }, kitchen: { on: true }, orderNo: { day: '', seq: {} }, orderMode: 'manual', orderOff: {}, exp: [], moves: [], counts: [], lock: null, mig20: false, share: { on: true }, lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
+let state = { design: { theme: 'standard', mode: 'auto', accent: null, logo: 'low', snow: true }, mig23: false, sound: { on: true, vol: 'mid', tones: { booked: true, ready: false }, pick: { booked: 'horn', ready: 'hell' } }, kitchen: { on: true }, orderNo: { day: '', seq: {} }, orderMode: 'manual', orderOff: {}, exp: [], adj: {}, moves: [], counts: [], lock: null, mig20: false, share: { on: true }, lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
 try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
 let STANDS, ALL = {};
 function setCatalog(c) {
@@ -198,7 +198,26 @@ function kitchenClose() { $('#kitchen-ov').hidden = true; $('#k-frame').src = 'a
 
 const stand = () => STANDS.find(s => s.id === state.stand);
 const cart = () => state.cart[state.stand] || (state.cart[state.stand] = {});
-const cartTotal = () => Object.entries(cart()).reduce((a, [id, n]) => a + (ALL[id] ? ALL[id].price * n : 0), 0);
+// Rabatte: Mengenrabatt (am Produkt: ab N Stück gilt ein anderer Stückpreis) und Rabatt am Bon (Prozent, Betrag, Gratis). Sie erscheinen als eigene Zeilen mit negativem Betrag.
+const adjOf = () => (state.adj[state.stand] = state.adj[state.stand] || {});
+function discLines(c, adj) {
+  const out = [];
+  for (const [id, n] of Object.entries(c)) {
+    const it = ALL[id]; if (!it || isPfand(id) || n <= 0 || it.price <= 0) continue;
+    const base = n * it.price, q = it.qd && n >= it.qd.n && it.qd.p < it.price ? n * (it.price - it.qd.p) : 0;
+    if (q) out.push({ id: 'disc:q:' + id, name: `Mengenrabatt: ${it.name} (ab ${it.qd.n} Stück ${euro(it.qd.p)})`, amt: -q, vat: it.vat });
+    const a = adj && adj[id], rest = base - q;
+    if (a && rest > 0) {
+      const m = a.t === 'free' ? rest : a.t === 'pct' ? Math.round(rest * a.v / 100) : Math.min(rest, a.v);
+      if (m > 0) out.push({ id: 'disc:m:' + id, name: (a.t === 'free' ? 'Gratis: ' : a.t === 'pct' ? `Rabatt ${String(a.v).replace('.', ',')} %: ` : 'Rabatt: ') + it.name, amt: -m, vat: it.vat });
+    }
+  }
+  return out;
+}
+const cartDisc = () => discLines(cart(), adjOf());
+const cartTotal = () => Object.entries(cart()).reduce((a, [id, n]) => a + (ALL[id] ? ALL[id].price * n : 0), 0) + cartDisc().reduce((a, d) => a + d.amt, 0);
+const saleLines = () => { const l = { ...cart() }; cartDisc().forEach(d => { l[d.id] = 1; }); return l; };
+const saleInfo = () => { const i = snap(cart()); cartDisc().forEach(d => { i[d.id] = { name: d.name, price: d.amt, vat: d.vat }; }); return i; };
 const buzz = () => { try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} };
 
 function sold() { // verbuchte (nicht stornierte) Verkäufe; Preise/Namen stammen aus dem Bon-Zeitpunkt
@@ -218,7 +237,7 @@ function sold() { // verbuchte (nicht stornierte) Verkäufe; Preise/Namen stamme
 function cartAdd(id, d) {
   const c = cart();
   c[id] = (c[id] || 0) + d;
-  if (c[id] <= 0) delete c[id];
+  if (c[id] <= 0) { delete c[id]; if (state.adj[state.stand]) delete state.adj[state.stand][id]; }
   const link = ALL[id] && ALL[id].autoAdd;   // z. B. Spezi → Pfand automatisch mit auf den Bon
   if (link && ALL[link]) {
     if (d > 0) c[link] = (c[link] || 0) + d;
@@ -246,7 +265,7 @@ function build() {
             <span class="badge" data-count="${it.id}">0</span>
             <span class="name">${esc(it.name)}</span>
             ${it.sub ? `<span class="sub">${esc(it.sub)}</span>` : ''}
-            <span class="price">${priceTxt(it.price)}</span>
+            <span class="price">${priceTxt(it.price)}</span>${it.qd ? `<span class="qd">ab ${it.qd.n} Stück ${euro(it.qd.p)}</span>` : ''}
             <span class="rev" data-sold="${it.id}"></span>
           </button>
           <button class="minus" data-sub="${it.id}" aria-label="${esc(it.name)} vom Bon entfernen">−</button>
@@ -289,15 +308,17 @@ function update() {
   }
   const lines = items(s).filter(it => c[it.id]);
   $('#bon-lines').innerHTML = lines.length ? lines.map(it => `
-    <li><span class="bl-n">${c[it.id]}×</span><span class="bl-name">${esc(it.name)}</span>
+    <li><span class="bl-n">${c[it.id]}×</span>${it.kind !== 'pfand' && it.price > 0 ? `<button class="bl-name" data-disc="${it.id}" aria-label="Rabatt für ${esc(it.name)}">${esc(it.name)}${adjOf()[it.id] ? ' ✎' : ''}</button>` : `<span class="bl-name">${esc(it.name)}</span>`}
     <span class="bl-sum">${priceTxt(c[it.id] * it.price)}</span>
-    <button class="bl-minus" data-sub="${it.id}" aria-label="${esc(it.name)} entfernen">−</button></li>`).join('')
+    <button class="bl-minus" data-sub="${it.id}" aria-label="${esc(it.name)} entfernen">−</button></li>`).join('') + cartDisc().map(d => `<li class="bl-disc"><span class="bl-n"></span><span class="bl-name">${esc(d.name)}</span><span class="bl-sum">${euro(d.amt)}</span><span></span></li>`).join('')
     : '<li class="empty">Kachel antippen, um einen Artikel hinzuzufügen</li>';
   const t = cartTotal();
   $('#bon-sum').textContent = euro(t);
   const bg = {}; for (const [id, n] of Object.entries(c)) if (ALL[id]) bg[ALL[id].vat] = (bg[ALL[id].vat] || 0) + n * ALL[id].price;
+  cartDisc().forEach(d => { bg[d.vat] = (bg[d.vat] || 0) + d.amt; });
   $('#bon-vat').innerHTML = state.vat.on && t ? Object.entries(bg).sort((x, y) => x[0] - y[0]).map(([r, g]) => `<div><span>darin MwSt ${pct(r)}</span><span>${euro(vatPart(g, +r))}</span></div>`).join('') : '';
   const empty = !Object.keys(c).length;
+  $('#bon-hint').hidden = empty;
   $('#pay').disabled = $('#clear').disabled = empty;
   $('#pay').textContent = empty ? 'Bezahlen' : t < 0 ? `Auszahlen · ${euro(-t)}` : t === 0 ? 'Verbuchen · 0,00 €' : `Bezahlen · ${euro(t)}`;
 }
@@ -391,17 +412,17 @@ function key(k) {
 function finishSale(sale, o) {   // Buchung speichern, Bestellnummer vergeben, Ton, Bon-Hinweis
   o = o || {};
   state.sales.push(sale); assignOrder(sale);
-  if (o.clear) state.cart[state.stand] = {};
+  if (o.clear) { state.cart[state.stand] = {}; delete state.adj[state.stand]; }
   save(); update(); $('#pay-dlg').close(); buzz(); Sound.play(o.sound || 'booked'); afterBook(sale);
 }
 function book() {
   if (state.orderMode === 'manual' && hasOrderItems() && !state.orderOff[state.stand] && !manualNo) { numOpen(); return; }   // erst die Nummer des Märkchens erfragen
   const total = cartTotal();
   if (total <= 0) { // Auszahlung (z. B. Pfand zurück) oder 0 €: bar, nichts einzunehmen
-    finishSale({ method: 'bar', n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: { ...cart() }, info: snap(cart()), total, given: 0, tip: 0, change: -total, payout: total < 0, void: false }, { clear: true }); return;
+    finishSale({ method: 'bar', n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: saleLines(), info: saleInfo(), total, given: 0, tip: 0, change: -total, payout: total < 0, void: false }, { clear: true }); return;
   }
   const pp = method === 'paypal', cp = Kasse.calcPay(total, given, tip, state.tip.on), tp = pp ? 0 : cp.tp, g = pp ? total : cp.g; if (!pp && !cp.ok) return;
-  finishSale({ method, n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: { ...cart() }, info: snap(cart()), total, given: g, tip: tp, change: g - total - tp, void: false }, { clear: true });
+  finishSale({ method, n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: saleLines(), info: saleInfo(), total, given: g, tip: tp, change: g - total - tp, void: false }, { clear: true });
 }
 
 // --- Spende ohne Einkauf
@@ -504,7 +525,8 @@ function renderAdmin() {
     $('#d-theme').value = D.theme; $('#d-mode').value = D.mode; $('#d-logo').value = D.logo; $('#d-snow').checked = D.snow; $('#d-snow-row').hidden = D.theme !== 'xmas';
     $('#d-swatches').innerHTML = `<button class="sw auto" data-acc="" aria-pressed="${!D.accent}">Automatisch</button>` + Theme.SWATCHES.map(s => `<button class="sw" style="background:${s.c}" data-acc="${s.c}" aria-label="${s.n}" aria-pressed="${(D.accent || '').toUpperCase() === s.c}"></button>`).join('')
       + `<input type="color" id="d-custom" value="${D.accent || '#A10DBC'}" aria-label="Eigene Farbe wählen">`; }
-  $('#sound-toggle').checked = state.sound.on; $('#sound-booked').checked = Sound.toneOn('booked'); $('#sound-ready').checked = Sound.toneOn('ready'); $('#sound-vol').value = state.sound.vol; $('#kitchen-toggle').checked = state.kitchen.on;
+  $('#sound-toggle').checked = state.sound.on;
+  ['booked', 'ready'].forEach(n => { const sel = $('#sound-pick-' + n); if (!sel.options.length) sel.innerHTML = Sound.library.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join(''); sel.value = Sound.pickOf(n); }); $('#sound-booked').checked = Sound.toneOn('booked'); $('#sound-ready').checked = Sound.toneOn('ready'); $('#sound-vol').value = state.sound.vol; $('#kitchen-toggle').checked = state.kitchen.on;
   { const on = state.orderNo && state.orderNo.day === today() ? state.orderNo.seq : {};
     $('#order-mode').value = state.orderMode;
     $('#ord-stands').innerHTML = STANDS.map(s => `<label class="switch-row" style="margin-top:12px"><span><b>${esc(s.label)}</b><small>Bestellnummer, Bestellstatus und Küche für diese Sparte</small></span><input type="checkbox" role="switch" data-ordstand="${esc(s.id)}"${state.orderOff[s.id] ? '' : ' checked'}></label>`).join('');
@@ -547,11 +569,16 @@ function renderAdmin() {
   }).join('') + `<div class="sum-row total"><span>Gesamt</span><span>Bar ${euro(pay.bar)} · PayPal ${euro(pay.paypal)}${pay.tip ? ` · Spenden ${euro(pay.tip)} (nicht enthalten)` : ''}</span><b>${euro(Object.values(rev).reduce((a, b) => a + b, 0))}</b></div>`;
   { const E = state.exp.filter(x => !x.void), eTot = E.reduce((a, x) => a + x.amt, 0), rTot = Object.values(rev).reduce((a, b) => a + b, 0), res = rTot - eTot;
     const sumE = id => E.filter(x => (x.stand || '') === id).reduce((a, x) => a + x.amt, 0), general = sumE('');
+    const items = Object.values(cnt).reduce((a, b) => a + b, 0), per = (c, n) => n > 0 ? euro(Math.round(c / n)) : '–';   // Kosten je verkauftem Produkt (ohne Pfand, ohne Storno; Gratis-Produkte zählen mit)
     $('#exp-card').innerHTML = `<h3>Ausgaben und Ergebnis</h3>
       <div class="sum-row"><span>Einnahmen</span><span>ohne Spenden, ohne Storno</span><b>${euro(rTot)}</b></div>
       <div class="sum-row"><span>− Ausgaben</span><span>${E.length} ${E.length === 1 ? 'Posten' : 'Posten'}</span><b>${euro(eTot ? -eTot : 0)}</b></div>
       <div class="sum-row total"><span>${res >= 0 ? 'Gewinn' : 'Verlust'}</span><span>Einnahmen − Ausgaben${pay.tip ? ` · mit Spenden ${euro(res + pay.tip)}` : ''}</span><b class="${res >= 0 ? 'ok' : 'bad'}">${euro(res)}</b></div>
-      ${E.some(x => x.stand) ? '<div class="exp-by">' + standIds().map(id => `<div class="sum-row"><span>${esc(labelOf(id))}</span><span>${euro(rev[id] || 0)} − ${euro(sumE(id))}</span><b>${euro((rev[id] || 0) - sumE(id))}</b></div>`).join('') + (general ? `<div class="sum-row"><span>Allgemein</span><span>keiner Sparte zugeordnet</span><b>${euro(-general)}</b></div>` : '') + '</div>' : ''}
+      <div class="sum-row"><span>Verkaufte Produkte</span><span>ohne Pfand, ohne Storno (Gratis zählt mit)</span><b>${items}</b></div>
+      <div class="sum-row"><span>Kosten je Produkt</span><span>Ausgaben ÷ verkaufte Produkte</span><b>${per(eTot, items)}</b></div>
+      <div class="sum-row"><span>Einnahmen je Produkt</span><span>Einnahmen ÷ verkaufte Produkte</span><b>${per(rTot, items)}</b></div>
+      <div class="sum-row"><span>${res >= 0 ? 'Gewinn' : 'Verlust'} je Produkt</span><span></span><b>${per(res, items)}</b></div>
+      ${E.some(x => x.stand) ? '<div class="exp-by">' + standIds().map(id => `<div class="sum-row"><span>${esc(labelOf(id))}</span><span>${euro(rev[id] || 0)} − ${euro(sumE(id))} · ${cnt[id] || 0} Produkte · Kosten ${per(sumE(id), cnt[id] || 0)} je Produkt</span><b>${euro((rev[id] || 0) - sumE(id))}</b></div>`).join('') + (general ? `<div class="sum-row"><span>Allgemein</span><span>keiner Sparte zugeordnet, nicht aufgeteilt</span><b>${euro(-general)}</b></div>` : '') + '</div>' : ''}
       ${state.exp.length ? '<div class="mv-list">' + [...state.exp].reverse().map(x => `<div class="mv${x.void ? ' void' : ''}"><span>${fmtTS(x.t)} · ${esc(x.note)} · ${x.stand ? esc(labelOf(x.stand)) : 'Allgemein'}${x.cash ? ' · aus der Kasse' : ''}${x.void ? ' · <span class="tag">storniert</span>' : ''}</span><b>${euro(x.amt)}</b><button class="btn sm ${x.void ? '' : 'destructive'}" data-expvoid="${x.id}">${x.void ? 'Aufheben' : 'Stornieren'}</button></div>`).join('') + '</div>' : ''}
       <div class="actions-card" style="padding:0;margin-top:12px"><button class="btn primary" id="exp-open">Ausgabe erfassen …</button></div>`; }
   $('#restore').hidden = !state.backup;
@@ -617,7 +644,7 @@ async function exportFile() {
     if (cat) items(cat).forEach(it => add(it.id, it.name + (it.sub ? ` (${it.sub})` : ''), it.price, it.vat));
     for (const id of Object.keys(perS[sid] || {})) if (!seen.has(id)) {
       const k = state.sales.find(x => x.stand === sid && x.info && x.info[id]);
-      add(id, (k ? k.info[id].name : 'Gelöschter Artikel') + ' (nicht mehr im Sortiment)', k ? k.info[id].price : null, vatOf(k && k.info, id));
+      add(id, (k ? k.info[id].name : 'Gelöschter Artikel') + (id.startsWith('disc:') ? '' : ' (nicht mehr im Sortiment)'), k ? k.info[id].price : null, vatOf(k && k.info, id));
     }
     rows.push(row([labelOf(sid), 'SUMME', '', '', num(rev[sid] || 0)].concat(V ? ['', num(vatText(grS[sid] || {}).vat)] : []))); all += rev[sid] || 0;
   }
@@ -667,6 +694,7 @@ function openItem(id, gid) {
   const g = id ? stand().groups.find(x => x.items.some(i => i.id === id)) : findGroup(gid);
   $('#i-title').textContent = id ? 'Produkt bearbeiten' : 'Neues Produkt';
   $('#i-name').value = it.name; $('#i-sub').value = it.sub || '';
+  $('#i-qn').value = it.qd ? it.qd.n : ''; $('#i-qp').value = it.qd ? (it.qd.p / 100).toFixed(2).replace('.', ',') : '';
   $('#i-price').value = id ? (Math.abs(it.price) / 100).toFixed(2).replace('.', ',') : '';
   $('#i-group').innerHTML = stand().groups.map(x => `<option value="${x.id}" ${g && x.id === g.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
   $('#i-del').hidden = !id; $('#i-err').textContent = '';
@@ -677,14 +705,21 @@ $('#item-form').addEventListener('submit', e => {
   const name = $('#i-name').value.trim(), sub = $('#i-sub').value.trim(), price = parse($('#i-price').value.trim()), gid = $('#i-group').value, vat = +$('#i-vat').value, auto = $('#i-auto').value;
   if (!name) { $('#i-err').textContent = 'Bitte einen Namen eingeben'; return; }
   if (price === null || price < 0) { $('#i-err').textContent = 'Bitte einen Preis eingeben, z. B. 3,50'; return; }
+  const qnTxt = $('#i-qn').value.trim(), qpTxt = $('#i-qp').value.trim(); let qd = null;
+  if (qnTxt || qpTxt) {
+    const qn = Math.floor(Number(qnTxt)), qp = parse(qpTxt);
+    if (!(qn >= 2) || qp === null || qp < 0 || qp >= price) { $('#i-err').textContent = 'Mengenrabatt: bitte „ab Stück“ (mindestens 2) und einen Stückpreis unter dem normalen Preis eingeben'; return; }
+    qd = { n: qn, p: qp };
+  }
   const target = findGroup(gid);
   if (editItemId) {
     const from = stand().groups.find(x => x.items.some(i => i.id === editItemId)), it = from.items.find(i => i.id === editItemId);
     Object.assign(it, { name, price: editItemId === 'g-pfand-rueck' ? -Math.abs(price) : price, vat }); if (sub) it.sub = sub; else delete it.sub;
     if (auto) it.autoAdd = auto; else delete it.autoAdd;
+    if (qd) it.qd = qd; else delete it.qd;
     if (editItemId === 'g-pfand') STANDS.forEach(s => s.groups.forEach(g => g.items.forEach(i => { if (i.id === 'g-pfand-rueck') i.price = -price; }))); // Rückgabe = Pfand
     if (from !== target) { from.items.splice(from.items.indexOf(it), 1); target.items.push(it); }
-  } else { const n = { id: uid('i'), name, price, vat }; if (sub) n.sub = sub; if (auto) n.autoAdd = auto; target.items.push(n); }
+  } else { const n = { id: uid('i'), name, price, vat }; if (sub) n.sub = sub; if (auto) n.autoAdd = auto; if (qd) n.qd = qd; target.items.push(n); }
   $('#item-dlg').close(); commit();
 });
 $('#i-cancel').addEventListener('click', () => $('#item-dlg').close());
@@ -776,6 +811,8 @@ document.addEventListener('click', async e => {
   if (t.id === 'rep-pdf') { reportPdf(); return; }
   if (t.id === 'rep-print') { reportPrint(); return; }
   if (D.rep) { reportPdf(D.rep); return; }
+  if (D.disc) { discOpen(D.disc); return; }
+  if (t.id === 'disc-cancel') { $('#disc-dlg').close(); return; }
   if (t.id === 'exp-open') { expOpen(); return; }
   if (t.id === 'exp-cancel') { $('#exp-dlg').close(); return; }
   if (D.expvoid) { const x = state.exp.find(m => m.id === D.expvoid); if (!x) return;
@@ -814,7 +851,7 @@ document.addEventListener('click', async e => {
   else if (t.dataset.sub) { cartAdd(t.dataset.sub, -1); }
   else if (t.dataset.stand) { if (state.lock && !editing) return; state.stand = t.dataset.stand; save(); history.replaceState(null, '', '#' + state.stand); build(); }
   else if (t.id === 'pay') openPay();
-  else if (t.id === 'clear') { state.cart[state.stand] = {}; save(); update(); }
+  else if (t.id === 'clear') { state.cart[state.stand] = {}; delete state.adj[state.stand]; save(); update(); }
   else if (t.dataset.key) key(t.dataset.key);
   else if (t.dataset.quick) { target = 'given'; given = t.dataset.quick === 'total' ? (cartTotal() / 100).toFixed(2).replace('.', ',').replace(/,00$/, '') : t.dataset.quick; payUpdate(); }
   else if (t.dataset.nkey) numKey(t.dataset.nkey);
@@ -881,6 +918,23 @@ $('#exp-form').addEventListener('submit', e => {
   if (x.cash) state.moves.push({ id: uid('m'), t: x.t, amt: -amt, note: 'Ausgabe: ' + note, expId: x.id });   // aus der Kasse bezahlt: mindert den Kassenstand
   save(); $('#exp-dlg').close(); renderAdmin();
 });
+let discId = null;
+function discOpen(id) {
+  discId = id; const a = adjOf()[id], it = ALL[id];
+  $('#disc-title').textContent = 'Rabatt: ' + it.name; $('#disc-type').value = a ? a.t : ''; $('#disc-val').value = a && a.t !== 'free' ? (a.t === 'pct' ? String(a.v).replace('.', ',') : (a.v / 100).toFixed(2).replace('.', ',')) : '';
+  $('#disc-err').textContent = ''; discSync(); $('#disc-dlg').showModal();
+}
+function discSync() { const t = $('#disc-type').value; $('#disc-val-l').hidden = t === '' || t === 'free'; $('#disc-val-t').textContent = t === 'pct' ? 'Rabatt in %' : 'Rabatt in €'; }
+$('#disc-type').addEventListener('change', discSync);
+$('#disc-form').addEventListener('submit', e => {
+  e.preventDefault(); const t = $('#disc-type').value, a = adjOf();
+  if (!t) delete a[discId];
+  else if (t === 'free') a[discId] = { t: 'free' };
+  else { const v = parse($('#disc-val').value.trim());
+    if (v === null || v <= 0 || (t === 'pct' && v > 10000)) { $('#disc-err').textContent = t === 'pct' ? 'Bitte einen Prozentwert eingeben, z. B. 10' : 'Bitte einen Betrag eingeben, z. B. 0,50'; return; }
+    a[discId] = t === 'pct' ? { t: 'pct', v: v / 100 } : { t: 'eur', v }; }
+  save(); $('#disc-dlg').close(); update();
+});
 let mvKind = 'ein';
 function mvOpen() { mvKind = 'ein'; $('#mv-amt').value = ''; $('#mv-note').value = ''; $('#mv-err').textContent = ''; mvSeg(); $('#mv-dlg').showModal(); }
 function mvSeg() { document.querySelectorAll('#mv-seg button').forEach(b => b.setAttribute('aria-selected', b.dataset.kind === mvKind)); }
@@ -930,7 +984,8 @@ function reportLines(c) {
     const E = state.exp.filter(x => !x.void), et = E.reduce((a, x) => a + x.amt, 0), rt = Object.values(rev).reduce((x, y) => x + y, 0);
     l(''); l('AUSGABEN', true);
     E.forEach(x => lr('  ' + fmtTS(x.t) + ' ' + x.note + (x.stand ? ' (' + labelOf(x.stand) + ')' : ''), money(-x.amt)));
-    lr('Ausgaben gesamt', money(-et), true); lr(rt - et >= 0 ? 'Gewinn (Einnahmen − Ausgaben)' : 'Verlust (Einnahmen − Ausgaben)', money(rt - et), true);
+    const nIt = Object.values(cnt).reduce((x, y) => x + y, 0);
+    lr('Ausgaben gesamt', money(-et), true); lr('Verkaufte Produkte (ohne Pfand)', String(nIt)); lr('Kosten je verkauftem Produkt', nIt > 0 ? money(Math.round(et / nIt)) : '–'); lr(rt - et >= 0 ? 'Gewinn (Einnahmen − Ausgaben)' : 'Verlust (Einnahmen − Ausgaben)', money(rt - et), true);
   }
   lr('  davon bar bezahlt', money(pay.bar)); lr('  davon PayPal (nicht im Bargeld)', money(pay.paypal));
   if (state.vat.on) { l(''); l('Enthaltene Mehrwertsteuer:'); Object.keys(gr).sort((x, y) => x - y).forEach(r => lr(`  Satz ${pct(r)}  (brutto ${money(gr[r])})`, money(vatPart(gr[r], +r)))); }
@@ -1075,6 +1130,7 @@ $('#sound-toggle').addEventListener('change', e => { state.sound.on = e.target.c
 $('#sound-vol').addEventListener('change', e => { state.sound.vol = e.target.value; Sound.setup(state.sound); save(); Sound.unlock(); Sound.play('booked'); });
 $('#ord-stands').addEventListener('change', e => { const id = e.target.dataset.ordstand; if (!id) return; if (e.target.checked) delete state.orderOff[id]; else state.orderOff[id] = true; save(); renderAdmin(); });
 $('#order-mode').addEventListener('change', e => { state.orderMode = e.target.value; save(); renderAdmin(); });
+['booked', 'ready'].forEach(n => $('#sound-pick-' + n).addEventListener('change', e => { state.sound.pick = Object.assign({}, state.sound.pick, { [n]: e.target.value }); Sound.setup(state.sound); save(); Sound.unlock(); Sound.preview(e.target.value); }));
 $('#sound-booked').addEventListener('change', e => { state.sound.tones = Object.assign({}, state.sound.tones, { booked: e.target.checked }); Sound.setup(state.sound); save(); });
 $('#sound-ready').addEventListener('change', e => { state.sound.tones = Object.assign({}, state.sound.tones, { ready: e.target.checked }); Sound.setup(state.sound); save(); });
 $('#kitchen-toggle').addEventListener('change', e => { state.kitchen.on = e.target.checked; save(); kitchenBadge(); renderAdmin(); });
