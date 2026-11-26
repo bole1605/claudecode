@@ -15,9 +15,9 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=28">
-<script src="logic.js?v=28"></script>
-<script src="theme.js?v=28"></script>
+<link rel="stylesheet" href="styles.css?v=29">
+<script src="logic.js?v=29"></script>
+<script src="theme.js?v=29"></script>
 </head>
 <body>
 <div id="wm" aria-hidden="true"></div>
@@ -54,7 +54,7 @@
     </aside>
   </div>
 
-  <footer class="foot"><span>coded by Leo B. - 2026</span><span class="ver">v28</span></footer>
+  <footer class="foot"><span>coded by Leo B. - 2026</span><span class="ver">v29</span></footer>
 
 </div>
 
@@ -102,6 +102,20 @@
 </dialog>
 
 <!-- Passwort -->
+<!-- Nummer des Märkchens (Einstellung "Von Hand") -->
+<dialog id="num-dlg">
+  <h3>Nummer des Märkchens</h3>
+  <div class="pay-big" id="n-val" style="text-align:center;margin:8px 0">–</div>
+  <p class="err" id="n-err" style="text-align:center;min-height:1.3em"></p>
+  <div class="keypad" id="n-keys">
+    <button data-nkey="7">7</button><button data-nkey="8">8</button><button data-nkey="9">9</button>
+    <button data-nkey="4">4</button><button data-nkey="5">5</button><button data-nkey="6">6</button>
+    <button data-nkey="1">1</button><button data-nkey="2">2</button><button data-nkey="3">3</button>
+    <button data-nkey="0" style="grid-column:2">0</button><button data-nkey="back" aria-label="Löschen">⌫</button>
+  </div>
+  <div class="dlg-actions"><button class="btn" id="n-cancel">Zurück</button><button class="btn primary" id="n-ok" disabled>Verbuchen</button></div>
+</dialog>
+
 <dialog id="pw-dlg">
   <form id="pw-form">
     <h2 id="pw-title">Passwort</h2>
@@ -176,6 +190,8 @@
       <h3>Bestellungen und Küchenanzeige</h3>
       <label class="switch-row"><span><b>Küchenanzeige</b><small>Jede Bestellung bekommt eine Nummer (zum Beispiel C12, B5) und erscheint auf der Küchenanzeige, einem zweiten Fenster mit dem, was gemacht werden soll. Aus: Bestellnummern gibt es weiter, die Anzeige und die Taste „Küche“ nicht.</small></span>
         <input type="checkbox" role="switch" id="kitchen-toggle"></label>
+      <label class="field-row"><span><b>Bestellnummer</b><small>Automatisch: C1, B1 … je Sparte. Von Hand: beim Verbuchen die Nummer des Märkchens eintippen.</small></span>
+        <select id="order-mode"><option value="auto">Automatisch</option><option value="manual">Von Hand (Märkchen)</option></select></label>
       <small class="muted" id="ord-state"></small>
       <div class="actions-card" style="padding:0;margin-top:8px">
         <button class="btn" id="ord-reset">Bestellnummern zurücksetzen …</button>
@@ -364,8 +380,8 @@
 <div id="toast" class="toast" hidden></div>
 <pre id="print-area"></pre>
 
-<script src="qrcode.js?v=28"></script>
-<script src="sound.js?v=28"></script>
-<script src="app.js?v=28"></script>
+<script src="qrcode.js?v=29"></script>
+<script src="sound.js?v=29"></script>
+<script src="app.js?v=29"></script>
 </body>
 </html>
