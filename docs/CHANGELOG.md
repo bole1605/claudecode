@@ -31,3 +31,4 @@
 | **v27** | **Töne reduziert** auf zwei: Einkauf verbucht, Bestellung fertig (auch Spende). Töne auch bei stummem iPad (Wiedergabe-Modus, echtes stilles Audio). **Bestellungen auf der Kasse** (Tab „Bestellungen“: Fertig, abgeholt, Rückgängig). Küchenanzeige für den zweiten Monitor nur zum Ansehen (`?view=1`), Link statt neuem Fenster in der App, „← Zur Kasse“. |
 | **v28** | **Dauerndes hohes Piepsen entfernt:** das stille Hilfs-Audio war nicht ganz still (4-kHz-Pfeifen), jetzt echte Stille. |
 | **v29** | **Bestellnummer von Hand:** Einstellung „Von Hand (Märkchen)“; beim Verbuchen wird die Nummer des Märkchens eingetippt, doppelt vergebene (noch nicht abgeholte) Nummern sind gesperrt. Standard bleibt „Automatisch“. |
+| **v30** | Standard der Bestellnummer ist jetzt „Von Hand (Märkchen)“; „Automatisch“ bleibt wählbar. Ziffernblock der Märkchen-Nummer mit gleichmäßigen Abständen. |

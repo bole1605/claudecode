@@ -23,7 +23,7 @@ async function test(name, fn) {
   const browser = await chromium.launch();
   const open = async (errs, hash = '#burger', opts = {}) => {
     const ctx = await browser.newContext({ viewport: { width: 1180, height: 900 }, acceptDownloads: true, serviceWorkers: opts.sw ? 'allow' : 'block', ...opts.ctx });
-    const p = await ctx.newPage(); p.on('pageerror', e => errs.push(e.message)); await p.addInitScript(({ k, v }) => { if (!localStorage.getItem(k)) localStorage.setItem(k, v); }, { k: dir === 'kasse-test' ? 'kasse-test-v2' : 'kasse-v2', v: JSON.stringify({ share: { on: !!opts.share }, ...(opts.seed || {}) }) });   // Bon-QR nur in den Tests, die ihn prüfen
+    const p = await ctx.newPage(); p.on('pageerror', e => errs.push(e.message)); await p.addInitScript(({ k, v }) => { if (!localStorage.getItem(k)) localStorage.setItem(k, v); }, { k: dir === 'kasse-test' ? 'kasse-test-v2' : 'kasse-v2', v: JSON.stringify({ share: { on: !!opts.share }, orderMode: 'auto', ...(opts.seed || {}) }) });   // Bon-QR nur in den Tests, die ihn prüfen
     await p.goto(base + hash); p.ctx = ctx; return p;
   };
   const tap = async (p, id) => { const s = `[data-add=${id}]`; await p.dispatchEvent(s, 'pointerdown', { button: 0, clientX: 5, clientY: 5 }); await p.dispatchEvent(s, 'pointerup', { button: 0, clientX: 5, clientY: 5 }); };

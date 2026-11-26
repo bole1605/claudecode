@@ -340,3 +340,11 @@ body.is-test .page{padding-top:calc(28px + env(safe-area-inset-top))}
 .bon .rd{min-height:50px;padding:0 16px;border-radius:12px;background:var(--card);border:2px solid var(--c);font-size:22px;font-weight:800;display:inline-flex;align-items:center;gap:6px}
 .bon .rd small{font-size:12px;font-weight:600;color:var(--label2)}
 #monitor-dlg p{margin:0 0 10px}
+
+/* v30: Nummer des Märkchens – gleichmäßige Abstände */
+#num-dlg{width:min(420px,92vw)}
+#num-dlg h3{margin:0 0 4px;font-size:20px}
+#num-dlg #n-val{margin:4px 0 0;line-height:1.1}
+#num-dlg #n-err{margin:4px 0 14px;min-height:1.4em;color:var(--red);font-size:15px}
+#num-dlg .keypad{gap:10px;margin:0 0 18px}
+#num-dlg .keypad button{min-height:68px}
