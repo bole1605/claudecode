@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v34** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v35** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -175,9 +175,15 @@ Verwaltung → Karte **„Ausgaben und Ergebnis“**. Dort stehen Einnahmen (ohn
 - **Stornieren / Aufheben:** Eine Ausgabe lässt sich stornieren (und wieder aufheben); die Entnahme folgt automatisch.
 - Ausgaben stehen auch in der **CSV-Datei**, im **Kassenbericht** und in der **Sicherung**.
 
-## 5j. Gratis-Produkte
+## 5j. Gratis, Rabatt und Mengenrabatt
 
-Beim Anlegen oder Bearbeiten eines Produkts den Preis **0** eingeben („0 = Gratis“). Die Kachel zeigt dann „Gratis“. Beim Verbuchen heißt es „Nichts zu zahlen“, die Buchung läuft über 0,00 €, zählt als Artikel und bekommt wie jede Bestellung eine Nummer (außer die Sparte hat den Bestellprozess abgeschaltet).
+**Ein Produkt gratis verbuchen:** Auf dem Bon (rechte Spalte) den **Namen des Artikels antippen** → Art **„Gratis“** → „Übernehmen“. Der Artikel kostet dann 0 €, bleibt aber eine Buchung mit Artikel und Bestellnummer. Alternativ legst du in der Bearbeitung ein eigenes Produkt mit dem **Preis 0** an („0 = Gratis“); die Kachel zeigt dann „Gratis“.
+
+**Rabatt auf einen Artikel am Bon:** Namen antippen → **Prozent** (zum Beispiel 10), **Betrag je Zeile** (zum Beispiel 0,50 €) oder **Gratis**. Der Rabatt steht als eigene Zeile mit Minusbetrag auf dem Bon, in der Buchung, im Bon-PDF und in den Auswertungen; die MwSt. wird mitgerechnet. „Kein Rabatt“ nimmt ihn zurück. Der Rabatt gilt nur für den aktuellen Bon, „Bon leeren“ und Verbuchen löschen ihn.
+
+**Mengenrabatt am Produkt:** In der Bearbeitung beim Produkt **„Mengenrabatt ab (Stück)“** und **„Stückpreis ab dieser Menge“** eintragen, zum Beispiel ab 3 Stück 2,50 € statt 3,00 €. Die Kachel zeigt „ab 3 Stück 2,50 €“. Ab dieser Menge rechnet die Kasse alle Stücke dieses Artikels zum Mengenpreis und zeigt die Ersparnis als Zeile „Mengenrabatt“. Mengenrabatt und Rabatt am Bon lassen sich kombinieren (erst Menge, dann Rabatt). Der Stückpreis muss unter dem normalen Preis liegen. Pfand wird nie rabattiert.
+
+Rabattzeilen zählen nicht als Produkt (kein Zähler, nicht in der Bestellung/Küche).
 
 ## 5d. Kassensturz und Kassenbericht
 

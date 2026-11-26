@@ -15,9 +15,9 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=34">
-<script src="logic.js?v=34"></script>
-<script src="theme.js?v=34"></script>
+<link rel="stylesheet" href="styles.css?v=35">
+<script src="logic.js?v=35"></script>
+<script src="theme.js?v=35"></script>
 </head>
 <body>
 <div id="wm" aria-hidden="true"></div>
@@ -59,6 +59,7 @@
       <div class="segmented" id="aside-tabs" role="tablist"><button role="tab" data-tab="bon" aria-selected="true">Bon</button><button role="tab" data-tab="ord" aria-selected="false">Bestellungen <b id="k-count2" hidden>0</b></button></div>
       <div id="bon-pane" class="pane">
       <ul id="bon-lines"></ul>
+      <small class="muted" id="bon-hint" hidden>Tipp: Artikelnamen antippen für Rabatt oder Gratis.</small>
       <div class="bon-vat" id="bon-vat"></div>
       <div class="bon-total"><span>Summe</span><b id="bon-sum">0,00 €</b></div>
       <button class="btn primary" id="pay" disabled>Bezahlen</button>
@@ -74,7 +75,7 @@
     </aside>
   </div>
 
-  <footer class="foot"><span>Copyright by Leo B. und Pascal B. - 2026</span><span class="ver">v34</span></footer>
+  <footer class="foot"><span>Copyright by Leo B. und Pascal B. - 2026</span><span class="ver">v35</span></footer>
 
 </div>
 
@@ -303,6 +304,16 @@
   </div>
 </dialog>
 
+<dialog id="disc-dlg" class="form-dlg">
+  <form id="disc-form">
+    <h2 id="disc-title">Rabatt</h2>
+    <label>Art<select id="disc-type"><option value="">Kein Rabatt</option><option value="pct">Prozent (%)</option><option value="eur">Betrag (€) je Zeile</option><option value="free">Gratis</option></select></label>
+    <label id="disc-val-l"><span id="disc-val-t">Wert</span><input id="disc-val" inputmode="decimal" autocomplete="off" placeholder="10"></label>
+    <p class="err" id="disc-err"></p>
+    <div class="dlg-actions"><button type="button" class="btn" id="disc-cancel">Abbrechen</button><button type="submit" class="btn primary">Übernehmen</button></div>
+  </form>
+</dialog>
+
 <dialog id="exp-dlg" class="form-dlg">
   <form id="exp-form">
     <h2>Ausgabe erfassen</h2>
@@ -369,6 +380,8 @@
     <label>Name<input id="i-name" autocomplete="off"></label>
     <label>Zusatz (optional, z. B. „0,5 l“)<input id="i-sub" autocomplete="off"></label>
     <label>Preis in € (0 = Gratis)<input id="i-price" inputmode="decimal" autocomplete="off" placeholder="3,50"></label>
+    <label>Mengenrabatt ab (Stück, optional)<input id="i-qn" inputmode="numeric" autocomplete="off" placeholder="z. B. 3"></label>
+    <label>Stückpreis ab dieser Menge in €<input id="i-qp" inputmode="decimal" autocomplete="off" placeholder="z. B. 2,50"></label>
     <label>Unterkategorie<select id="i-group"></select></label>
     <label id="i-auto-l" hidden>Pfand automatisch mit auf den Bon<select id="i-auto"><option value="">Nein</option><option value="g-pfand">Ja, „Pfand“ dazubuchen</option></select></label>
     <label>MwSt.-Satz (im Preis enthalten)<select id="i-vat"><option value="0">0 %</option><option value="7">7 %</option><option value="19">19 %</option></select></label>
@@ -423,8 +436,8 @@
 <div id="toast" class="toast" hidden></div>
 <pre id="print-area"></pre>
 
-<script src="qrcode.js?v=34"></script>
-<script src="sound.js?v=34"></script>
-<script src="app.js?v=34"></script>
+<script src="qrcode.js?v=35"></script>
+<script src="sound.js?v=35"></script>
+<script src="app.js?v=35"></script>
 </body>
 </html>
