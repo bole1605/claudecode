@@ -6,9 +6,11 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="color-scheme" content="light dark">
 <title>Küche</title>
+<script src="logic.js"></script>
+<script src="theme.js"></script>
 <style>
-  :root{--bg:#F2F2F7;--card:#fff;--label:#000;--label2:rgba(60,60,67,.6);--sep:rgba(60,60,67,.18);--fill:rgba(120,120,128,.14);--blue:#007AFF;--green:#34C759;--orange:#FF9F0A;--red:#FF3B30}
-  @media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1C1C1E;--label:#fff;--label2:rgba(235,235,245,.6);--sep:rgba(84,84,88,.6);--fill:rgba(120,120,128,.28);--blue:#0A84FF;--green:#30D158;--orange:#FF9F0A;--red:#FF453A}}
+  :root{--bg:#F2F2F7;--card:#fff;--label:#000;--label2:rgba(60,60,67,.6);--sep:rgba(60,60,67,.18);--fill:rgba(120,120,128,.14);--brand:#A10DBC;--brand-text:#A10DBC;--brand-ink:#fff;--green:#34C759;--orange:#FF9F0A;--red:#FF3B30}
+  :root[data-scheme=dark]{--bg:#000;--card:#1C1C1E;--label:#fff;--label2:rgba(235,235,245,.6);--sep:rgba(84,84,88,.6);--fill:rgba(120,120,128,.28);--brand:#B52FCB;--brand-text:#DE96EE;--green:#30D158;--red:#FF453A}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;margin:0}
   body{background:var(--bg);color:var(--label);font:17px/1.3 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;display:flex;flex-direction:column;-webkit-user-select:none;user-select:none;touch-action:manipulation;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
@@ -18,15 +20,15 @@
   .logo{height:60px;width:auto}
   .chips{display:flex;gap:6px;flex-wrap:wrap}
   .chip{min-height:44px;padding:0 16px;border-radius:22px;background:var(--fill);font-weight:600}
-  .chip[aria-pressed=true]{background:var(--blue);color:#fff}
+  .chip[aria-pressed=true]{background:var(--brand);color:var(--brand-ink)}
   .sp{flex:1}
-  .btn{min-height:44px;padding:0 16px;border-radius:12px;background:var(--fill);font-weight:600;color:var(--blue)}
+  .btn{min-height:44px;padding:0 16px;border-radius:12px;background:var(--fill);font-weight:600;color:var(--brand-text)}
   .btn:disabled{opacity:.35}
   #clock{font-variant-numeric:tabular-nums;color:var(--label2);font-size:20px;font-weight:600}
   main{flex:1;overflow:auto;padding:4px 20px 12px;-webkit-overflow-scrolling:touch}
   h2{margin:14px 4px 8px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--label2)}
   .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(270px,1fr))}
-  .tk{background:var(--card);border-radius:20px;border-top:8px solid var(--c,var(--blue));box-shadow:0 1px 4px rgba(0,0,0,.12);display:flex;flex-direction:column;overflow:hidden}
+  .tk{background:var(--card);border-radius:20px;border-top:8px solid var(--c,var(--brand));box-shadow:0 1px 4px rgba(0,0,0,.12);display:flex;flex-direction:column;overflow:hidden}
   .tk.warn{box-shadow:0 0 0 3px var(--orange)}.tk.late{box-shadow:0 0 0 4px var(--red)}
   .tk header{padding:12px 16px 4px;align-items:baseline;gap:10px}
   .no{font-size:44px;font-weight:800;letter-spacing:.5px;line-height:1}
@@ -43,11 +45,13 @@
   .rd small{font-size:13px;font-weight:600;color:var(--label2)}
   .empty{text-align:center;color:var(--label2);padding:60px 20px;font-size:20px}
   .empty img{display:block;margin:0 auto 14px;height:90px;opacity:.9}
+  .d{display:none}:root[data-scheme=dark] .l{display:none}:root[data-scheme=dark] .d{display:block}
+  .logo-wrap{display:block}
 </style>
 </head>
 <body>
 <header>
-  <picture><source srcset="icons/jugend-dunkel.png" media="(prefers-color-scheme: dark)"><img class="logo" src="icons/jugend-hell.png" alt="ev. Jugend Kleinglattbach"></picture>
+  <span class="logo-wrap"><img class="logo l" src="icons/jugend-hell.png" alt="ev. Jugend Kleinglattbach"><img class="logo d" src="icons/jugend-dunkel.png" alt="" aria-hidden="true"></span>
   <h1>Küche</h1>
   <div class="chips" id="chips" role="group" aria-label="Sparte"></div>
   <span class="sp"></span>
@@ -103,7 +107,7 @@ function render() {
       <ul>${o.items.map(([n, q]) => `<li><b>${q}×</b><span>${esc(n)}</span></li>`).join('')}</ul>
       <button class="done" data-done="${esc(idOf(o))}">Fertig</button></article>`; }).join('');
   $('#empty').hidden = !!open.length;
-  $('#empty').innerHTML = `<picture><source srcset="icons/jugend-dunkel.png" media="(prefers-color-scheme: dark)"><img src="icons/jugend-hell.png" alt=""></picture>Keine offenen Bestellungen`;
+  $('#empty').innerHTML = `<img class="l" src="icons/jugend-hell.png" alt=""><img class="d" src="icons/jugend-dunkel.png" alt="">Keine offenen Bestellungen`;
   $('#ready-sec').hidden = !ready.length;
   $('#ready').innerHTML = ready.map(o => `<button class="rd" style="--c:${esc(o.col || '#909090')}" data-pick="${esc(idOf(o))}">${esc(o.no)} <small>abgeholt</small></button>`).join('');
   $('#undo').disabled = !undo.length;

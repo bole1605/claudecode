@@ -132,6 +132,34 @@ t('Kachelfarben aus dem Logo: lesbar auf hellem und dunklem Grund', () => {
   assert.strictEqual(K.migrateColor('#30B0C7'), '#CB7ADA'); assert.strictEqual(K.migrateColor('#5856D6'), '#6E6E73');
   assert.strictEqual(K.migrateColor('#123456'), '#123456'); assert.strictEqual(K.migrateColor(undefined), undefined);   // eigene Farben bleiben
 });
+t('Design: Farben der Themen sind lesbar (hell und dunkel)', () => {
+  let T; try { T = require(require('path').resolve(__dirname, '..', dir, 'theme.js')); } catch (e) { return; }
+  assert.deepStrictEqual(Object.keys(T.THEMES), ['standard', 'classic', 'xmas']);
+  for (const th of Object.keys(T.THEMES)) for (const s of ['light', 'dark']) {
+    const v = T.vars({ theme: th }, s), min = th === 'classic' ? 3.5 : 4.5;   // „Klassisch“ = Apple-Blau mit weißer Schrift, genau wie bisher (dort 3,65 bis 4,0)
+    assert.ok(K.contrast(v['--brand-ink'], v['--brand']) >= min, `${th}/${s}: Schrift auf Knopf ${K.contrast(v['--brand-ink'], v['--brand']).toFixed(2)}`);
+    assert.ok(K.contrast(v['--brand-text'], v['--card']) >= min, `${th}/${s}: Textknopf auf Karte`);
+    assert.ok(K.contrast(v['--brand-text'], v['--bg']) >= (th === 'classic' ? 3.5 : 4.5), `${th}/${s}: Textknopf auf Hintergrund`);
+    assert.ok(K.contrast(v['--label'], v['--bg']) >= 12 && K.contrast(v['--label'], v['--card']) >= 12, `${th}/${s}: Haupttext`);
+  }
+  // Weihnachten: Kachelfarben mit lesbarem Zähler und sichtbarem Rand
+  for (const s of ['light', 'dark']) for (let i = 1; i <= 4; i++) {
+    const v = T.vars({ theme: 'xmas' }, s), c = v['--x' + i], card = v['--card'];
+    assert.ok(K.contrast(v['--x' + i + '-on'], c) >= 4.5, `Weihnachten ${s} Farbe ${i}: Zähler`);
+    assert.ok(K.contrast(c, card) >= 2.0, `Weihnachten ${s} Farbe ${i}: Rand ${K.contrast(c, card).toFixed(2)}`);
+  }
+  // eigene Farbe der Knöpfe bleibt lesbar, egal was gewählt wird
+  for (const acc of ['#FFFF00', '#000000', '#FF0000', '#123456', '#00FF7F', '#A10DBC', '#808080', '#FFFFFF'])
+    for (const s of ['light', 'dark']) {
+      const v = T.vars({ accent: acc }, s);
+      assert.ok(K.contrast(v['--brand-ink'], v['--brand']) >= 4.5, `Eigene Farbe ${acc}/${s}: Schrift auf Knopf`);
+      assert.ok(K.contrast(v['--brand-text'], v['--card']) >= 4.5, `Eigene Farbe ${acc}/${s}: Text auf Karte ${K.contrast(v['--brand-text'], v['--card']).toFixed(2)}`);
+    }
+  assert.strictEqual(T.vars({ accent: 'kein-hex' }, 'light')['--brand'], '#A10DBC');       // ungültige Farbe wird ignoriert
+  assert.strictEqual(T.vars({ logo: 'off' }, 'light')['--logo-op'], '0'); assert.strictEqual(T.vars({ logo: 'mid' }, 'dark')['--logo-op'], '0.14');
+  assert.strictEqual(T.scheme({ mode: 'auto' }, true), 'dark'); assert.strictEqual(T.scheme({ mode: 'light' }, true), 'light'); assert.strictEqual(T.scheme({ mode: 'dark' }, false), 'dark'); assert.strictEqual(T.scheme(null, false), 'light');
+  assert.strictEqual(T.resolve({ theme: 'xmas' }).snow, true); assert.strictEqual(T.resolve(null).theme, 'standard');
+});
 (async () => {
   const sample = { v: 1, n: 7, t: 1764000000000, s: 'Burger & Spezi', m: 'b', tot: 1250, giv: 2000, tip: 150, chg: 600, po: 0, x: 1,
     L: [['Maultaschen auf karamellisierten Zwiebeln – Vegi', 2, 600, 7], ['Paulaner Spezi', 1, 300, 19], ['Käse, süß & "scharf" ü', 1, 50, 7]],
