@@ -532,6 +532,10 @@ async function test(name, fn) {
     await p.ctx.close();
   });
 
+  if (feat('Verkaufte Produkte')) await test('Taste heißt „Bestellstatus“', async errs => {
+    const p = await open(errs, '#crepes'); assert.ok((await txt(p, '#kitchen-open')).startsWith('Bestellstatus')); await p.ctx.close();
+  });
+
   if (feat('exp-open')) await test('Ausgaben: erfassen, gegenrechnen, aus der Kasse, stornieren, Bericht und Datei', async errs => {
     const p = await open(errs, '#crepes');
     await tap(p, 'c-nutella'); await p.click('#pay'); await p.click('[data-quick="5"]'); await p.click('#p-ok');
@@ -541,7 +545,8 @@ async function test(name, fn) {
     await p.fill('#exp-amt', '1,50'); await p.click('#exp-form button[type=submit]'); assert.ok((await txt(p, '#exp-err')).includes('Bezeichnung'));
     await p.fill('#exp-note', 'Einkauf Nutella'); await p.selectOption('#exp-stand', 'crepes'); await p.click('.switch-row:has(#exp-cash)'); await p.click('#exp-form button[type=submit]');
     assert.deepStrictEqual(await p.evaluate(() => [state.exp.length, state.exp[0].amt, state.exp[0].cash, state.moves.length, state.moves[0].amt]), [1, 150, true, 1, -150], 'Ausgabe und Entnahme');
-    let c = await txt(p, '#exp-card'); assert.ok(c.includes('2,50') && c.includes('Gewinn') && c.includes('Einkauf Nutella') && c.includes('Crêpes'), c);   // 4,00 − 1,50
+    let c = await txt(p, '#exp-card'); assert.ok(c.includes('2,50') && c.includes('Gewinn') && c.includes('Einkauf Nutella') && c.includes('Crêpes'), c);
+    if (feat('Kosten je Produkt')) assert.ok(c.includes('Verkaufte Produkte') && /Kosten je Produkt[^€]*1,50 €/.test(c), 'Kosten je Produkt (1 Produkt, 1,50 €): ' + c);
     await p.click('#exp-open'); await p.fill('#exp-amt', '10'); await p.fill('#exp-note', 'Miete Stand'); await p.click('#exp-form button[type=submit]');
     c = await txt(p, '#exp-card'); assert.ok(c.includes('Verlust') && c.includes('Allgemein'), c);
     // stornieren: Ausgabe und die zugehörige Entnahme

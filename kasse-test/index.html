@@ -15,9 +15,9 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=33">
-<script src="logic.js?v=33"></script>
-<script src="theme.js?v=33"></script>
+<link rel="stylesheet" href="styles.css?v=34">
+<script src="logic.js?v=34"></script>
+<script src="theme.js?v=34"></script>
 </head>
 <body>
 <div id="wm" aria-hidden="true"></div>
@@ -46,7 +46,7 @@
     <h1 id="title">Kasse</h1>
     <div class="segmented" role="tablist" aria-label="Stand wählen" id="tabs"></div>
     <div class="top-spacer">
-      <button class="btn sm k-btn" id="kitchen-open" aria-label="Küchenanzeige öffnen">Küche <b id="k-count" hidden>0</b></button>
+      <button class="btn sm k-btn" id="kitchen-open" aria-label="Bestellstatus öffnen">Bestellstatus <b id="k-count" hidden>0</b></button>
       <span class="logo-wrap"><img class="logo l" src="icons/jugend-hell.png" alt="ev. Jugend Kleinglattbach"><img class="logo d" src="icons/jugend-dunkel.png" alt="" aria-hidden="true"></span>
     </div>
   </header>
@@ -74,7 +74,7 @@
     </aside>
   </div>
 
-  <footer class="foot"><span>Copyright by Leo B. und Pascal B. - 2026</span><span class="ver">v33</span></footer>
+  <footer class="foot"><span>Copyright by Leo B. und Pascal B. - 2026</span><span class="ver">v34</span></footer>
 
 </div>
 
@@ -407,10 +407,10 @@
 <!-- Küchenanzeige im selben Fenster (alternativ: eigenes Fenster) -->
 <div id="kitchen-ov" class="page" hidden>
   <header class="top">
-    <h1>Küche</h1>
+    <h1>Bestellstatus</h1>
     <div class="k-actions"><button class="btn" id="kitchen-window">Zweiter Monitor</button><button class="btn primary" id="kitchen-close">Schließen</button></div>
   </header>
-  <iframe id="k-frame" class="k-frame" title="Küchenanzeige"></iframe>
+  <iframe id="k-frame" class="k-frame" title="Bestellstatus"></iframe>
 </div>
 
 <dialog id="monitor-dlg">
@@ -423,8 +423,8 @@
 <div id="toast" class="toast" hidden></div>
 <pre id="print-area"></pre>
 
-<script src="qrcode.js?v=33"></script>
-<script src="sound.js?v=33"></script>
-<script src="app.js?v=33"></script>
+<script src="qrcode.js?v=34"></script>
+<script src="sound.js?v=34"></script>
+<script src="app.js?v=34"></script>
 </body>
 </html>

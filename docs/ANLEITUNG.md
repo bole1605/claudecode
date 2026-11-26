@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v33** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v34** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -125,8 +125,8 @@ Unter dem Bon steht die Taste **„Spende buchen“**. Du wählst **Bar** oder *
 
 **Bestellprozess je Sparte abschalten:** Verwaltung → „Bestellungen und Küchenanzeige“ → unter „Bestellnummer“ steht für jede Sparte ein Schalter. **Aus** heißt: keine Bestellnummer, kein Bestellstatus und kein Eintrag in der Küche, auch keine Nummernabfrage beim Verbuchen. Das ist für Sparten gedacht, bei denen das nicht nötig ist (zum Beispiel Karten oder Getränke).
 
-**Küchenanzeige:** Oben rechts steht die Taste **„Küche“** mit der Zahl der offenen Bestellungen.
-- **Küche** öffnet die Anzeige über der Kasse (Schließen mit „Schließen“). So wechselst du auf einem Tablet zwischen Kasse und Küche.
+**Küchenanzeige:** Oben rechts steht die Taste **„Bestellstatus“** mit der Zahl der offenen Bestellungen.
+- **Bestellstatus** öffnet die Anzeige über der Kasse (Schließen mit „Schließen“). So wechselst du auf einem Tablet zwischen Kasse und Küche.
 - **Zweiter Monitor** zeigt die Anzeige nur zum Ansehen (ohne Knöpfe, `display.html?view=1`). Läuft die Kasse in **Safari**, öffnet sich ein zweites Fenster, das du auf den Monitor schiebst. Läuft sie als **App vom Home-Bildschirm**, kann kein zweites Fenster geöffnet werden: Die Kasse zeigt einen Link zum Kopieren für Safari (Abschnitt „Zweiter Monitor“ unten). `#crepes`, `#burger` oder `#karten` am Ende des Links zeigen nur eine Sparte.
 - Die Küche zeigt beim Öffnen **alle Sparten** dieses Tablets (ist das Tablet auf einen Stand festgelegt, nur diesen). Mit den Tasten oben (**Alle**, Sparte) wechselst du den Filter.
 - Auf der Küchenanzeige stehen **Nummer, Sparte, Wartezeit** (orange ab 5, rot ab 10 Minuten) und die **Artikel mit Sorte** (zum Beispiel „Fleisch“). Mit den Tasten oben filterst du nach Sparte.
@@ -154,7 +154,7 @@ In der rechten Spalte der Kasse gibt es oben **„Bon | Bestellungen“**. Unter
 
 ### Zweiter Monitor
 
-Taste „Küche“ → **„Zweiter Monitor“**. Die Anzeige im Monitor (`display.html?view=1`) ist nur zum Ansehen, ohne Knöpfe. Als App vom Home-Bildschirm öffnet sie sich nicht als zweites Fenster (das würde die Kasse ersetzen): Die App zeigt dann einen Link zum Kopieren, den du in Safari öffnest. Safari und die App vom Home-Bildschirm haben **getrennte Daten**, deshalb Kasse und Anzeige im selben Programm öffnen (beide in Safari), oder den Monitor einfach **spiegeln**. Die normale Küchenanzeige hat oben „← Zur Kasse“.
+Taste „Bestellstatus“ → **„Zweiter Monitor“**. Die Anzeige im Monitor (`display.html?view=1`) ist nur zum Ansehen, ohne Knöpfe. Als App vom Home-Bildschirm öffnet sie sich nicht als zweites Fenster (das würde die Kasse ersetzen): Die App zeigt dann einen Link zum Kopieren, den du in Safari öffnest. Safari und die App vom Home-Bildschirm haben **getrennte Daten**, deshalb Kasse und Anzeige im selben Programm öffnen (beide in Safari), oder den Monitor einfach **spiegeln**. Die normale Küchenanzeige hat oben „← Zur Kasse“.
 
 ## 5g. Töne
 
@@ -169,6 +169,7 @@ Mit „Verbucht testen“ und „Abholbereit testen“ hörst du den gewählten 
 ## 5i. Ausgaben und Ergebnis (Kostenrechnung)
 
 Verwaltung → Karte **„Ausgaben und Ergebnis“**. Dort stehen Einnahmen (ohne Spenden, ohne Storno), die erfassten Ausgaben und das **Ergebnis** (Gewinn oder Verlust). Sind Spenden dabei, steht daneben das Ergebnis mit Spenden.
+- **Kosten je Produkt:** Die Karte rechnet die Ausgaben auf die Zahl der verkauften Produkte um (ohne Pfand und ohne Stornos; Gratis-Produkte zählen mit) und zeigt auch Einnahmen und Gewinn je Produkt. Je Sparte steht die Zahl der Produkte und die Kosten je Produkt, soweit die Ausgaben der Sparte zugeordnet sind (allgemeine Ausgaben werden nicht aufgeteilt).
 - **Ausgabe erfassen …:** Betrag, Bezeichnung (zum Beispiel „Einkauf Metro“) und die Sparte, der die Ausgabe gehört (oder „Allgemein“). Sind Ausgaben Sparten zugeordnet, zeigt die Karte je Sparte Einnahmen − Ausgaben.
 - **Aus der Kasse bezahlt:** Der Schalter bucht zusätzlich eine Entnahme, damit der Kassenstand stimmt.
 - **Stornieren / Aufheben:** Eine Ausgabe lässt sich stornieren (und wieder aufheben); die Entnahme folgt automatisch.

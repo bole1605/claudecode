@@ -33,7 +33,7 @@ const DEFAULT_STANDS = [
     ]},
   ]},
 ];
-const VERSION = 33;
+const VERSION = 34;
 // Fokus ins erste Feld – aber nur, wenn die Eingabe nicht schon in einem anderen Feld des Fensters begonnen hat
 const focusFirst = sel => setTimeout(() => { const el = document.querySelector(sel), d = el.closest('dialog'); if (!d.contains(document.activeElement) || document.activeElement === d) el.focus(); }, 50);
 // Test- und Live-Version liegen auf derselben Domain: getrennter Speicher, damit sich die Daten nie vermischen
@@ -548,11 +548,16 @@ function renderAdmin() {
   }).join('') + `<div class="sum-row total"><span>Gesamt</span><span>Bar ${euro(pay.bar)} · PayPal ${euro(pay.paypal)}${pay.tip ? ` · Spenden ${euro(pay.tip)} (nicht enthalten)` : ''}</span><b>${euro(Object.values(rev).reduce((a, b) => a + b, 0))}</b></div>`;
   { const E = state.exp.filter(x => !x.void), eTot = E.reduce((a, x) => a + x.amt, 0), rTot = Object.values(rev).reduce((a, b) => a + b, 0), res = rTot - eTot;
     const sumE = id => E.filter(x => (x.stand || '') === id).reduce((a, x) => a + x.amt, 0), general = sumE('');
+    const items = Object.values(cnt).reduce((a, b) => a + b, 0), per = (c, n) => n > 0 ? euro(Math.round(c / n)) : '–';   // Kosten je verkauftem Produkt (ohne Pfand, ohne Storno; Gratis-Produkte zählen mit)
     $('#exp-card').innerHTML = `<h3>Ausgaben und Ergebnis</h3>
       <div class="sum-row"><span>Einnahmen</span><span>ohne Spenden, ohne Storno</span><b>${euro(rTot)}</b></div>
       <div class="sum-row"><span>− Ausgaben</span><span>${E.length} ${E.length === 1 ? 'Posten' : 'Posten'}</span><b>${euro(eTot ? -eTot : 0)}</b></div>
       <div class="sum-row total"><span>${res >= 0 ? 'Gewinn' : 'Verlust'}</span><span>Einnahmen − Ausgaben${pay.tip ? ` · mit Spenden ${euro(res + pay.tip)}` : ''}</span><b class="${res >= 0 ? 'ok' : 'bad'}">${euro(res)}</b></div>
-      ${E.some(x => x.stand) ? '<div class="exp-by">' + standIds().map(id => `<div class="sum-row"><span>${esc(labelOf(id))}</span><span>${euro(rev[id] || 0)} − ${euro(sumE(id))}</span><b>${euro((rev[id] || 0) - sumE(id))}</b></div>`).join('') + (general ? `<div class="sum-row"><span>Allgemein</span><span>keiner Sparte zugeordnet</span><b>${euro(-general)}</b></div>` : '') + '</div>' : ''}
+      <div class="sum-row"><span>Verkaufte Produkte</span><span>ohne Pfand, ohne Storno (Gratis zählt mit)</span><b>${items}</b></div>
+      <div class="sum-row"><span>Kosten je Produkt</span><span>Ausgaben ÷ verkaufte Produkte</span><b>${per(eTot, items)}</b></div>
+      <div class="sum-row"><span>Einnahmen je Produkt</span><span>Einnahmen ÷ verkaufte Produkte</span><b>${per(rTot, items)}</b></div>
+      <div class="sum-row"><span>${res >= 0 ? 'Gewinn' : 'Verlust'} je Produkt</span><span></span><b>${per(res, items)}</b></div>
+      ${E.some(x => x.stand) ? '<div class="exp-by">' + standIds().map(id => `<div class="sum-row"><span>${esc(labelOf(id))}</span><span>${euro(rev[id] || 0)} − ${euro(sumE(id))} · ${cnt[id] || 0} Produkte · Kosten ${per(sumE(id), cnt[id] || 0)} je Produkt</span><b>${euro((rev[id] || 0) - sumE(id))}</b></div>`).join('') + (general ? `<div class="sum-row"><span>Allgemein</span><span>keiner Sparte zugeordnet, nicht aufgeteilt</span><b>${euro(-general)}</b></div>` : '') + '</div>' : ''}
       ${state.exp.length ? '<div class="mv-list">' + [...state.exp].reverse().map(x => `<div class="mv${x.void ? ' void' : ''}"><span>${fmtTS(x.t)} · ${esc(x.note)} · ${x.stand ? esc(labelOf(x.stand)) : 'Allgemein'}${x.cash ? ' · aus der Kasse' : ''}${x.void ? ' · <span class="tag">storniert</span>' : ''}</span><b>${euro(x.amt)}</b><button class="btn sm ${x.void ? '' : 'destructive'}" data-expvoid="${x.id}">${x.void ? 'Aufheben' : 'Stornieren'}</button></div>`).join('') + '</div>' : ''}
       <div class="actions-card" style="padding:0;margin-top:12px"><button class="btn primary" id="exp-open">Ausgabe erfassen …</button></div>`; }
   $('#restore').hidden = !state.backup;
@@ -931,7 +936,8 @@ function reportLines(c) {
     const E = state.exp.filter(x => !x.void), et = E.reduce((a, x) => a + x.amt, 0), rt = Object.values(rev).reduce((x, y) => x + y, 0);
     l(''); l('AUSGABEN', true);
     E.forEach(x => lr('  ' + fmtTS(x.t) + ' ' + x.note + (x.stand ? ' (' + labelOf(x.stand) + ')' : ''), money(-x.amt)));
-    lr('Ausgaben gesamt', money(-et), true); lr(rt - et >= 0 ? 'Gewinn (Einnahmen − Ausgaben)' : 'Verlust (Einnahmen − Ausgaben)', money(rt - et), true);
+    const nIt = Object.values(cnt).reduce((x, y) => x + y, 0);
+    lr('Ausgaben gesamt', money(-et), true); lr('Verkaufte Produkte (ohne Pfand)', String(nIt)); lr('Kosten je verkauftem Produkt', nIt > 0 ? money(Math.round(et / nIt)) : '–'); lr(rt - et >= 0 ? 'Gewinn (Einnahmen − Ausgaben)' : 'Verlust (Einnahmen − Ausgaben)', money(rt - et), true);
   }
   lr('  davon bar bezahlt', money(pay.bar)); lr('  davon PayPal (nicht im Bargeld)', money(pay.paypal));
   if (state.vat.on) { l(''); l('Enthaltene Mehrwertsteuer:'); Object.keys(gr).sort((x, y) => x - y).forEach(r => lr(`  Satz ${pct(r)}  (brutto ${money(gr[r])})`, money(vatPart(gr[r], +r)))); }
