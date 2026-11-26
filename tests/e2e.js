@@ -546,7 +546,7 @@ async function test(name, fn) {
     c = await txt(p, '#exp-card'); assert.ok(c.includes('Verlust') && c.includes('Allgemein'), c);
     // stornieren: Ausgabe und die zugehörige Entnahme
     const id1 = await p.evaluate(() => state.exp[0].id); await p.click(`[data-expvoid="${id1}"]`); await p.waitForSelector('#confirm[open]'); await p.click('#c-ok');
-    assert.strictEqual(await p.evaluate(() => state.exp[0].void), true);
+    await p.waitForFunction(() => state.exp[0].void === true); assert.strictEqual(await p.evaluate(() => state.exp[0].void), true);
     assert.strictEqual(await p.evaluate(() => state.moves.every(m => m.void === state.exp.find(x => x.id === m.expId).void)), true, 'Entnahme folgt der Ausgabe');
     const csv = (await dl(p, '#save')).toString('utf8'); assert.ok(csv.includes('Ausgaben') && csv.includes('Einkauf Nutella'), 'Datei enthält Ausgaben');
     assert.ok(await p.evaluate(() => reportLines(null).some(x => x.t.includes('AUSGABEN'))), 'Kassenbericht enthält Ausgaben');
