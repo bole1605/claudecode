@@ -1,9 +1,9 @@
 // Service Worker: Offline-Betrieb. Netzwerk zuerst (am HTTP-Cache vorbei), der Cache dient nur als Rückfall.
-const V = '32';
+const V = '35';
 const SCOPE = new URL(self.registration.scope).pathname.replace(/\W+/g, '_');   // Test- und Live-Version bekommen getrennte Caches
 const PREFIX = 'kasse' + SCOPE + '-';
 const CACHE = PREFIX + 'v' + V;
-const ASSETS = ['./', 'index.html', 'styles.css?v=32', 'logic.js?v=32', 'qrcode.js?v=32', 'app.js?v=32', 'manifest.webmanifest', 'bon.html', 'display.html', 'sound.js', 'sound.js?v=32', 'theme.js', 'theme.js?v=32', 'logic.js', 'icons/jugend-hell.png', 'icons/jugend-dunkel.png',
+const ASSETS = ['./', 'index.html', 'styles.css?v=35', 'logic.js?v=35', 'qrcode.js?v=35', 'app.js?v=35', 'manifest.webmanifest', 'bon.html', 'display.html', 'sound.js', 'sound.js?v=35', 'theme.js', 'theme.js?v=35', 'logic.js', 'icons/jugend-hell.png', 'icons/jugend-dunkel.png',
   'icons/icon.svg', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', e => e.waitUntil(
