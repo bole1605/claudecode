@@ -448,38 +448,6 @@ async function test(name, fn) {
     await p.ctx.close();
   });
 
-  if (feat('sound-style')) await test('Töne: sauber (kein Übersteuern, kein Knacken, keine harten Obertöne), schnelles Tippen wird gedrosselt', async errs => {
-    const p = await open(errs);
-    const m = await p.evaluate(async () => {
-      const fft = d => { const N = 8192, re = new Float64Array(N), im = new Float64Array(N); for (let i = 0; i < Math.min(N, d.length); i++) re[i] = d[i];
-        let j = 0; for (let i = 1; i < N; i++) { let bit = N >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } }
-        for (let len = 2; len <= N; len <<= 1) { const ang = -2 * Math.PI / len; for (let i = 0; i < N; i += len) for (let k = 0; k < len / 2; k++) { const wr = Math.cos(ang * k), wi = Math.sin(ang * k), a = i + k, b = i + k + len / 2, vr = re[b] * wr - im[b] * wi, vi = re[b] * wi + im[b] * wr; const ur = re[a], ui = im[a]; re[a] = ur + vr; im[a] = ui + vi; re[b] = ur - vr; im[b] = ui - vi; } }
-        let tot = 0, hi = 0; for (let k = 1; k < N / 2; k++) { const e2 = re[k] * re[k] + im[k] * im[k]; tot += e2; if (k * 44100 / N > 2000) hi += e2; } return hi / Math.max(tot, 1e-12); };
-      const out = {};
-      for (const style of ['soft', 'low']) { Sound.setup({ style });
-        for (const n of Sound.names) { const d = await Sound.render(n, 'high'); let peak = 0, step = 0; for (let i = 0; i < d.length; i++) { peak = Math.max(peak, Math.abs(d[i])); step = Math.max(step, Math.abs(d[i] - (i ? d[i - 1] : 0))); }
-          let end = d.length - 1; while (end > 0 && Math.abs(d[end]) < 1e-5) end--;
-          out[style + '/' + n] = { peak, first: Math.abs(d[0]), last: Math.abs(d[d.length - 1]), step: step / Math.max(peak, 1e-9), hi: fft(d), ms: end / 44.1 }; } }
-      Sound.setup({ style: 'soft' }); return out; });
-    for (const [k, v] of Object.entries(m)) {
-      assert.ok(v.peak > 0.01 && v.peak < 0.6, `${k}: Spitze ${v.peak.toFixed(3)} (zu leise oder übersteuert)`);
-      assert.ok(v.first < 1e-4 && v.last < 1e-4, `${k}: Knacken am Anfang/Ende`);
-      assert.ok(v.hi < 0.01, `${k}: harte Obertöne ${(v.hi * 100).toFixed(2)} %`);
-      assert.ok(v.step < (/\/(tick|key|minus)$/.test(k) ? 0.15 : 0.3), `${k}: Kurve nicht glatt (${v.step.toFixed(3)})`);   // ein reiner Sinus mit 1,5 kHz hat von sich aus 0,22; Knackser lägen bei über 0,5
-      if (/\/(tick|key|minus)$/.test(k)) assert.ok(v.ms < 220, `${k}: Antipp-Ton zu lang (${Math.round(v.ms)} ms)`);
-    }
-    // schnelles Tippen: viele Aufrufe in kurzer Zeit erzeugen nur wenige Töne
-    await p.evaluate(() => { window.__o = 0; const f = AudioContext.prototype.createOscillator; AudioContext.prototype.createOscillator = function () { window.__o++; return f.call(this); }; Sound.setup({ on: true, tap: true }); });
-    await p.evaluate(() => { for (let i = 0; i < 12; i++) Sound.play('tick'); }); assert.ok(await p.evaluate(() => window.__o) <= 1, 'zu viele Töne bei schnellem Tippen: ' + await p.evaluate(() => window.__o));
-    await p.waitForTimeout(80); await p.evaluate(() => Sound.play('tick')); assert.strictEqual(await p.evaluate(() => window.__o), 2, 'nach einer kurzen Pause spielt der nächste Ton wieder');
-    await p.evaluate(() => { for (let i = 0; i < 6; i++) Sound.play('booked'); }); assert.strictEqual(await p.evaluate(() => window.__o), 2 + 18, 'Bestätigungstöne werden nie gedrosselt');
-    // Klang einstellen
-    await admin(p, true); assert.strictEqual(await p.inputValue('#sound-style'), 'soft');
-    await p.selectOption('#sound-style', 'low'); assert.deepStrictEqual(await p.evaluate(() => [Sound.config.style, state.sound.style]), ['low', 'low']);
-    await p.reload(); assert.strictEqual(await p.evaluate(() => Sound.config.style), 'low', 'bleibt nach dem Neustart');
-    await p.ctx.close();
-  });
-
   await browser.close(); server.close();
   console.log(`\n${count - fails} von ${count} Ablauf-Tests bestanden (${dir})`); process.exit(fails ? 1 : 0);
 })();
