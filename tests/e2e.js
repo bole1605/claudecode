@@ -360,7 +360,7 @@ async function test(name, fn) {
 
   if (feat('Leo B.') || has('display.html')) await test('Logo (hell/dunkel) und Fußzeile', async errs => {
     const p = await open(errs);
-    assert.ok((await txt(p, '.foot')).includes('coded by Leo B. - 2026'));
+    assert.ok((await txt(p, '.foot')).includes(feat('sound-booked') ? 'Copyright by Leo B. und Pascal B. - 2026' : 'coded by Leo B. - 2026'));
     const vis = sel => p.evaluate(s => { const i = document.querySelector(s); return !!i && getComputedStyle(i).display !== 'none' && i.complete && i.naturalWidth > 100 && i.getBoundingClientRect().height >= 40; }, sel);
     assert.ok(await vis('.top .logo.l') && !(await p.evaluate(() => getComputedStyle(document.querySelector('.top .logo.d')).display !== 'none')), 'Hell: schwarze Variante');
     assert.strictEqual(await p.evaluate(() => document.querySelector('.top .logo.l').getAttribute('src')), 'icons/jugend-hell.png');
@@ -373,7 +373,7 @@ async function test(name, fn) {
     const p = await open(errs); await admin(p, true);
     assert.strictEqual(await p.isChecked('#sound-toggle'), true); assert.strictEqual(await p.inputValue('#sound-vol'), 'mid');
     for (const n of await p.evaluate(() => Sound.names)) await p.evaluate(x => Sound.play(x), n);   // kein Fehler
-    if (feat('ord-pane')) assert.deepStrictEqual(await p.evaluate(() => Sound.names), ['booked', 'ready'], 'nur zwei Töne');
+    if (feat('ord-pane')) assert.deepStrictEqual((await p.evaluate(() => Sound.names)).sort(), ['booked', 'ready'], 'nur zwei Töne');
     await p.selectOption('#sound-vol', 'high'); assert.deepStrictEqual(await p.evaluate(() => [Sound.config.vol, state.sound.vol]), ['high', 'high']);
     await p.evaluate(() => { window.__o = 0; const f = AudioContext.prototype.createOscillator; AudioContext.prototype.createOscillator = function () { window.__o++; return f.call(this); }; });
     await p.evaluate(() => Sound.play('booked')); assert.strictEqual(await p.evaluate(() => window.__o), 3, '„booked“ besteht aus drei Tönen');
@@ -486,6 +486,70 @@ async function test(name, fn) {
     // Spende braucht keine Nummer; Zurück bricht die Eingabe ab
     await p.click('#toast-x').catch(() => {}); await tap(p, 'c-zimt'); await p.click('#pay'); await p.click('[data-quick="20"]'); await p.click('#p-ok'); await p.waitForSelector('#num-dlg[open]');
     await p.click('#n-cancel'); assert.strictEqual(await p.evaluate(() => state.sales.length), 3, 'abgebrochen: nicht verbucht');
+    await p.ctx.close();
+  });
+
+  if (feat('sound-booked')) await test('Töne einzeln schaltbar (Abholbereit ab Werk aus), Nummer 0 gesperrt, Schneehaufen und Weihnachtsmarkt nur im Weihnachtsdesign', async errs => {
+    const p = await open(errs, '#crepes');
+    await p.evaluate(() => { window.__o = 0; const f = AudioContext.prototype.createOscillator; AudioContext.prototype.createOscillator = function () { window.__o++; return f.call(this); }; });
+    await p.evaluate(() => Sound.play('ready')); assert.strictEqual(await p.evaluate(() => window.__o), 0, 'Abholbereit ist ab Werk aus');
+    await p.evaluate(() => Sound.play('booked')); assert.strictEqual(await p.evaluate(() => window.__o), 3, 'Schiffshorn spielt');
+    await admin(p, true); assert.deepStrictEqual(await p.evaluate(() => [document.querySelector('#sound-booked').checked, document.querySelector('#sound-ready').checked]), [true, false]);
+    await p.click('.switch-row:has(#sound-ready)'); await p.click('.switch-row:has(#sound-booked)');
+    assert.deepStrictEqual(await p.evaluate(() => [state.sound.tones.booked, state.sound.tones.ready]), [false, true]);
+    await p.evaluate(() => { window.__o = 0; Sound.play('booked'); }); assert.strictEqual(await p.evaluate(() => window.__o), 0, 'Verbucht ausgeschaltet');
+    await p.evaluate(() => Sound.play('ready')); assert.ok(await p.evaluate(() => window.__o) > 0, 'Abholbereit eingeschaltet');
+    await p.reload(); assert.deepStrictEqual(await p.evaluate(() => [Sound.toneOn('booked'), Sound.toneOn('ready')]), [false, true], 'bleibt nach dem Neustart');
+    // Schneehaufen / Weihnachtsmarkt
+    const vis = () => p.evaluate(() => getComputedStyle(document.querySelector('#xmas-scene')).display);
+    await p.evaluate(() => { state.design.theme = 'standard'; save(); Theme.apply(state.design); }); assert.strictEqual(await vis(), 'none');
+    for (const mode of ['light', 'dark']) { await p.evaluate(m => { state.design.theme = 'xmas'; state.design.mode = m; save(); Theme.apply(state.design); }, mode); assert.strictEqual(await vis(), 'block', 'Szene im Weihnachtsdesign (' + mode + ')'); }
+    assert.strictEqual(await p.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()), '#000000', 'Dunkelmodus: schwarz statt grün');
+    // Nummer 0 sperren
+    await p.evaluate(() => { state.orderMode = 'manual'; save(); });
+    await tap(p, 'c-nutella'); await p.click('#pay'); await p.click('[data-quick="20"]'); await p.click('#p-ok'); await p.waitForSelector('#num-dlg[open]');
+    await p.click('[data-nkey="0"]'); assert.strictEqual(await p.isDisabled('#n-ok'), true, '0 gesperrt'); assert.ok((await txt(p, '#n-err')).includes('0 ist gesperrt'));
+    await p.click('[data-nkey="0"]'); assert.strictEqual(await p.isDisabled('#n-ok'), true, '00 gesperrt');
+    await p.click('[data-nkey="5"]'); assert.strictEqual(await p.isDisabled('#n-ok'), false, '005 erlaubt (= 5)');
+    await p.ctx.close();
+  });
+
+  if (feat('orderOff')) await test('Bestellprozess je Sparte abschaltbar, Gratis-Produkte verbuchen', async errs => {
+    const cat = [{ id: 'a', label: 'Ohne Status', groups: [{ id: 'ga', name: 'Gratis', color: '#A10DBC', items: [{ id: 'a-free', name: 'Probierhäppchen', price: 0, vat: 7 }, { id: 'a-paid', name: 'Tasse', price: 300, vat: 7 }] }] },
+      { id: 'b', label: 'Mit Status', groups: [{ id: 'gb', name: 'Essen', color: '#A10DBC', items: [{ id: 'b-1', name: 'Crêpe', price: 300, vat: 7 }] }] }];
+    const p = await open(errs, '#a', { seed: { mig17: true, mig20: true, mig23: true, stand: 'a', catalog: cat, orderMode: 'manual', orderOff: { a: true } } });
+    assert.strictEqual(await txt(p, '[data-add=a-free] .price'), 'Gratis', 'Gratis statt 0,00 €');
+    await tap(p, 'a-free'); assert.ok((await txt(p, '#bon-lines')).includes('Gratis'));
+    await p.click('#pay'); assert.ok((await txt(p, '#p-change')).includes('Nichts zu zahlen')); await p.click('#p-ok');
+    assert.deepStrictEqual(await p.evaluate(() => [state.sales.length, state.sales[0].total, state.sales[0].on || null, readOrders().orders.length]), [1, 0, null, 0], 'gratis verbucht, ohne Nummer und ohne Küche');
+    await tap(p, 'a-free'); await tap(p, 'a-paid'); await p.click('#pay'); await p.click('[data-quick="5"]'); await p.click('#p-ok');
+    assert.deepStrictEqual(await p.evaluate(() => [state.sales[1].total, document.querySelector('#num-dlg').open]), [300, false], 'Sparte ohne Bestellprozess: keine Nummernabfrage');
+    await p.click('[data-stand=b]'); await tap(p, 'b-1'); await p.click('#pay'); await p.click('[data-quick="5"]'); await p.click('#p-ok');
+    assert.strictEqual(await p.evaluate(() => document.querySelector('#num-dlg').open), true, 'andere Sparte fragt weiter nach der Nummer');
+    await p.click('[data-nkey="4"]'); await p.click('#n-ok'); assert.deepStrictEqual(await p.evaluate(() => [state.sales[2].on, readOrders().orders.length]), ['4', 1]);
+    await admin(p, true); assert.deepStrictEqual(await p.evaluate(() => [...document.querySelectorAll('[data-ordstand]')].map(x => x.checked)), [false, true]);
+    await p.click('.switch-row:has([data-ordstand=a])'); assert.deepStrictEqual(await p.evaluate(() => state.orderOff), {}, 'wieder eingeschaltet');
+    await p.ctx.close();
+  });
+
+  if (feat('exp-open')) await test('Ausgaben: erfassen, gegenrechnen, aus der Kasse, stornieren, Bericht und Datei', async errs => {
+    const p = await open(errs, '#crepes');
+    await tap(p, 'c-nutella'); await p.click('#pay'); await p.click('[data-quick="5"]'); await p.click('#p-ok');
+    await p.evaluate(() => { state.orderMode = 'auto'; });
+    await admin(p, true); assert.ok((await txt(p, '#exp-card')).includes('Gewinn'));
+    await p.click('#exp-open'); await p.fill('#exp-amt', '0'); await p.click('#exp-form button[type=submit]'); assert.ok((await txt(p, '#exp-err')).includes('Betrag'));
+    await p.fill('#exp-amt', '1,50'); await p.click('#exp-form button[type=submit]'); assert.ok((await txt(p, '#exp-err')).includes('Bezeichnung'));
+    await p.fill('#exp-note', 'Einkauf Nutella'); await p.selectOption('#exp-stand', 'crepes'); await p.click('.switch-row:has(#exp-cash)'); await p.click('#exp-form button[type=submit]');
+    assert.deepStrictEqual(await p.evaluate(() => [state.exp.length, state.exp[0].amt, state.exp[0].cash, state.moves.length, state.moves[0].amt]), [1, 150, true, 1, -150], 'Ausgabe und Entnahme');
+    let c = await txt(p, '#exp-card'); assert.ok(c.includes('2,50') && c.includes('Gewinn') && c.includes('Einkauf Nutella') && c.includes('Crêpes'), c);   // 4,00 − 1,50
+    await p.click('#exp-open'); await p.fill('#exp-amt', '10'); await p.fill('#exp-note', 'Miete Stand'); await p.click('#exp-form button[type=submit]');
+    c = await txt(p, '#exp-card'); assert.ok(c.includes('Verlust') && c.includes('Allgemein'), c);
+    // stornieren: Ausgabe und die zugehörige Entnahme
+    const id1 = await p.evaluate(() => state.exp[0].id); await p.click(`[data-expvoid="${id1}"]`); await p.waitForSelector('#confirm[open]'); await p.click('#c-ok');
+    await p.waitForFunction(() => state.exp[0].void === true); assert.strictEqual(await p.evaluate(() => state.exp[0].void), true);
+    assert.strictEqual(await p.evaluate(() => state.moves.every(m => m.void === state.exp.find(x => x.id === m.expId).void)), true, 'Entnahme folgt der Ausgabe');
+    const csv = (await dl(p, '#save')).toString('utf8'); assert.ok(csv.includes('Ausgaben') && csv.includes('Einkauf Nutella'), 'Datei enthält Ausgaben');
+    assert.ok(await p.evaluate(() => reportLines(null).some(x => x.t.includes('AUSGABEN'))), 'Kassenbericht enthält Ausgaben');
     await p.ctx.close();
   });
 

@@ -14,7 +14,7 @@
     classic:  { name: 'Klassisch (Blau)', light: { brand: '#007AFF', text: '#007AFF', ink: '#FFFFFF' }, dark: { brand: '#0A84FF', text: '#0A84FF', ink: '#FFFFFF' } },   // wie bisher: weiße Schrift auf Apple-Blau
     xmas:     { name: 'Weihnachten', xmas: true,
       light: { brand: '#17703F', text: '#17703F', v: { '--bg': '#F7F0E3', '--card': '#FFFDF8', '--fill': 'rgba(27,127,75,.10)', '--sep': 'rgba(70,55,30,.20)', '--label2': 'rgba(60,50,30,.65)' } },
-      dark:  { brand: '#2A9D62', text: '#7FDDA9', v: { '--bg': '#06140D', '--card': '#10241A', '--fill': 'rgba(80,200,140,.16)', '--sep': 'rgba(120,180,150,.30)', '--label2': 'rgba(220,240,228,.65)' } } }
+      dark:  { brand: '#2A9D62', text: '#7FDDA9', v: { '--bg': '#000000', '--card': '#1C1C1E', '--fill': 'rgba(120,120,128,.24)', '--sep': 'rgba(84,84,88,.6)', '--label2': 'rgba(235,235,245,.6)' } } }
   };
   // Kachelfarben im Weihnachtsdesign: Rot, Grün, Gold, Tannengrün (hell/dunkel jeweils mit gut lesbarem Zähler)
   const XMAS_TILES = { light: ['#B3261E', '#1B7F4B', '#D4A017', '#0F4D2E'], dark: ['#E5493F', '#3DBB77', '#F2C14E', '#6FBF8E'] };
