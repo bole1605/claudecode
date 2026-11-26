@@ -69,7 +69,16 @@ function cashSeries(sales, start, moves) {
 // Stückelung für den Kassensturz (in Cent) und Summe einer Zählung { "2000": 3, ... }
 const DENOMS = [50000, 20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
 const countTotal = counts => Object.entries(counts || {}).reduce((s, [d, n]) => s + (+d) * Math.max(0, Math.floor(+n) || 0), 0);
-const payTotals = sales => sales.reduce((o, s) => { if (!s.void) { o[s.method === 'paypal' ? 'paypal' : 'bar'] += s.total; o.tip += s.tip || 0; } return o; }, { bar: 0, paypal: 0, tip: 0 });
+// Eingang je Zahlart: bei PayPal zählt auch eine Spende (ohne Einkauf) zum eingegangenen Betrag; bar: Umsatz (Spenden separat in tip)
+const payTotals = sales => sales.reduce((o, s) => { if (!s.void) { if (s.method === 'paypal') o.paypal += s.total + (s.tip || 0); else o.bar += s.total; o.tip += s.tip || 0; if (s.donation) { o.don += 1; o.donSum += s.tip || 0; } } return o; }, { bar: 0, paypal: 0, tip: 0, don: 0, donSum: 0 });
+
+// --- Bestellnummern je Sparte (Stand): C1, C2 … / B1, B2 …; zählt pro Kalendertag neu
+const defaultPrefix = (id, label) => ({ crepes: 'C', burger: 'B', karten: 'K' })[id] || (String(label || 'X').trim().charAt(0).toUpperCase() || 'X');
+function nextOrder(st, standId, prefix, day) {
+  const s = st && st.day === day ? { day, seq: { ...st.seq } } : { day, seq: {} };
+  s.seq[standId] = (s.seq[standId] || 0) + 1;
+  return { no: prefix + s.seq[standId], st: s };
+}
 
 // --- Bon als PDF (Courier, 80 mm breit)
 const WIN = { '€': 0x80, '‚': 0x82, '„': 0x84, '…': 0x85, '‘': 0x91, '’': 0x92, '“': 0x93, '”': 0x94, '–': 0x96, '—': 0x97 };
@@ -130,5 +139,11 @@ function luminance(hex) {
 function contrast(a, b) { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
 const textOn = hex => contrast('#000000', hex) >= contrast('#ffffff', hex) ? '#000000' : '#ffffff';
 
-  return { DENOMS, countTotal, luminance, contrast, textOn, bonEncode, bonDecode, isEmail, mailtoUrl, parse, vatPart, normalizeLink, migrateCatalog, ppEmbeds, paypalUrl, calcPay, cashSeries, payTotals, enc, wrapText, makePdf };
+// --- Farben der Kacheln: aus dem Logo der ev. Jugend (Lila #A10DBC, Grau #909090, Schwarz), dazu eine helle und eine dunkle Abstufung
+const COLORS = { lila: '#A10DBC', grau: '#909090', flieder: '#CB7ADA', dunkelgrau: '#6E6E73' };
+const PALETTE = [COLORS.lila, COLORS.grau, COLORS.flieder, COLORS.dunkelgrau];
+const OLD_COLORS = { '#FF9F0A': COLORS.lila, '#34C759': COLORS.grau, '#30B0C7': COLORS.flieder, '#5856D6': COLORS.dunkelgrau };   // frühere Standardfarben
+const migrateColor = c => OLD_COLORS[String(c || '').toUpperCase()] || c;
+
+  return { COLORS, PALETTE, migrateColor, defaultPrefix, nextOrder, DENOMS, countTotal, luminance, contrast, textOn, bonEncode, bonDecode, isEmail, mailtoUrl, parse, vatPart, normalizeLink, migrateCatalog, ppEmbeds, paypalUrl, calcPay, cashSeries, payTotals, enc, wrapText, makePdf };
 });
