@@ -269,3 +269,21 @@ body.is-test .app{padding-top:calc(28px + env(safe-area-inset-top))}
 .cs-hist h3{margin:14px 0 4px}
 @media (max-width:700px){.cs-grid{grid-template-columns:1fr}}
 @media print{#print-area.rep{font-size:10pt}}
+
+/* ---- v22: Logo, Fußzeile, Küche, Bestellnummern, Spende ---- */
+.top-spacer{display:flex;justify-content:flex-end;align-items:center;gap:14px;text-align:right}
+.logo{height:58px;width:auto;display:block}
+.k-btn{min-height:44px;padding:0 14px;display:inline-flex;align-items:center;gap:8px}
+.k-btn b{min-width:24px;height:24px;border-radius:12px;padding:0 7px;display:inline-grid;place-items:center;font-size:14px;background:var(--red);color:#fff}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:4px 24px calc(6px + env(safe-area-inset-bottom));font-size:13px;color:var(--label2)}
+.foot .ver{margin:0;opacity:.7}
+.ono{display:inline-block;padding:2px 12px;border-radius:12px;background:var(--blue);color:#fff;font-size:26px;font-weight:800;letter-spacing:.5px;font-variant-numeric:tabular-nums}
+.ono.sm{font-size:15px;padding:0 8px;border-radius:8px}
+.toast .ono{margin-right:4px}
+.sh-ono{font-size:34px;font-weight:800;margin:2px 0 6px;color:var(--blue);letter-spacing:.5px}
+#don-dlg{width:min(760px,94vw);text-align:left}
+#don-dlg .pay-qr{margin-top:12px}
+#kitchen-ov{display:flex;flex-direction:column;overflow:hidden;padding-bottom:0}
+#kitchen-ov .top{grid-template-columns:1fr auto}.k-actions{display:flex;gap:8px}
+.k-frame{flex:1;width:100%;border:0;background:var(--bg)}
+@media (max-width:700px){.logo{height:40px}.foot{padding-left:16px;padding-right:16px}}

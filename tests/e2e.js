@@ -294,6 +294,95 @@ async function test(name, fn) {
     await p.ctx.close();
   });
 
+  if (feat('display.html') || has('display.html')) await test('Bestellnummern je Sparte und Küchenanzeige in einem zweiten Fenster', async errs => {
+    const p = await open(errs, '#crepes');
+    await p.evaluate(() => { window.__s = []; const o = Sound.play; Sound.play = n => { __s.push(n); o.call(Sound, n); }; });
+    await tap(p, 'c-nutella'); await tap(p, 'c-kaese');
+    await p.click('#pay'); await p.click('[data-quick="20"]'); await p.click('#p-ok');
+    assert.strictEqual(await p.evaluate(() => state.sales[0].on), 'C1');
+    assert.ok((await txt(p, '#toast')).includes('C1'), 'Bestellnummer im Hinweis');
+    await tap(p, 'c-zimt'); await p.click('#pay'); await p.click('[data-quick="5"]'); await p.click('#p-ok');
+    assert.strictEqual(await p.evaluate(() => state.sales[1].on), 'C2');
+    await p.click('[data-stand=burger]'); await tap(p, 'b-maul-f'); await p.click('#pay'); await p.click('[data-quick="10"]'); await p.click('#p-ok');
+    assert.strictEqual(await p.evaluate(() => state.sales[2].on), 'B1');                                   // jede Sparte zählt für sich
+    assert.deepStrictEqual(await p.evaluate(() => __s.filter(x => x === 'tick' || x === 'booked')), ['tick', 'tick', 'booked', 'tick', 'booked', 'tick', 'booked'], 'Töne beim Antippen und Verbuchen');
+    assert.strictEqual(await txt(p, '#k-count'), '3');
+    // zweites Fenster (gleicher Browser) mit der Küchenanzeige für Crêpes
+    const k = await p.ctx.newPage(); k.on('pageerror', x => errs.push(x.message));
+    await k.goto(base.replace('index.html', 'display.html') + '#crepes'); await k.waitForSelector('.tk');
+    let t = await txt(k, '#open'); assert.ok(t.includes('C1') && t.includes('C2') && !t.includes('B1'), 'Filter Crêpes: ' + t);
+    assert.ok(/1×\s*Nutella/.test(t) && /1×\s*Käse/.test(t) && /1×\s*Zimt und Zucker/.test(t), t);
+    await k.click('[data-f=all]'); assert.ok((await txt(k, '#open')).includes('B1'), 'Alle Sparten');
+    assert.ok((await txt(k, '#open')).includes('Fleisch'), 'Sorte steht in der Bestellung');
+    // Küche meldet fertig -> Kasse bekommt Ton und Zähler sinkt
+    await k.click('[data-done^="C1|"]'); await p.waitForFunction(() => document.querySelector('#k-count').textContent === '2');
+    assert.ok((await p.evaluate(() => __s)).includes('ready'), 'Ton „fertig“ in der Kasse');
+    assert.ok((await txt(k, '#ready')).includes('C1') && !(await txt(k, '#open')).includes('C1'));
+    await k.click('#undo'); assert.ok((await txt(k, '#open')).includes('C1'), 'Rückgängig');
+    // Storno in der Kasse nimmt die Bestellung aus der Anzeige
+    await admin(p, true); await p.click('[data-void="2"]'); await p.click('#c-ok'); await p.waitForTimeout(200);
+    await k.waitForFunction(() => !document.querySelector('#open').textContent.includes('C2'));
+    await p.ctx.close();
+  });
+
+  if (feat('display.html') || has('display.html')) await test('Kürzel der Sparte ändern, Nummern pro Tag neu, zurücksetzen', async errs => {
+    const p = await open(errs, '#karten'); await admin(p, true); await p.click('#edit-mode');
+    await p.click('[data-prefix]'); await p.fill('#t-input', 'x1'); await p.press('#t-input', 'Enter'); await p.waitForTimeout(150); await p.click('[data-editdone]');
+    await tap(p, 'k-1'); await p.click('#pay'); await p.click('[data-quick="5"]'); await p.click('#p-ok'); assert.strictEqual(await p.evaluate(() => state.sales[0].on), 'X11');
+    await p.evaluate(() => { state.orderNo.day = '2000-01-01'; });                                              // „gestern“
+    await tap(p, 'k-1'); await p.click('#pay'); await p.click('[data-quick="5"]'); await p.click('#p-ok'); assert.strictEqual(await p.evaluate(() => state.sales[1].on), 'X11', 'neuer Tag beginnt wieder bei 1');
+    await admin(p, false); assert.ok((await txt(p, '#ord-state')).includes('X12'));
+    await p.click('#ord-reset'); await p.click('#c-ok'); await p.waitForTimeout(150); assert.ok((await txt(p, '#ord-state')).includes('X11'));
+    await p.ctx.close();
+  });
+
+  if (feat('donate')) await test('Spende ohne Einkauf: bar und PayPal, Kassenstand, Bon, Bericht', async errs => {
+    const p = await open(errs, '#burger', { seed: { paypal: 'https://paypal.me/KGKleinglattbach' } });
+    await p.click('#donate'); await p.waitForSelector('#don-dlg[open]'); assert.ok(await p.isDisabled('#d-ok'));
+    await p.click('[data-dq="5"]'); assert.strictEqual(await txt(p, '#d-amt'), '5 €'); await p.click('#d-ok');
+    let s = await p.evaluate(() => state.sales[0]);
+    assert.deepStrictEqual([s.donation, s.method, s.total, s.tip, s.given, s.on], [true, 'bar', 0, 500, 500, undefined]);
+    await p.click('#donate'); await p.click('[data-dmethod=paypal]');
+    for (const k of ['7', ',', '5']) await p.click(`[data-dkey="${k}"]`);
+    assert.strictEqual(await txt(p, '#d-amt'), '7,5 €'); assert.ok((await txt(p, '#d-qr')).includes('paypal.me/KGKleinglattbach/7.50'), await txt(p, '#d-qr'));
+    await p.click('#d-ok');
+    s = await p.evaluate(() => state.sales[1]); assert.deepStrictEqual([s.donation, s.method, s.tip], [true, 'paypal', 750]);
+    assert.strictEqual(await p.evaluate(() => readOrders().orders.length), 0, 'Spenden erscheinen nicht in der Küche');
+    const lines = await p.evaluate(() => receiptLines(state.sales[0]).map(l => l.t).join('\n')); assert.ok(/Spende \(ohne Einkauf\)\s+5,00/.test(lines) && /SUMME\s+5,00/.test(lines), lines);
+    await admin(p, true);
+    const cash = await txt(p, '#cash-card'); assert.ok(cash.includes('+ Spenden0,00') === false && /Spenden.*5,00 €/.test(cash) && /Aktuell in der Kasse.*5,00 €/.test(cash), cash);   // PayPal-Spende ändert den Bargeldbestand nicht
+    const sum = await txt(p, '#admin-summary'); assert.ok(/Bar 0,00 € · PayPal 7,50 € · Spenden 12,50 €/.test(sum), sum);
+    assert.ok((await txt(p, '#sales-list')).includes('Spende (ohne Einkauf)'));
+    await p.click('[data-void="1"]'); await p.click('#c-ok'); await p.waitForTimeout(150); assert.ok(/Aktuell in der Kasse.*0,00 €/.test(await txt(p, '#cash-card')), 'Storno der Spende');
+    const rep = await p.evaluate(() => reportLines(null).map(l => l.t).join('\n')); assert.ok(/Spenden ohne Einkauf: 1\s+7,50/.test(rep), rep);   // die stornierte Spende zählt nicht
+    await p.ctx.close();
+  });
+
+  if (feat('Leo B.') || has('display.html')) await test('Logo (hell/dunkel) und Fußzeile', async errs => {
+    const p = await open(errs);
+    assert.ok((await txt(p, '.foot')).includes('coded by Leo B. - 2026'));
+    const logo = await p.evaluate(() => { const i = document.querySelector('.top .logo'); return { ok: i.complete && i.naturalWidth > 100, src: i.getAttribute('src'), dark: document.querySelector('.top picture source').getAttribute('srcset'), h: Math.round(i.getBoundingClientRect().height) }; });
+    assert.deepStrictEqual([logo.ok, logo.src, logo.dark], [true, 'icons/jugend-hell.png', 'icons/jugend-dunkel.png']); assert.ok(logo.h >= 40);
+    const dark = await p.ctx.newPage(); await dark.emulateMedia({ colorScheme: 'dark' }); await dark.goto(base);
+    assert.ok(await dark.evaluate(() => document.querySelector('.top .logo').currentSrc.endsWith('jugend-dunkel.png')), 'Dunkelmodus nimmt die weiße Variante');
+    await p.ctx.close();
+  });
+
+  if (feat('sound-toggle')) await test('Töne: Einstellungen, ein/aus, Lautstärke, jeder Ton lässt sich spielen', async errs => {
+    const p = await open(errs); await admin(p, true);
+    assert.strictEqual(await p.isChecked('#sound-toggle'), true); assert.strictEqual(await p.inputValue('#sound-vol'), 'mid');
+    for (const n of await p.evaluate(() => Sound.names)) await p.evaluate(x => Sound.play(x), n);   // kein Fehler
+    assert.ok((await p.evaluate(() => Sound.names)).length >= 9);
+    await p.selectOption('#sound-vol', 'high'); assert.deepStrictEqual(await p.evaluate(() => [Sound.config.vol, state.sound.vol]), ['high', 'high']);
+    await p.click('.switch-row:has(#sound-tap)'); assert.strictEqual(await p.evaluate(() => Sound.config.tap), false);
+    await p.evaluate(() => { window.__o = 0; const f = AudioContext.prototype.createOscillator; AudioContext.prototype.createOscillator = function () { window.__o++; return f.call(this); }; });
+    await p.evaluate(() => Sound.play('booked')); assert.strictEqual(await p.evaluate(() => window.__o), 3, '„booked“ besteht aus drei Tönen');
+    await p.evaluate(() => { window.__o = 0; });
+    await p.click('.switch-row:has(#sound-toggle)'); assert.deepStrictEqual(await p.evaluate(() => [Sound.config.on, state.sound.on]), [false, false]);
+    await p.evaluate(() => Sound.play('booked')); assert.strictEqual(await p.evaluate(() => window.__o), 0, 'bei „aus“ wird nichts gespielt');
+    await p.ctx.close();
+  });
+
   await browser.close(); server.close();
   console.log(`\n${count - fails} von ${count} Ablauf-Tests bestanden (${dir})`); process.exit(fails ? 1 : 0);
 })();

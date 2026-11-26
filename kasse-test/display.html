@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<title>Küche</title>
+<style>
+  :root{--bg:#F2F2F7;--card:#fff;--label:#000;--label2:rgba(60,60,67,.6);--sep:rgba(60,60,67,.18);--fill:rgba(120,120,128,.14);--blue:#007AFF;--green:#34C759;--orange:#FF9F0A;--red:#FF3B30}
+  @media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1C1C1E;--label:#fff;--label2:rgba(235,235,245,.6);--sep:rgba(84,84,88,.6);--fill:rgba(120,120,128,.28);--blue:#0A84FF;--green:#30D158;--orange:#FF9F0A;--red:#FF453A}}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--label);font:17px/1.3 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;display:flex;flex-direction:column;-webkit-user-select:none;user-select:none;touch-action:manipulation;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+  button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;touch-action:manipulation}
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 20px}
+  h1{margin:0;font-size:28px;letter-spacing:-.4px}
+  .logo{height:60px;width:auto}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{min-height:44px;padding:0 16px;border-radius:22px;background:var(--fill);font-weight:600}
+  .chip[aria-pressed=true]{background:var(--blue);color:#fff}
+  .sp{flex:1}
+  .btn{min-height:44px;padding:0 16px;border-radius:12px;background:var(--fill);font-weight:600;color:var(--blue)}
+  .btn:disabled{opacity:.35}
+  #clock{font-variant-numeric:tabular-nums;color:var(--label2);font-size:20px;font-weight:600}
+  main{flex:1;overflow:auto;padding:4px 20px 12px;-webkit-overflow-scrolling:touch}
+  h2{margin:14px 4px 8px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--label2)}
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(270px,1fr))}
+  .tk{background:var(--card);border-radius:20px;border-top:8px solid var(--c,var(--blue));box-shadow:0 1px 4px rgba(0,0,0,.12);display:flex;flex-direction:column;overflow:hidden}
+  .tk.warn{box-shadow:0 0 0 3px var(--orange)}.tk.late{box-shadow:0 0 0 4px var(--red)}
+  .tk header{padding:12px 16px 4px;align-items:baseline;gap:10px}
+  .no{font-size:44px;font-weight:800;letter-spacing:.5px;line-height:1}
+  .sl{color:var(--label2);font-size:15px;flex:1}
+  time{font-variant-numeric:tabular-nums;font-weight:700;font-size:18px;color:var(--label2)}
+  .warn time{color:var(--orange)}.late time{color:var(--red)}
+  ul{list-style:none;margin:0;padding:6px 16px 10px;flex:1}
+  li{display:flex;gap:10px;font-size:24px;font-weight:600;padding:5px 0;border-top:.5px solid var(--sep)}
+  li:first-child{border-top:0}
+  li b{min-width:44px;font-variant-numeric:tabular-nums}
+  .done{margin:0 12px 12px;min-height:58px;border-radius:14px;background:var(--green);color:#000;font-size:20px;font-weight:700}
+  .ready{display:flex;gap:10px;flex-wrap:wrap}
+  .rd{min-height:56px;padding:0 20px;border-radius:14px;background:var(--card);border:2px solid var(--c,var(--green));font-size:26px;font-weight:800;display:inline-flex;align-items:center;gap:8px}
+  .rd small{font-size:13px;font-weight:600;color:var(--label2)}
+  .empty{text-align:center;color:var(--label2);padding:60px 20px;font-size:20px}
+  .empty img{display:block;margin:0 auto 14px;height:90px;opacity:.9}
+</style>
+</head>
+<body>
+<header>
+  <picture><source srcset="icons/jugend-dunkel.png" media="(prefers-color-scheme: dark)"><img class="logo" src="icons/jugend-hell.png" alt="ev. Jugend Kleinglattbach"></picture>
+  <h1>Küche</h1>
+  <div class="chips" id="chips" role="group" aria-label="Sparte"></div>
+  <span class="sp"></span>
+  <button class="btn" id="undo" disabled>↶ Rückgängig</button>
+  <span id="clock"></span>
+</header>
+<main>
+  <section><div class="grid" id="open"></div><div class="empty" id="empty" hidden></div></section>
+  <section id="ready-sec" hidden><h2>Fertig · zur Abholung (antippen, wenn abgeholt)</h2><div class="ready" id="ready"></div></section>
+</main>
+<script src="sound.js"></script>
+<script>
+'use strict';
+// Küchenanzeige: zeigt die Bestellungen der Kasse (gleiches Gerät, zweites Fenster). Die Daten liegen im Speicher des Browsers;
+// Änderungen kommen über BroadcastChannel bzw. das storage-Ereignis an. Es wird nichts an einen Server geschickt.
+const IS_TEST = /\/kasse-test\//.test(location.pathname);
+const KEY = IS_TEST ? 'kasse-test-v2' : 'kasse-v2', ORD_KEY = KEY + '-orders';
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const chan = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(ORD_KEY) : null;
+const mainState = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } };
+const read = () => { try { const o = JSON.parse(localStorage.getItem(ORD_KEY)); return o && Array.isArray(o.orders) ? o : { orders: [] }; } catch (e) { return { orders: [] }; } };
+function write(o) { try { localStorage.setItem(ORD_KEY, JSON.stringify(o)); } catch (e) {} if (chan) chan.postMessage('changed'); }
+const idOf = o => o.no + '|' + o.n;
+
+let filter = decodeURIComponent(location.hash.slice(1)) || 'all', known = null, undo = [];
+Sound.setup(mainState().sound);
+document.addEventListener('pointerdown', () => Sound.unlock(), { passive: true });
+
+function stands() {   // Sparten aus dem Sortiment der Kasse, sonst aus den Bestellungen
+  const cat = mainState().catalog;
+  if (Array.isArray(cat) && cat.length) return cat.map(s => ({ id: s.id, label: s.label }));
+  const m = new Map(); read().orders.forEach(o => m.set(o.st, o.sl)); return [...m].map(([id, label]) => ({ id, label }));
+}
+function chips() {
+  const list = [{ id: 'all', label: 'Alle' }, ...stands()];
+  if (!list.some(s => s.id === filter)) filter = 'all';
+  $('#chips').innerHTML = list.map(s => `<button class="chip" data-f="${esc(s.id)}" aria-pressed="${s.id === filter}">${esc(s.label)}</button>`).join('');
+}
+const visible = o => filter === 'all' || o.st === filter;
+const mins = t => Math.max(0, Math.floor((Date.now() - t) / 60000));
+
+function render() {
+  Sound.setup(mainState().sound);
+  const all = read().orders.filter(visible).sort((a, b) => a.t - b.t);
+  const open = all.filter(o => o.status === 'open'), ready = all.filter(o => o.status === 'ready');
+  // Ton bei neuen Bestellungen (nicht beim ersten Laden)
+  const ids = new Set(open.map(idOf));
+  if (known && open.some(o => !known.has(idOf(o)))) Sound.play('newOrder');
+  known = ids;
+  $('#open').innerHTML = open.map(o => { const m = mins(o.t), cls = m >= 10 ? 'late' : m >= 5 ? 'warn' : '';
+    return `<article class="tk ${cls}" style="--c:${esc(o.col || '#007AFF')}"><header><b class="no">${esc(o.no)}</b><span class="sl">${esc(o.sl)}</span><time>${m} min</time></header>
+      <ul>${o.items.map(([n, q]) => `<li><b>${q}×</b><span>${esc(n)}</span></li>`).join('')}</ul>
+      <button class="done" data-done="${esc(idOf(o))}">Fertig</button></article>`; }).join('');
+  $('#empty').hidden = !!open.length;
+  $('#empty').innerHTML = `<picture><source srcset="icons/jugend-dunkel.png" media="(prefers-color-scheme: dark)"><img src="icons/jugend-hell.png" alt=""></picture>Keine offenen Bestellungen`;
+  $('#ready-sec').hidden = !ready.length;
+  $('#ready').innerHTML = ready.map(o => `<button class="rd" style="--c:${esc(o.col || '#34C759')}" data-pick="${esc(idOf(o))}">${esc(o.no)} <small>abgeholt</small></button>`).join('');
+  $('#undo').disabled = !undo.length;
+}
+
+function setStatus(id, status, remember) {
+  const o = read(), x = o.orders.find(y => idOf(y) === id); if (!x) return;
+  if (remember) undo.push({ id, prev: x.status });
+  x.status = status; write(o); render();
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.f) { filter = b.dataset.f; history.replaceState(null, '', '#' + encodeURIComponent(filter)); known = null; chips(); render(); }
+  else if (b.dataset.done) { setStatus(b.dataset.done, 'ready', true); Sound.play('ready'); }
+  else if (b.dataset.pick) setStatus(b.dataset.pick, 'done', true);
+  else if (b.id === 'undo') { const u = undo.pop(); if (u) setStatus(u.id, u.prev, false); }
+});
+if (chan) chan.onmessage = () => { chips(); render(); };
+window.addEventListener('storage', e => { if (e.key === ORD_KEY || e.key === KEY) { chips(); render(); } });
+window.addEventListener('hashchange', () => { filter = decodeURIComponent(location.hash.slice(1)) || 'all'; known = null; chips(); render(); });
+setInterval(() => { $('#clock').textContent = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); render(); }, 15000);
+$('#clock').textContent = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+// Bildschirm bleibt an
+let wl = null; async function awake() { try { if ('wakeLock' in navigator && document.visibilityState === 'visible' && (!wl || wl.released)) wl = await navigator.wakeLock.request('screen'); } catch (e) {} }
+document.addEventListener('visibilitychange', awake); document.addEventListener('pointerdown', awake, { passive: true }); awake();
+chips(); render();
+</script>
+</body>
+</html>

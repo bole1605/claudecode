@@ -28,7 +28,7 @@ t('Kassenstand', () => {
   const c = K.cashSeries(sales, 10000);
   assert.deepStrictEqual([c.m[1], c.m[2], c.m[3], c.m[4], c.m[5], c.bal], [10700, 10700, 10700, 11200, 11000, 11000]);
   assert.deepStrictEqual([c.sales, c.tips], [700, 300]);
-  assert.deepStrictEqual(K.payTotals(sales), { bar: 700, paypal: 300, tip: 300 });
+  assert.deepStrictEqual(K.payTotals(sales), { bar: 700, paypal: 300, tip: 300, don: 0, donSum: 0 });
 });
 t('PayPal-Link bereinigen', () => {
   const ok = { 'https://paypal.me/Anna': 'https://paypal.me/Anna', 'paypal.me/Anna': 'https://paypal.me/Anna', '  https://paypal.me/Anna/  ': 'https://paypal.me/Anna/',
@@ -104,6 +104,21 @@ t('Lesbarkeit: Schrift auf Kategorie-Farben', () => {
   assert.strictEqual(K.textOn('#FF9F0A'), '#000000'); assert.strictEqual(K.textOn('#5856D6'), '#ffffff');
   for (const col of ['#FF9F0A', '#34C759', '#30B0C7', '#5856D6', '#AF52DE', '#007AFF', '#A2845E', '#00C7BE'])
     assert.ok(K.contrast(K.textOn(col), col) >= 4.5, col + ' ' + K.contrast(K.textOn(col), col).toFixed(2));   // WCAG AA für normalen Text
+});
+t('Bestellnummern je Sparte, pro Tag neu', () => {
+  if (!K.nextOrder) return;
+  let r = K.nextOrder(null, 'crepes', 'C', '2026-11-26'); assert.strictEqual(r.no, 'C1');
+  r = K.nextOrder(r.st, 'crepes', 'C', '2026-11-26'); assert.strictEqual(r.no, 'C2');
+  let b = K.nextOrder(r.st, 'burger', 'B', '2026-11-26'); assert.strictEqual(b.no, 'B1'); assert.strictEqual(K.nextOrder(b.st, 'crepes', 'C', '2026-11-26').no, 'C3');   // Sparten zählen getrennt
+  assert.strictEqual(K.nextOrder(b.st, 'crepes', 'C', '2026-11-27').no, 'C1');   // neuer Tag: wieder bei 1
+  assert.deepStrictEqual(r.st.seq, { crepes: 2 });   // Eingabe wird nicht verändert
+  assert.deepStrictEqual([K.defaultPrefix('crepes', 'Crêpes'), K.defaultPrefix('burger', 'Burger & Spezi'), K.defaultPrefix('karten', 'Karten'), K.defaultPrefix('s123', 'Waffeln'), K.defaultPrefix('x', '')], ['C', 'B', 'K', 'W', 'X']);
+});
+t('Spende ohne Einkauf in den Summen (bar und PayPal)', () => {
+  const s = [{ total: 600, tip: 0 }, { total: 0, tip: 500, donation: true }, { total: 0, tip: 300, donation: true, method: 'paypal' }, { total: 0, tip: 900, donation: true, void: true }, { total: 300, method: 'paypal' }];
+  assert.deepStrictEqual(K.payTotals(s), { bar: 600, paypal: 600, tip: 800, don: 2, donSum: 800 });
+  const c = K.cashSeries(s.map((x, i) => ({ ...x, n: i + 1, t: i })), 1000);
+  assert.strictEqual(c.bal, 1000 + 600 + 500); assert.strictEqual(c.tips, 500);   // PayPal und Storno ändern den Bargeldbestand nicht
 });
 (async () => {
   const sample = { v: 1, n: 7, t: 1764000000000, s: 'Burger & Spezi', m: 'b', tot: 1250, giv: 2000, tip: 150, chg: 600, po: 0, x: 1,
