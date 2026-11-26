@@ -448,6 +448,29 @@ async function test(name, fn) {
     await p.ctx.close();
   });
 
+  if (feat('embed=1')) await test('Küche (Überlagerung): alle Sparten, nichts abgeschnitten, auch im Weihnachtsdesign, ohne doppelten Titel', async errs => {
+    const p = await open(errs, '#burger', { seed: { design: { theme: 'xmas', snow: true, mode: 'auto', accent: null, logo: 'low' } } });
+    const book = async (ids, q) => { for (const i of ids) await tap(p, i); await p.click('#pay'); await p.click(`[data-quick="${q}"]`); await p.click('#p-ok'); await p.click('#toast-x').catch(() => {}); };
+    await book(['b-spezial-f', 'b-spezial-v', 'b-spezial-v'], '50');                                  // Burger: lange Namen
+    await p.click('[data-stand=crepes]'); await book(['c-kraeuter', 'c-kaese'], '20'); await p.click('[data-stand=burger]');   // Crêpes gebucht, Burger-Seite gewählt
+    await p.click('#kitchen-open'); await p.waitForSelector('#kitchen-ov:not([hidden])');
+    let f; for (let i = 0; i < 40 && !f; i++) { f = p.frames().find(x => x.url().includes('display.html')); if (!f) await p.waitForTimeout(100); }
+    await f.waitForSelector('.tk');
+    const m = await f.evaluate(() => ({ chip: document.querySelector('.chip[aria-pressed=true]').textContent, nos: [...document.querySelectorAll('.tk .no')].map(x => x.textContent),
+      mainH: document.querySelector('main').clientHeight, snow: !!document.querySelector('#snow'), h1: getComputedStyle(document.querySelector('h1')).display,
+      clipped: [...document.querySelectorAll('.tk li span')].filter(s => s.scrollWidth > s.clientWidth + 1).length, ticketsCut: [...document.querySelectorAll('.tk')].filter(t => t.scrollHeight > t.clientHeight + 1).length }));
+    assert.deepStrictEqual([m.chip, m.nos], ['Alle', ['B1', 'C1']], 'Standard: alle Sparten sichtbar');
+    assert.ok(m.mainH > 250, 'Anzeige nicht zusammengedrückt: ' + m.mainH); assert.strictEqual(m.snow, false, 'kein Schnee in der Küche'); assert.strictEqual(m.h1, 'none', 'Titel steht schon im Rahmen');
+    assert.deepStrictEqual([m.clipped, m.ticketsCut], [0, 0], 'Text abgeschnitten');
+    const hd = await p.evaluate(() => document.querySelector('#kitchen-ov .top').getBoundingClientRect().top); if (dir === 'kasse-test') assert.ok(hd >= 26, 'Kopfzeile unter dem Testbalken: ' + hd);
+    await p.click('#kitchen-close');
+    await p.evaluate(() => { state.lock = 'crepes'; save(); });                                          // Gerät fest auf Crêpes: nur diese Sparte
+    await p.click('#kitchen-open'); f = null; for (let i = 0; i < 40 && !f; i++) { f = p.frames().find(x => x.url().includes('display.html')); if (!f) await p.waitForTimeout(100); }
+    await f.waitForFunction(() => document.querySelector('.chip[aria-pressed=true]') && document.querySelector('.chip[aria-pressed=true]').textContent === 'Crêpes');
+    assert.deepStrictEqual(await f.evaluate(() => [...document.querySelectorAll('.tk .no')].map(x => x.textContent)), ['C1']);
+    await p.ctx.close();
+  });
+
   await browser.close(); server.close();
   console.log(`\n${count - fails} von ${count} Ablauf-Tests bestanden (${dir})`); process.exit(fails ? 1 : 0);
 })();

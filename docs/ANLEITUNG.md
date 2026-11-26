@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v24** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v26** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -124,6 +124,7 @@ Unter dem Bon steht die Taste **„Spende buchen“**. Du wählst **Bar** oder *
 **Küchenanzeige:** Oben rechts steht die Taste **„Küche“** mit der Zahl der offenen Bestellungen.
 - **Küche** öffnet die Anzeige über der Kasse (Schließen mit „Schließen“). So wechselst du auf einem Tablet zwischen Kasse und Küche.
 - **In neuem Fenster** öffnet sie als eigenes Fenster desselben Geräts, zum Beispiel nebeneinander (iPad: Split View mit zwei Safari-Fenstern, Android: zweites Fenster/Tab). Die Seite heißt `display.html` neben der Kasse, du kannst sie auch direkt öffnen, mit `#crepes`, `#burger` oder `#karten` am Ende für eine Sparte.
+- Die Küche zeigt beim Öffnen **alle Sparten** dieses Tablets (ist das Tablet auf einen Stand festgelegt, nur diesen). Mit den Tasten oben (**Alle**, Sparte) wechselst du den Filter.
 - Auf der Küchenanzeige stehen **Nummer, Sparte, Wartezeit** (orange ab 5, rot ab 10 Minuten) und die **Artikel mit Sorte** (zum Beispiel „Fleisch“). Mit den Tasten oben filterst du nach Sparte.
 - **Fertig** schiebt die Bestellung in die Liste „Fertig · zur Abholung“. Die Kasse spielt dann einen Ton. Antippen der Nummer dort heißt „abgeholt“. **Rückgängig** nimmt den letzten Schritt zurück.
 - Storniert die Kasse einen Bon, verschwindet die Bestellung aus der Anzeige.

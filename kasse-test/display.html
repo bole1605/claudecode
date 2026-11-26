@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="de" data-nosnow>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -36,7 +36,10 @@
   time{font-variant-numeric:tabular-nums;font-weight:700;font-size:18px;color:var(--label2)}
   .warn time{color:var(--orange)}.late time{color:var(--red)}
   ul{list-style:none;margin:0;padding:6px 16px 10px;flex:1}
-  li{display:flex;gap:10px;font-size:24px;font-weight:600;padding:5px 0;border-top:.5px solid var(--sep)}
+  li{display:flex;gap:10px;font-size:24px;font-weight:600;padding:5px 0;border-top:.5px solid var(--sep);min-width:0}
+  li span{min-width:0;overflow-wrap:anywhere;hyphens:auto;-webkit-hyphens:auto}
+  #snow{position:fixed;inset:0;pointer-events:none}
+  body.embed h1{display:none}
   li:first-child{border-top:0}
   li b{min-width:44px;font-variant-numeric:tabular-nums}
   .done{margin:0 12px 12px;min-height:58px;border-radius:14px;background:var(--green);color:#000;font-size:20px;font-weight:700}
@@ -77,6 +80,7 @@ const read = () => { try { const o = JSON.parse(localStorage.getItem(ORD_KEY)); 
 function write(o) { try { localStorage.setItem(ORD_KEY, JSON.stringify(o)); } catch (e) {} if (chan) chan.postMessage('changed'); }
 const idOf = o => o.no + '|' + o.n;
 
+if (/[?&]embed=1/.test(location.search)) document.body.classList.add('embed');   // im Überlagerungsfenster der Kasse: Titel steht schon dort
 let filter = decodeURIComponent(location.hash.slice(1)) || 'all', known = null, undo = [];
 Sound.setup(mainState().sound);
 document.addEventListener('pointerdown', () => Sound.unlock(), { passive: true });

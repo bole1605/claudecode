@@ -84,7 +84,7 @@
     win.document.querySelectorAll('meta[name=theme-color]').forEach((m, i) => { if (i) m.remove(); else { m.removeAttribute('media'); m.setAttribute('content', v['--bg']); } });
     const b = win.document.body;
     if (b) { b.classList.toggle('theme-xmas', !!t.xmas); }
-    if (t.xmas && d.snow) startSnow(); else stopSnow();
+    if (t.xmas && d.snow && !de.hasAttribute('data-nosnow')) startSnow(); else stopSnow();   // Küchenanzeige: data-nosnow
   }
   // Wechsel des Systemmodus (Automatik) mitverfolgen
   function watch(getDesign) {
