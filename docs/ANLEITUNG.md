@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v29** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v30** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -121,7 +121,7 @@ Unter dem Bon steht die Taste **„Spende buchen“**. Du wählst **Bar** oder *
 
 **Bestellnummern:** Jede Bestellung bekommt nach dem Verbuchen eine Nummer **je Sparte**, zum Beispiel **C1, C2 …** (Crêpes), **B1, B2 …** (Burger & Spezi), **K1 …** (Karten). Sie erscheint groß unter dem Bon-Hinweis, auf dem Bon, auf dem Online-Bon und in der Buchungsliste. Die Zählung **beginnt jeden Tag neu**. Das Kürzel änderst du im Bearbeitungsmodus mit der Taste **„Kürzel“**; „Bestellnummern zurücksetzen“ gibt es in der Verwaltung unter „Bestellungen und Küchenanzeige“. Eine reine Pfand-Rückgabe oder eine Spende bekommt keine Nummer.
 
-**Nummer von Hand (Märkchen):** Verwaltung → „Bestellungen und Küchenanzeige“ → **Bestellnummer: „Von Hand (Märkchen)“**. Dann fragt die Kasse nach „Verbuchen“ nach der **Nummer des Märkchens**: Nummer eintippen (bis 4 Ziffern), „Verbuchen“. Eine Nummer, die noch offen oder abholbereit ist, ist gesperrt; sobald die Bestellung als „abgeholt“ gilt, ist sie wieder frei. Spenden brauchen keine Nummer. Die Einstellung gilt je Gerät; der Standard ist „Automatisch“ (C1, B1 …).
+**Nummer von Hand (Märkchen):** Verwaltung → „Bestellungen und Küchenanzeige“ → **Bestellnummer: „Von Hand (Märkchen)“**. Dann fragt die Kasse nach „Verbuchen“ nach der **Nummer des Märkchens**: Nummer eintippen (bis 4 Ziffern), „Verbuchen“. Eine Nummer, die noch offen oder abholbereit ist, ist gesperrt; sobald die Bestellung als „abgeholt“ gilt, ist sie wieder frei. Spenden brauchen keine Nummer. Die Einstellung gilt je Gerät; der Standard ist „Von Hand“; „Automatisch“ vergibt C1, B1 ….
 
 **Küchenanzeige:** Oben rechts steht die Taste **„Küche“** mit der Zahl der offenen Bestellungen.
 - **Küche** öffnet die Anzeige über der Kasse (Schließen mit „Schließen“). So wechselst du auf einem Tablet zwischen Kasse und Küche.
