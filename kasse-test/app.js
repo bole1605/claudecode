@@ -33,7 +33,7 @@ const DEFAULT_STANDS = [
     ]},
   ]},
 ];
-const VERSION = 24;
+const VERSION = 26;
 // Fokus ins erste Feld – aber nur, wenn die Eingabe nicht schon in einem anderen Feld des Fensters begonnen hat
 const focusFirst = sel => setTimeout(() => { const el = document.querySelector(sel), d = el.closest('dialog'); if (!d.contains(document.activeElement) || document.activeElement === d) el.focus(); }, 50);
 // Test- und Live-Version liegen auf derselben Domain: getrennter Speicher, damit sich die Daten nie vermischen
@@ -145,8 +145,8 @@ function ordersChanged() {
 }
 if (orderChan) orderChan.onmessage = ordersChanged;
 window.addEventListener('storage', e => { if (e.key === ORD_KEY) ordersChanged(); });
-const kitchenUrl = () => location.origin + location.pathname.replace(/[^/]*$/, '') + 'display.html#' + (state.lock || state.stand);
-function kitchenOpen() { $('#k-frame').src = kitchenUrl(); $('#kitchen-ov').hidden = false; document.body.classList.add('noscroll'); }
+const kitchenUrl = embed => location.origin + location.pathname.replace(/[^/]*$/, '') + 'display.html' + (embed ? '?embed=1' : '') + '#' + (state.lock || 'all');   // alle Sparten, außer das Gerät ist auf einen Stand festgelegt
+function kitchenOpen() { $('#k-frame').src = kitchenUrl(true); $('#kitchen-ov').hidden = false; document.body.classList.add('noscroll'); }
 function kitchenClose() { $('#kitchen-ov').hidden = true; $('#k-frame').src = 'about:blank'; document.body.classList.remove('noscroll'); kitchenBadge(); }
 
 const stand = () => STANDS.find(s => s.id === state.stand);
