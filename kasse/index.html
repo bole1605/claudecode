@@ -15,14 +15,20 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=21">
+<link rel="stylesheet" href="styles.css?v=26">
+<script src="logic.js?v=26"></script>
+<script src="theme.js?v=26"></script>
 </head>
 <body>
+<div id="wm" aria-hidden="true"></div>
 <div class="app">
   <header class="top">
     <h1 id="title">Kasse</h1>
     <div class="segmented" role="tablist" aria-label="Stand wählen" id="tabs"></div>
-    <div class="top-spacer"><span class="ver">v21</span></div>
+    <div class="top-spacer">
+      <button class="btn sm k-btn" id="kitchen-open" aria-label="Küchenanzeige öffnen">Küche <b id="k-count" hidden>0</b></button>
+      <span class="logo-wrap"><img class="logo l" src="icons/jugend-hell.png" alt="ev. Jugend Kleinglattbach"><img class="logo d" src="icons/jugend-dunkel.png" alt="" aria-hidden="true"></span>
+    </div>
   </header>
 
   <div class="edit-bar" id="edit-bar" hidden></div>
@@ -36,8 +42,11 @@
       <div class="bon-total"><span>Summe</span><b id="bon-sum">0,00 €</b></div>
       <button class="btn primary" id="pay" disabled>Bezahlen</button>
       <button class="btn destructive" id="clear" disabled>Bon leeren</button>
+      <button class="btn" id="donate">Spende buchen</button>
     </aside>
   </div>
+
+  <footer class="foot"><span>coded by Leo B. - 2026</span><span class="ver">v26</span></footer>
 
 </div>
 
@@ -133,6 +142,40 @@
       <small class="muted"><b>Zum Testen:</b> Scanne den Code nicht mit dem PayPal-Konto, dem der Link gehört. PayPal kann sich nicht selbst bezahlen und zeigt dann nur die Startseite an. Nimm ein anderes Konto oder öffne den Link im Browser, ohne angemeldet zu sein.</small>
       <small class="muted">Der Link wird im QR-Code beim Bezahlen angezeigt. Bei einem paypal.me-Link wird der Betrag automatisch eingetragen.</small>
       <button class="btn destructive" id="paypal-off" hidden>PayPal-Link entfernen</button></section>
+    <section class="card" id="design-card">
+      <h3>Design</h3>
+      <label class="field-row"><span><b>Thema</b><small>„Weihnachten“ ist ein Spaß für den Markt: Lichterkette, Mütze auf dem Logo, festliche Kachelfarben und Schnee.</small></span>
+        <select id="d-theme"><option value="standard">Logo-Lila (Standard)</option><option value="xmas">Weihnachten 🎄</option><option value="classic">Klassisch (Blau)</option></select></label>
+      <label class="field-row"><span><b>Darstellung</b><small>Draußen bei Sonne ist „Immer hell“ oft besser lesbar.</small></span>
+        <select id="d-mode"><option value="auto">Automatisch (wie das Tablet)</option><option value="light">Immer hell</option><option value="dark">Immer dunkel</option></select></label>
+      <div class="field-row"><span><b>Farbe der Knöpfe</b><small>Gilt für „Bezahlen“, Schalter und Textknöpfe.</small></span>
+        <div class="swatches" id="d-swatches"></div></div>
+      <label class="field-row"><span><b>Logo im Hintergrund</b></span>
+        <select id="d-logo"><option value="off">Aus</option><option value="low">Dezent</option><option value="mid">Deutlich</option></select></label>
+      <label class="switch-row" id="d-snow-row"><span><b>Schneefall</b><small>Nur im Weihnachtsdesign. Aus bei „Bewegung reduzieren“ des Tablets.</small></span>
+        <input type="checkbox" role="switch" id="d-snow"></label>
+      <button class="btn" id="d-reset">Design zurücksetzen</button>
+    </section>
+    <section class="card" id="sound-card">
+      <h3>Töne</h3>
+      <label class="switch-row"><span><b>Töne</b><small>Signale beim Verbuchen, bei Spenden, Fehlern und Storno sowie wenn die Küche „fertig“ meldet. Auf dem iPad bleiben sie aus, wenn der Seitenschalter auf stumm steht.</small></span>
+        <input type="checkbox" role="switch" id="sound-toggle"></label>
+      <label class="switch-row" style="margin-top:12px"><span><b>Ton beim Antippen</b><small>Leises Tickern bei Kacheln und Ziffernblock.</small></span>
+        <input type="checkbox" role="switch" id="sound-tap"></label>
+      <label class="field-row"><span><b>Lautstärke</b></span>
+        <select id="sound-vol"><option value="low">Leise</option><option value="mid">Mittel</option><option value="high">Laut</option></select></label>
+      <button class="btn" id="sound-test">Ton testen</button>
+    </section>
+    <section class="card" id="kitchen-card">
+      <h3>Bestellungen und Küchenanzeige</h3>
+      <label class="switch-row"><span><b>Küchenanzeige</b><small>Jede Bestellung bekommt eine Nummer (zum Beispiel C12, B5) und erscheint auf der Küchenanzeige, einem zweiten Fenster mit dem, was gemacht werden soll. Aus: Bestellnummern gibt es weiter, die Anzeige und die Taste „Küche“ nicht.</small></span>
+        <input type="checkbox" role="switch" id="kitchen-toggle"></label>
+      <small class="muted" id="ord-state"></small>
+      <div class="actions-card" style="padding:0;margin-top:8px">
+        <button class="btn" id="ord-reset">Bestellnummern zurücksetzen …</button>
+        <button class="btn destructive" id="ord-clear">Küchenanzeige leeren …</button>
+      </div>
+    </section>
     <section class="card" id="lock-card">
       <h3>Stand dieses Geräts</h3>
       <label class="field-row"><span><b>Dieses Tablet nur für einen Stand</b><small>Blendet die Reiter aus, damit am Stand nicht aus Versehen eine andere Seite geöffnet wird. Den Bearbeitungsmodus und diese Verwaltung erreichst du weiterhin über den Titel.</small></span>
@@ -160,6 +203,36 @@
     <section class="card" id="sales-list"></section>
   </div>
 </div>
+
+<!-- Spende ohne Einkauf -->
+<dialog id="don-dlg" class="form-dlg">
+  <h2>Spende ohne Einkauf</h2>
+  <div class="segmented pay-method" id="d-method" role="tablist" aria-label="Zahlart">
+    <button data-dmethod="bar" aria-selected="true">Bar</button><button data-dmethod="paypal" aria-selected="false">PayPal</button>
+  </div>
+  <div class="pay-grid">
+    <div class="pay-info">
+      <div class="cap">Spende</div><div class="pay-big given" id="d-amt">–</div>
+      <div class="quick" id="d-quick">
+        <button class="btn" data-dq="1">1 €</button><button class="btn" data-dq="2">2 €</button><button class="btn" data-dq="5">5 €</button>
+        <button class="btn" data-dq="10">10 €</button><button class="btn" data-dq="20">20 €</button><button class="btn" data-dq="50">50 €</button>
+      </div>
+      <div class="pay-qr" id="d-qr" hidden><div id="d-qr-img"></div></div>
+    </div>
+    <div class="pay-input">
+      <div class="keypad" id="d-keys">
+        <button data-dkey="7">7</button><button data-dkey="8">8</button><button data-dkey="9">9</button>
+        <button data-dkey="4">4</button><button data-dkey="5">5</button><button data-dkey="6">6</button>
+        <button data-dkey="1">1</button><button data-dkey="2">2</button><button data-dkey="3">3</button>
+        <button data-dkey=",">,</button><button data-dkey="0">0</button><button data-dkey="back" aria-label="Löschen">⌫</button>
+      </div>
+    </div>
+  </div>
+  <div class="dlg-actions">
+    <button class="btn" id="d-cancel">Abbrechen</button>
+    <button class="btn primary" id="d-ok" disabled>Spende verbuchen</button>
+  </div>
+</dialog>
 
 <dialog id="cs-dlg" class="form-dlg cs-dlg">
   <h2>Kassensturz</h2>
@@ -196,6 +269,7 @@
 
 <dialog id="share-dlg" class="form-dlg">
   <h2 id="sh-title">Bon</h2>
+  <div class="sh-ono" id="sh-ono" hidden></div>
   <div id="sh-qr" class="sh-qr"></div>
   <p class="sh-hint">Der Kunde scannt den QR-Code mit der Handy-Kamera und sieht den Bon online.</p>
   <label>Oder per E-Mail (Adresse wird nicht gespeichert)
@@ -265,11 +339,20 @@
   </form>
 </dialog>
 
+<!-- Küchenanzeige im selben Fenster (alternativ: eigenes Fenster) -->
+<div id="kitchen-ov" class="page" hidden>
+  <header class="top">
+    <h1>Küche</h1>
+    <div class="k-actions"><button class="btn" id="kitchen-window">In neuem Fenster</button><button class="btn primary" id="kitchen-close">Schließen</button></div>
+  </header>
+  <iframe id="k-frame" class="k-frame" title="Küchenanzeige"></iframe>
+</div>
+
 <div id="toast" class="toast" hidden></div>
 <pre id="print-area"></pre>
 
-<script src="qrcode.js?v=21"></script>
-<script src="logic.js?v=21"></script>
-<script src="app.js?v=21"></script>
+<script src="qrcode.js?v=26"></script>
+<script src="sound.js?v=26"></script>
+<script src="app.js?v=26"></script>
 </body>
 </html>
