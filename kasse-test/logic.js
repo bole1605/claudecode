@@ -139,5 +139,11 @@ function luminance(hex) {
 function contrast(a, b) { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
 const textOn = hex => contrast('#000000', hex) >= contrast('#ffffff', hex) ? '#000000' : '#ffffff';
 
-  return { defaultPrefix, nextOrder, DENOMS, countTotal, luminance, contrast, textOn, bonEncode, bonDecode, isEmail, mailtoUrl, parse, vatPart, normalizeLink, migrateCatalog, ppEmbeds, paypalUrl, calcPay, cashSeries, payTotals, enc, wrapText, makePdf };
+// --- Farben der Kacheln: aus dem Logo der ev. Jugend (Lila #A10DBC, Grau #909090, Schwarz), dazu eine helle und eine dunkle Abstufung
+const COLORS = { lila: '#A10DBC', grau: '#909090', flieder: '#CB7ADA', dunkelgrau: '#6E6E73' };
+const PALETTE = [COLORS.lila, COLORS.grau, COLORS.flieder, COLORS.dunkelgrau];
+const OLD_COLORS = { '#FF9F0A': COLORS.lila, '#34C759': COLORS.grau, '#30B0C7': COLORS.flieder, '#5856D6': COLORS.dunkelgrau };   // frühere Standardfarben
+const migrateColor = c => OLD_COLORS[String(c || '').toUpperCase()] || c;
+
+  return { COLORS, PALETTE, migrateColor, defaultPrefix, nextOrder, DENOMS, countTotal, luminance, contrast, textOn, bonEncode, bonDecode, isEmail, mailtoUrl, parse, vatPart, normalizeLink, migrateCatalog, ppEmbeds, paypalUrl, calcPay, cashSeries, payTotals, enc, wrapText, makePdf };
 });

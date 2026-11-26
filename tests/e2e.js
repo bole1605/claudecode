@@ -220,15 +220,15 @@ async function test(name, fn) {
     await tap(p, 'b-maul-v');
     const st = await p.evaluate(() => { const b = document.querySelector('[data-count="b-maul-v"]'), pr = document.querySelector('[data-add="b-maul-v"] .price');
       return { disp: getComputedStyle(b).display, bg: getComputedStyle(b).backgroundColor, fg: getComputedStyle(b).color, price: getComputedStyle(pr).color, label: getComputedStyle(document.body).color }; });
-    assert.strictEqual(st.disp, 'grid'); assert.strictEqual(st.bg, 'rgb(52, 199, 89)'); assert.strictEqual(st.fg, 'rgb(0, 0, 0)');
+    assert.strictEqual(st.disp, 'grid'); assert.strictEqual(st.bg, feat('mig23') ? 'rgb(144, 144, 144)' : 'rgb(52, 199, 89)'); assert.strictEqual(st.fg, 'rgb(0, 0, 0)');   // Logo-Grau mit schwarzer Zahl
     assert.strictEqual(st.price, st.label, 'Preis nicht in Kategorie-Farbe');
-    const cat = await p.evaluate(() => STANDS.find(s => s.id === 'karten').groups[0].color); assert.strictEqual(cat, '#5856D6');
+    const cat = await p.evaluate(() => STANDS.find(s => s.id === 'karten').groups[0].color); assert.strictEqual(cat, feat('mig23') ? '#6E6E73' : '#5856D6');
     await p.ctx.close();
   });
 
-  if (feat('mig20')) await test('Rote Kategorie aus altem Sortiment wird zu Indigo', async errs => {
+  if (feat('mig20')) await test('Rote Kategorie aus altem Sortiment wird zu Dunkelgrau (Logo-Farben)', async errs => {
     const p = await open(errs, '#karten', { seed: { mig17: true, stand: 'karten', catalog: [{ id: 'karten', label: 'Karten', groups: [{ id: 'k1', name: 'Karten', color: '#FF3B30', items: [{ id: 'k-1', name: 'Eine Karte', price: 300, vat: 19 }] }] }] } });
-    assert.strictEqual(await p.evaluate(() => STANDS[0].groups[0].color), '#5856D6'); await p.ctx.close();
+    assert.strictEqual(await p.evaluate(() => STANDS[0].groups[0].color), feat('mig23') ? '#6E6E73' : '#5856D6'); await p.ctx.close();
   });
 
   if (feat('mig20')) await test('Gerät auf einen Stand festlegen: keine Reiter, Link und Neustart ändern nichts', async errs => {
@@ -380,6 +380,15 @@ async function test(name, fn) {
     await p.evaluate(() => { window.__o = 0; });
     await p.click('.switch-row:has(#sound-toggle)'); assert.deepStrictEqual(await p.evaluate(() => [Sound.config.on, state.sound.on]), [false, false]);
     await p.evaluate(() => Sound.play('booked')); assert.strictEqual(await p.evaluate(() => window.__o), 0, 'bei „aus“ wird nichts gespielt');
+    await p.ctx.close();
+  });
+
+  if (feat('mig23')) await test('Bisherige Standardfarben werden zu Logo-Farben, eigene Farben bleiben', async errs => {
+    const p = await open(errs, '#burger', { seed: { mig17: true, mig20: true, catalog: [{ id: 'burger', label: 'Burger & Spezi', groups: [
+      { id: 'a', name: 'Burger', color: '#34C759', items: [{ id: 'b-x', name: 'X', price: 100, vat: 7 }] },
+      { id: 'b', name: 'Getränke', color: '#30B0C7', items: [] }, { id: 'c', name: 'Eigene', color: '#123456', items: [] }, { id: 'd', name: 'Crêpes', color: '#ff9f0a', items: [] }] }] } });
+    assert.deepStrictEqual(await p.evaluate(() => STANDS[0].groups.map(g => g.color)), ['#909090', '#CB7ADA', '#123456', '#A10DBC']);
+    await p.reload(); assert.deepStrictEqual(await p.evaluate(() => STANDS[0].groups.map(g => g.color)), ['#909090', '#CB7ADA', '#123456', '#A10DBC'], 'läuft nur einmal');
     await p.ctx.close();
   });
 

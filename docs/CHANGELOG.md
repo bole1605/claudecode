@@ -23,4 +23,5 @@
 | v19 | **Bon für den Kunden: QR-Code zur Online-Ansicht und E-Mail-Entwurf nach dem Verbuchen (in der Verwaltung ein-/ausschaltbar), Taste „QR / Mail“ in der Leiste und in der Buchungsliste** |
 | v20 | **Lesbarkeit und Ruhe:** Preis und Name in kräftigem Schwarz, Zähler erst ab 1 (Schwarz oder Weiß je nach Farbe), Karten in Indigo statt Rot, Tablet auf einen Stand festlegbar (Reiter ausgeblendet), Wischen zählt nicht als Verkauf, Raster so, dass die Burger-Seite ohne Scrollen passt** |
 | v21 | **Kassensturz** (Stückelung zählen, Differenz zum Soll, Protokoll), **Einlagen/Entnahmen**, **Kassenbericht** als A4-PDF und zum Drucken, auch in CSV und Sicherung |
-| **v22** | **Spende ohne Einkauf**, **Bestellnummern je Sparte** (C1, B1 …) und **Küchenanzeige** als zweites Fenster/Overlay, **Töne**, Logo der ev. Jugend (hell/dunkel) und Fußzeile „coded by Leo B. - 2026“ |
+| v22 | **Spende ohne Einkauf**, **Bestellnummern je Sparte** (C1, B1 …) und **Küchenanzeige** als zweites Fenster/Overlay, **Töne**, Logo der ev. Jugend (hell/dunkel) und Fußzeile „coded by Leo B. - 2026“ |
+| **v23** | **Kachelfarben aus dem Logo der ev. Jugend:** Lila (Crêpes), Grau (Burger), Flieder (Getränke), Dunkelgrau (Karten); gespeicherte Sortimente werden einmal umgestellt, eigene Farben bleiben |
