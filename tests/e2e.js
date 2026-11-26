@@ -468,6 +468,27 @@ async function test(name, fn) {
     await p.ctx.close();
   });
 
+  if (feat('order-mode')) await test('Bestellnummer von Hand (Märkchen): Eingabe beim Verbuchen, doppelte Nummer gesperrt, Nummer in Küche und Buchung', async errs => {
+    const p = await open(errs, '#crepes', { seed: { orderMode: 'manual' } });
+    const book = async (ids, no) => { for (const i of ids) await tap(p, i); await p.click('#pay'); await p.click('[data-quick="20"]'); await p.click('#p-ok');
+      await p.waitForSelector('#num-dlg[open]'); assert.strictEqual(await p.isDisabled('#n-ok'), true, 'ohne Nummer nicht verbuchbar');
+      for (const d of no) await p.click(`[data-nkey="${d}"]`); };
+    await book(['c-nutella'], '07'); assert.strictEqual(await txt(p, '#n-val'), '07'); await p.click('#n-ok');
+    assert.strictEqual(await p.evaluate(() => state.sales[0].on), '7', 'Nummer ohne führende Null');
+    assert.strictEqual(await p.evaluate(() => readOrders().orders[0].no), '7');
+    assert.ok((await txt(p, '#toast')).includes('7'), 'Nummer im Hinweis'); await p.click('#toast-x').catch(() => {});
+    await book(['c-kaese'], '7'); assert.strictEqual(await p.isDisabled('#n-ok'), true, 'Nummer noch in Gebrauch'); assert.ok((await txt(p, '#n-err')).includes('in Gebrauch'));
+    await p.click('[data-nkey=back]'); await p.click('[data-nkey="8"]'); assert.strictEqual(await p.isDisabled('#n-ok'), false); await p.click('#n-ok');
+    assert.strictEqual(await p.evaluate(() => state.sales.map(x => x.on).join()), '7,8');
+    // abgeholt gibt die Nummer wieder frei
+    await p.evaluate(() => { const o = readOrders(); o.orders[0].status = 'done'; writeOrders(o); }); await p.click('#toast-x').catch(() => {});
+    await book(['c-zimt'], '7'); assert.strictEqual(await p.isDisabled('#n-ok'), false, 'abgeholte Nummer wieder frei'); await p.click('#n-ok');
+    // Spende braucht keine Nummer; Zurück bricht die Eingabe ab
+    await p.click('#toast-x').catch(() => {}); await tap(p, 'c-zimt'); await p.click('#pay'); await p.click('[data-quick="20"]'); await p.click('#p-ok'); await p.waitForSelector('#num-dlg[open]');
+    await p.click('#n-cancel'); assert.strictEqual(await p.evaluate(() => state.sales.length), 3, 'abgebrochen: nicht verbucht');
+    await p.ctx.close();
+  });
+
   if (feat('embed=1')) await test('Küche (Überlagerung): alle Sparten, nichts abgeschnitten, auch im Weihnachtsdesign, ohne doppelten Titel', async errs => {
     const p = await open(errs, '#burger', { seed: { design: { theme: 'xmas', snow: true, mode: 'auto', accent: null, logo: 'low' } } });
     const book = async (ids, q) => { for (const i of ids) await tap(p, i); await p.click('#pay'); await p.click(`[data-quick="${q}"]`); await p.click('#p-ok'); await p.click('#toast-x').catch(() => {}); };
