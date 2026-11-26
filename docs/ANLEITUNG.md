@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v32** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v35** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -125,8 +125,8 @@ Unter dem Bon steht die Taste **„Spende buchen“**. Du wählst **Bar** oder *
 
 **Bestellprozess je Sparte abschalten:** Verwaltung → „Bestellungen und Küchenanzeige“ → unter „Bestellnummer“ steht für jede Sparte ein Schalter. **Aus** heißt: keine Bestellnummer, kein Bestellstatus und kein Eintrag in der Küche, auch keine Nummernabfrage beim Verbuchen. Das ist für Sparten gedacht, bei denen das nicht nötig ist (zum Beispiel Karten oder Getränke).
 
-**Küchenanzeige:** Oben rechts steht die Taste **„Küche“** mit der Zahl der offenen Bestellungen.
-- **Küche** öffnet die Anzeige über der Kasse (Schließen mit „Schließen“). So wechselst du auf einem Tablet zwischen Kasse und Küche.
+**Küchenanzeige:** Oben rechts steht die Taste **„Bestellstatus“** mit der Zahl der offenen Bestellungen.
+- **Bestellstatus** öffnet die Anzeige über der Kasse (Schließen mit „Schließen“). So wechselst du auf einem Tablet zwischen Kasse und Küche.
 - **Zweiter Monitor** zeigt die Anzeige nur zum Ansehen (ohne Knöpfe, `display.html?view=1`). Läuft die Kasse in **Safari**, öffnet sich ein zweites Fenster, das du auf den Monitor schiebst. Läuft sie als **App vom Home-Bildschirm**, kann kein zweites Fenster geöffnet werden: Die Kasse zeigt einen Link zum Kopieren für Safari (Abschnitt „Zweiter Monitor“ unten). `#crepes`, `#burger` oder `#karten` am Ende des Links zeigen nur eine Sparte.
 - Die Küche zeigt beim Öffnen **alle Sparten** dieses Tablets (ist das Tablet auf einen Stand festgelegt, nur diesen). Mit den Tasten oben (**Alle**, Sparte) wechselst du den Filter.
 - Auf der Küchenanzeige stehen **Nummer, Sparte, Wartezeit** (orange ab 5, rot ab 10 Minuten) und die **Artikel mit Sorte** (zum Beispiel „Fleisch“). Mit den Tasten oben filterst du nach Sparte.
@@ -154,27 +154,36 @@ In der rechten Spalte der Kasse gibt es oben **„Bon | Bestellungen“**. Unter
 
 ### Zweiter Monitor
 
-Taste „Küche“ → **„Zweiter Monitor“**. Die Anzeige im Monitor (`display.html?view=1`) ist nur zum Ansehen, ohne Knöpfe. Als App vom Home-Bildschirm öffnet sie sich nicht als zweites Fenster (das würde die Kasse ersetzen): Die App zeigt dann einen Link zum Kopieren, den du in Safari öffnest. Safari und die App vom Home-Bildschirm haben **getrennte Daten**, deshalb Kasse und Anzeige im selben Programm öffnen (beide in Safari), oder den Monitor einfach **spiegeln**. Die normale Küchenanzeige hat oben „← Zur Kasse“.
+Taste „Bestellstatus“ → **„Zweiter Monitor“**. Die Anzeige im Monitor (`display.html?view=1`) ist nur zum Ansehen, ohne Knöpfe. Als App vom Home-Bildschirm öffnet sie sich nicht als zweites Fenster (das würde die Kasse ersetzen): Die App zeigt dann einen Link zum Kopieren, den du in Safari öffnest. Safari und die App vom Home-Bildschirm haben **getrennte Daten**, deshalb Kasse und Anzeige im selben Programm öffnen (beide in Safari), oder den Monitor einfach **spiegeln**. Die normale Küchenanzeige hat oben „← Zur Kasse“.
 
 ## 5g. Töne
 
-Verwaltung → **„Töne“**: alle Töne ein/aus, Lautstärke (leise, mittel, laut) und **jedes Signal einzeln** an oder aus:
-- **Verbucht (Schiffshorn):** wenn ein Einkauf oder eine Spende verbucht ist. Ab Werk **an**.
-- **Abholbereit:** wenn eine Bestellung als „Fertig“ gemeldet wird. Ab Werk **aus**.
+Verwaltung → **„Töne“**: alle Töne ein/aus, Lautstärke (leise, mittel, laut). Es gibt zwei Ereignisse, jedes mit **eigenem Schalter und eigenem Klang** aus der Klangbibliothek:
+- **Verbucht:** wenn ein Einkauf oder eine Spende verbucht ist. Ab Werk **an**, Klang „Schiffshorn“.
+- **Abholbereit:** wenn eine Bestellung als „Fertig“ gemeldet wird. Ab Werk **aus**, Klang „Heller Dreiklang“.
 
-Mit „Schiffshorn testen“ und „Abholbereit testen“ hörst du die Töne an (auch wenn sie ausgeschaltet sind). Sonst ist die Kasse still. Die Töne sollen auch bei stummgeschaltetem iPad (Seitenschalter) zu hören sein; das ließ sich nur im Test-Browser prüfen, nicht auf einem echten iPad. Falls es nicht klappt: einmal die Kasse antippen (der Ton wird erst nach einer Berührung freigeschaltet) und bitte melden.
+**Klangbibliothek (12 Klänge):** Schiffshorn, Nebelhorn (tief, lang), Kassenklingel, Glocke, Gong (tief), Türgong (Ding-Dong), Dreiklang, Heller Dreiklang, Xylophon, Fanfare, Schlittenglöckchen, Kurzer Doppelton. Beim Auswählen hörst du den Klang sofort. Die Klänge werden im Browser erzeugt, es sind keine Dateien nötig; eigene Klangdateien sind nicht vorgesehen.
+
+Mit „Verbucht testen“ und „Abholbereit testen“ hörst du den gewählten Klang an (auch wenn der Ton ausgeschaltet ist). Sonst ist die Kasse still. Die Töne sollen auch bei stummgeschaltetem iPad (Seitenschalter) zu hören sein; das ließ sich nur im Test-Browser prüfen, nicht auf einem echten iPad. Falls es nicht klappt: einmal die Kasse antippen (der Ton wird erst nach einer Berührung freigeschaltet) und bitte melden.
 
 ## 5i. Ausgaben und Ergebnis (Kostenrechnung)
 
 Verwaltung → Karte **„Ausgaben und Ergebnis“**. Dort stehen Einnahmen (ohne Spenden, ohne Storno), die erfassten Ausgaben und das **Ergebnis** (Gewinn oder Verlust). Sind Spenden dabei, steht daneben das Ergebnis mit Spenden.
+- **Kosten je Produkt:** Die Karte rechnet die Ausgaben auf die Zahl der verkauften Produkte um (ohne Pfand und ohne Stornos; Gratis-Produkte zählen mit) und zeigt auch Einnahmen und Gewinn je Produkt. Je Sparte steht die Zahl der Produkte und die Kosten je Produkt, soweit die Ausgaben der Sparte zugeordnet sind (allgemeine Ausgaben werden nicht aufgeteilt).
 - **Ausgabe erfassen …:** Betrag, Bezeichnung (zum Beispiel „Einkauf Metro“) und die Sparte, der die Ausgabe gehört (oder „Allgemein“). Sind Ausgaben Sparten zugeordnet, zeigt die Karte je Sparte Einnahmen − Ausgaben.
 - **Aus der Kasse bezahlt:** Der Schalter bucht zusätzlich eine Entnahme, damit der Kassenstand stimmt.
 - **Stornieren / Aufheben:** Eine Ausgabe lässt sich stornieren (und wieder aufheben); die Entnahme folgt automatisch.
 - Ausgaben stehen auch in der **CSV-Datei**, im **Kassenbericht** und in der **Sicherung**.
 
-## 5j. Gratis-Produkte
+## 5j. Gratis, Rabatt und Mengenrabatt
 
-Beim Anlegen oder Bearbeiten eines Produkts den Preis **0** eingeben („0 = Gratis“). Die Kachel zeigt dann „Gratis“. Beim Verbuchen heißt es „Nichts zu zahlen“, die Buchung läuft über 0,00 €, zählt als Artikel und bekommt wie jede Bestellung eine Nummer (außer die Sparte hat den Bestellprozess abgeschaltet).
+**Ein Produkt gratis verbuchen:** Auf dem Bon (rechte Spalte) den **Namen des Artikels antippen** → Art **„Gratis“** → „Übernehmen“. Der Artikel kostet dann 0 €, bleibt aber eine Buchung mit Artikel und Bestellnummer. Alternativ legst du in der Bearbeitung ein eigenes Produkt mit dem **Preis 0** an („0 = Gratis“); die Kachel zeigt dann „Gratis“.
+
+**Rabatt auf einen Artikel am Bon:** Namen antippen → **Prozent** (zum Beispiel 10), **Betrag je Zeile** (zum Beispiel 0,50 €) oder **Gratis**. Der Rabatt steht als eigene Zeile mit Minusbetrag auf dem Bon, in der Buchung, im Bon-PDF und in den Auswertungen; die MwSt. wird mitgerechnet. „Kein Rabatt“ nimmt ihn zurück. Der Rabatt gilt nur für den aktuellen Bon, „Bon leeren“ und Verbuchen löschen ihn.
+
+**Mengenrabatt am Produkt:** In der Bearbeitung beim Produkt **„Mengenrabatt ab (Stück)“** und **„Stückpreis ab dieser Menge“** eintragen, zum Beispiel ab 3 Stück 2,50 € statt 3,00 €. Die Kachel zeigt „ab 3 Stück 2,50 €“. Ab dieser Menge rechnet die Kasse alle Stücke dieses Artikels zum Mengenpreis und zeigt die Ersparnis als Zeile „Mengenrabatt“. Mengenrabatt und Rabatt am Bon lassen sich kombinieren (erst Menge, dann Rabatt). Der Stückpreis muss unter dem normalen Preis liegen. Pfand wird nie rabattiert.
+
+Rabattzeilen zählen nicht als Produkt (kein Zähler, nicht in der Bestellung/Küche).
 
 ## 5d. Kassensturz und Kassenbericht
 

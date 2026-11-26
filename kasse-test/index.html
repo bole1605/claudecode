@@ -15,9 +15,9 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=32">
-<script src="logic.js?v=32"></script>
-<script src="theme.js?v=32"></script>
+<link rel="stylesheet" href="styles.css?v=35">
+<script src="logic.js?v=35"></script>
+<script src="theme.js?v=35"></script>
 </head>
 <body>
 <div id="wm" aria-hidden="true"></div>
@@ -46,7 +46,7 @@
     <h1 id="title">Kasse</h1>
     <div class="segmented" role="tablist" aria-label="Stand wählen" id="tabs"></div>
     <div class="top-spacer">
-      <button class="btn sm k-btn" id="kitchen-open" aria-label="Küchenanzeige öffnen">Küche <b id="k-count" hidden>0</b></button>
+      <button class="btn sm k-btn" id="kitchen-open" aria-label="Bestellstatus öffnen">Bestellstatus <b id="k-count" hidden>0</b></button>
       <span class="logo-wrap"><img class="logo l" src="icons/jugend-hell.png" alt="ev. Jugend Kleinglattbach"><img class="logo d" src="icons/jugend-dunkel.png" alt="" aria-hidden="true"></span>
     </div>
   </header>
@@ -59,6 +59,7 @@
       <div class="segmented" id="aside-tabs" role="tablist"><button role="tab" data-tab="bon" aria-selected="true">Bon</button><button role="tab" data-tab="ord" aria-selected="false">Bestellungen <b id="k-count2" hidden>0</b></button></div>
       <div id="bon-pane" class="pane">
       <ul id="bon-lines"></ul>
+      <small class="muted" id="bon-hint" hidden>Tipp: Artikelnamen antippen für Rabatt oder Gratis.</small>
       <div class="bon-vat" id="bon-vat"></div>
       <div class="bon-total"><span>Summe</span><b id="bon-sum">0,00 €</b></div>
       <button class="btn primary" id="pay" disabled>Bezahlen</button>
@@ -74,7 +75,7 @@
     </aside>
   </div>
 
-  <footer class="foot"><span>Copyright by Leo B. und Pascal B. - 2026</span><span class="ver">v32</span></footer>
+  <footer class="foot"><span>Copyright by Leo B. und Pascal B. - 2026</span><span class="ver">v35</span></footer>
 
 </div>
 
@@ -201,15 +202,17 @@
     </section>
     <section class="card" id="sound-card">
       <h3>Töne</h3>
-      <label class="switch-row"><span><b>Töne</b><small>Zwei Signale, einzeln schaltbar: ein Schiffshorn, wenn ein Einkauf (oder eine Spende) verbucht ist, und ein heller Dreiklang, wenn eine Bestellung abholbereit ist. Sonst ist die Kasse still. Sie spielen auch bei stummgeschaltetem iPad.</small></span>
+      <label class="switch-row"><span><b>Töne</b><small>Zwei Signale, einzeln schaltbar und mit frei wählbarem Klang aus der Bibliothek (Schiffshorn, Kassenklingel, Glocke, Fanfare …). Sie spielen auch bei stummgeschaltetem iPad.</small></span>
         <input type="checkbox" role="switch" id="sound-toggle"></label>
-      <label class="switch-row" style="margin-top:12px"><span><b>Verbucht (Schiffshorn)</b><small>Wenn ein Einkauf oder eine Spende verbucht ist.</small></span>
+      <label class="switch-row" style="margin-top:12px"><span><b>Verbucht</b><small>Wenn ein Einkauf oder eine Spende verbucht ist.</small></span>
         <input type="checkbox" role="switch" id="sound-booked"></label>
+      <label class="field-row"><span><b>Klang für „Verbucht“</b></span><select id="sound-pick-booked"></select></label>
       <label class="switch-row" style="margin-top:12px"><span><b>Abholbereit</b><small>Wenn eine Bestellung als „Fertig“ gemeldet wird.</small></span>
         <input type="checkbox" role="switch" id="sound-ready"></label>
+      <label class="field-row"><span><b>Klang für „Abholbereit“</b></span><select id="sound-pick-ready"></select></label>
       <label class="field-row"><span><b>Lautstärke</b></span>
         <select id="sound-vol"><option value="low">Leise</option><option value="mid">Mittel</option><option value="high">Laut</option></select></label>
-      <div class="actions-card" style="padding:0"><button class="btn" id="sound-test">Schiffshorn testen</button><button class="btn" id="sound-test-ready">Abholbereit testen</button></div>
+      <div class="actions-card" style="padding:0"><button class="btn" id="sound-test">Verbucht testen</button><button class="btn" id="sound-test-ready">Abholbereit testen</button></div>
     </section>
     <section class="card" id="kitchen-card">
       <h3>Bestellungen und Küchenanzeige</h3>
@@ -301,6 +304,16 @@
   </div>
 </dialog>
 
+<dialog id="disc-dlg" class="form-dlg">
+  <form id="disc-form">
+    <h2 id="disc-title">Rabatt</h2>
+    <label>Art<select id="disc-type"><option value="">Kein Rabatt</option><option value="pct">Prozent (%)</option><option value="eur">Betrag (€) je Zeile</option><option value="free">Gratis</option></select></label>
+    <label id="disc-val-l"><span id="disc-val-t">Wert</span><input id="disc-val" inputmode="decimal" autocomplete="off" placeholder="10"></label>
+    <p class="err" id="disc-err"></p>
+    <div class="dlg-actions"><button type="button" class="btn" id="disc-cancel">Abbrechen</button><button type="submit" class="btn primary">Übernehmen</button></div>
+  </form>
+</dialog>
+
 <dialog id="exp-dlg" class="form-dlg">
   <form id="exp-form">
     <h2>Ausgabe erfassen</h2>
@@ -367,6 +380,8 @@
     <label>Name<input id="i-name" autocomplete="off"></label>
     <label>Zusatz (optional, z. B. „0,5 l“)<input id="i-sub" autocomplete="off"></label>
     <label>Preis in € (0 = Gratis)<input id="i-price" inputmode="decimal" autocomplete="off" placeholder="3,50"></label>
+    <label>Mengenrabatt ab (Stück, optional)<input id="i-qn" inputmode="numeric" autocomplete="off" placeholder="z. B. 3"></label>
+    <label>Stückpreis ab dieser Menge in €<input id="i-qp" inputmode="decimal" autocomplete="off" placeholder="z. B. 2,50"></label>
     <label>Unterkategorie<select id="i-group"></select></label>
     <label id="i-auto-l" hidden>Pfand automatisch mit auf den Bon<select id="i-auto"><option value="">Nein</option><option value="g-pfand">Ja, „Pfand“ dazubuchen</option></select></label>
     <label>MwSt.-Satz (im Preis enthalten)<select id="i-vat"><option value="0">0 %</option><option value="7">7 %</option><option value="19">19 %</option></select></label>
@@ -405,10 +420,10 @@
 <!-- Küchenanzeige im selben Fenster (alternativ: eigenes Fenster) -->
 <div id="kitchen-ov" class="page" hidden>
   <header class="top">
-    <h1>Küche</h1>
+    <h1>Bestellstatus</h1>
     <div class="k-actions"><button class="btn" id="kitchen-window">Zweiter Monitor</button><button class="btn primary" id="kitchen-close">Schließen</button></div>
   </header>
-  <iframe id="k-frame" class="k-frame" title="Küchenanzeige"></iframe>
+  <iframe id="k-frame" class="k-frame" title="Bestellstatus"></iframe>
 </div>
 
 <dialog id="monitor-dlg">
@@ -421,8 +436,8 @@
 <div id="toast" class="toast" hidden></div>
 <pre id="print-area"></pre>
 
-<script src="qrcode.js?v=32"></script>
-<script src="sound.js?v=32"></script>
-<script src="app.js?v=32"></script>
+<script src="qrcode.js?v=35"></script>
+<script src="sound.js?v=35"></script>
+<script src="app.js?v=35"></script>
 </body>
 </html>

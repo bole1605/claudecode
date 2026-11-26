@@ -532,6 +532,10 @@ async function test(name, fn) {
     await p.ctx.close();
   });
 
+  if (feat('Verkaufte Produkte')) await test('Taste heißt „Bestellstatus“', async errs => {
+    const p = await open(errs, '#crepes'); assert.ok((await txt(p, '#kitchen-open')).startsWith('Bestellstatus')); await p.ctx.close();
+  });
+
   if (feat('exp-open')) await test('Ausgaben: erfassen, gegenrechnen, aus der Kasse, stornieren, Bericht und Datei', async errs => {
     const p = await open(errs, '#crepes');
     await tap(p, 'c-nutella'); await p.click('#pay'); await p.click('[data-quick="5"]'); await p.click('#p-ok');
@@ -541,7 +545,8 @@ async function test(name, fn) {
     await p.fill('#exp-amt', '1,50'); await p.click('#exp-form button[type=submit]'); assert.ok((await txt(p, '#exp-err')).includes('Bezeichnung'));
     await p.fill('#exp-note', 'Einkauf Nutella'); await p.selectOption('#exp-stand', 'crepes'); await p.click('.switch-row:has(#exp-cash)'); await p.click('#exp-form button[type=submit]');
     assert.deepStrictEqual(await p.evaluate(() => [state.exp.length, state.exp[0].amt, state.exp[0].cash, state.moves.length, state.moves[0].amt]), [1, 150, true, 1, -150], 'Ausgabe und Entnahme');
-    let c = await txt(p, '#exp-card'); assert.ok(c.includes('2,50') && c.includes('Gewinn') && c.includes('Einkauf Nutella') && c.includes('Crêpes'), c);   // 4,00 − 1,50
+    let c = await txt(p, '#exp-card'); assert.ok(c.includes('2,50') && c.includes('Gewinn') && c.includes('Einkauf Nutella') && c.includes('Crêpes'), c);
+    if (feat('Kosten je Produkt')) assert.ok(c.includes('Verkaufte Produkte') && /Kosten je Produkt[^€]*1,50 €/.test(c), 'Kosten je Produkt (1 Produkt, 1,50 €): ' + c);
     await p.click('#exp-open'); await p.fill('#exp-amt', '10'); await p.fill('#exp-note', 'Miete Stand'); await p.click('#exp-form button[type=submit]');
     c = await txt(p, '#exp-card'); assert.ok(c.includes('Verlust') && c.includes('Allgemein'), c);
     // stornieren: Ausgabe und die zugehörige Entnahme
@@ -550,6 +555,46 @@ async function test(name, fn) {
     assert.strictEqual(await p.evaluate(() => state.moves.every(m => m.void === state.exp.find(x => x.id === m.expId).void)), true, 'Entnahme folgt der Ausgabe');
     const csv = (await dl(p, '#save')).toString('utf8'); assert.ok(csv.includes('Ausgaben') && csv.includes('Einkauf Nutella'), 'Datei enthält Ausgaben');
     assert.ok(await p.evaluate(() => reportLines(null).some(x => x.t.includes('AUSGABEN'))), 'Kassenbericht enthält Ausgaben');
+    await p.ctx.close();
+  });
+
+  if (feat('sound-pick')) await test('Klangbibliothek: jeder Klang spielbar, Auswahl je Ereignis bleibt erhalten', async errs => {
+    const p = await open(errs, '#crepes');
+    const lib = await p.evaluate(() => Sound.library.map(x => x.id)); assert.ok(lib.length >= 10, 'mindestens 10 Klänge: ' + lib.length);
+    await p.evaluate(() => { window.__o = 0; const f = AudioContext.prototype.createOscillator; AudioContext.prototype.createOscillator = function () { window.__o++; return f.call(this); }; });
+    for (const id of lib) { await p.evaluate(() => { window.__o = 0; }); await p.evaluate(i => Sound.preview(i), id); assert.ok(await p.evaluate(() => window.__o) > 0, 'Klang ' + id + ' spielt'); }
+    assert.deepStrictEqual(await p.evaluate(() => [Sound.pickOf('booked'), Sound.pickOf('ready')]), ['horn', 'hell'], 'Standard');
+    await admin(p, true); assert.strictEqual(await p.inputValue('#sound-pick-booked'), 'horn');
+    await p.selectOption('#sound-pick-booked', 'kasse'); assert.deepStrictEqual(await p.evaluate(() => [Sound.pickOf('booked'), state.sound.pick.booked]), ['kasse', 'kasse']);
+    await p.evaluate(() => { window.__o = 0; Sound.play('booked'); }); assert.strictEqual(await p.evaluate(() => window.__o), 6, 'Kassenklingel = zwei Glocken à drei Teiltöne');
+    await p.reload(); assert.strictEqual(await p.evaluate(() => Sound.pickOf('booked')), 'kasse', 'bleibt nach dem Neustart');
+    await p.ctx.close();
+  });
+
+  if (feat('discLines')) await test('Rabatte: Mengenrabatt am Produkt, Rabatt am Bon (Prozent, Betrag, Gratis), Buchung, Zähler, Prüfung im Editor', async errs => {
+    const cat = [{ id: 'a', label: 'Rabattstand', groups: [{ id: 'ga', name: 'Essen', color: '#A10DBC', items: [{ id: 'a-1', name: 'Crêpe', price: 300, vat: 7, qd: { n: 3, p: 250 } }, { id: 'a-2', name: 'Burger', price: 600, vat: 7 }] }] }];
+    const p = await open(errs, '#a', { seed: { mig17: true, mig20: true, mig23: true, stand: 'a', catalog: cat, orderMode: 'auto' } });
+    assert.ok((await txt(p, '[data-add=a-1]')).includes('ab 3 Stück 2,50'), 'Mengenrabatt auf der Kachel');
+    await tap(p, 'a-1'); await tap(p, 'a-1'); assert.strictEqual(await txt(p, '#bon-sum'), '6,00 €', 'unter der Menge: voller Preis');
+    await tap(p, 'a-1'); assert.strictEqual(await txt(p, '#bon-sum'), '7,50 €', 'ab 3 Stück: 3 × 2,50'); assert.ok((await txt(p, '#bon-lines')).includes('Mengenrabatt: Crêpe') && (await txt(p, '#bon-lines')).includes('-1,50'));
+    // Rabatt am Bon: Burger 10 %
+    await tap(p, 'a-2'); await p.click('[data-disc=a-2]'); await p.selectOption('#disc-type', 'pct'); await p.fill('#disc-val', '10'); await p.click('#disc-form button[type=submit]');
+    assert.strictEqual(await txt(p, '#bon-sum'), '12,90 €', '7,50 + 6,00 − 0,60'); assert.ok((await txt(p, '#bon-lines')).includes('Rabatt 10 %: Burger'));
+    await p.click('[data-disc=a-2]'); await p.selectOption('#disc-type', 'eur'); await p.fill('#disc-val', '1'); await p.click('#disc-form button[type=submit]'); assert.strictEqual(await txt(p, '#bon-sum'), '12,50 €', 'Betrag: −1,00');
+    await p.click('[data-disc=a-2]'); await p.selectOption('#disc-type', 'pct'); await p.fill('#disc-val', ''); await p.click('#disc-form button[type=submit]'); assert.ok((await txt(p, '#disc-err')).includes('Prozent'), 'Eingabe wird geprüft'); await p.click('#disc-cancel');
+    await p.click('[data-disc=a-2]'); await p.selectOption('#disc-type', 'free'); await p.click('#disc-form button[type=submit]'); assert.strictEqual(await txt(p, '#bon-sum'), '7,50 €', 'Gratis: Burger kostet 0');
+    // Buchung: Rabattzeilen gespeichert, Zähler zählt nur Produkte
+    await p.click('#pay'); await p.click('[data-quick="10"]'); await p.click('#p-ok');
+    const r = await p.evaluate(() => ({ t: state.sales[0].total, l: Object.keys(state.sales[0].lines).sort(), o: readOrders().orders[0].items, c: sold().cnt.a, r: sold().rev.a, adj: state.adj.a || null }));
+    assert.deepStrictEqual([r.t, r.c, r.r, Object.keys(r.adj || {}).length], [750, 4, 750, 0], JSON.stringify(r)); assert.ok(r.l.includes('disc:q:a-1') && r.l.includes('disc:m:a-2'), r.l.join());
+    assert.deepStrictEqual(r.o, [['Crêpe', 3], ['Burger', 1]], 'Rabattzeilen stehen nicht in der Bestellung');
+    // Bon leeren löscht auch den Rabatt
+    await tap(p, 'a-2'); await p.click('[data-disc=a-2]'); await p.selectOption('#disc-type', 'free'); await p.click('#disc-form button[type=submit]'); await p.click('#clear');
+    await tap(p, 'a-2'); assert.strictEqual(await txt(p, '#bon-sum'), '6,00 €', 'Rabatt nach „Bon leeren“ weg');
+    // Editor: Mengenrabatt prüfen und speichern
+    await p.evaluate(() => openItem('a-2', 'ga')); await p.fill('#i-qn', '2'); await p.fill('#i-qp', '7'); await p.click('#item-form button[type=submit]'); assert.ok((await txt(p, '#i-err')).includes('Stückpreis unter dem normalen Preis'));
+    await p.fill('#i-qp', '5,50'); await p.click('#item-form button[type=submit]'); assert.deepStrictEqual(await p.evaluate(() => ALL['a-2'].qd), { n: 2, p: 550 });
+    await tap(p, 'a-2'); assert.strictEqual(await txt(p, '#bon-sum'), '11,00 €', '2 × 5,50');
     await p.ctx.close();
   });
 
