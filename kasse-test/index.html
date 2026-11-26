@@ -15,9 +15,9 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=32">
-<script src="logic.js?v=32"></script>
-<script src="theme.js?v=32"></script>
+<link rel="stylesheet" href="styles.css?v=33">
+<script src="logic.js?v=33"></script>
+<script src="theme.js?v=33"></script>
 </head>
 <body>
 <div id="wm" aria-hidden="true"></div>
@@ -74,7 +74,7 @@
     </aside>
   </div>
 
-  <footer class="foot"><span>Copyright by Leo B. und Pascal B. - 2026</span><span class="ver">v32</span></footer>
+  <footer class="foot"><span>Copyright by Leo B. und Pascal B. - 2026</span><span class="ver">v33</span></footer>
 
 </div>
 
@@ -201,15 +201,17 @@
     </section>
     <section class="card" id="sound-card">
       <h3>Töne</h3>
-      <label class="switch-row"><span><b>Töne</b><small>Zwei Signale, einzeln schaltbar: ein Schiffshorn, wenn ein Einkauf (oder eine Spende) verbucht ist, und ein heller Dreiklang, wenn eine Bestellung abholbereit ist. Sonst ist die Kasse still. Sie spielen auch bei stummgeschaltetem iPad.</small></span>
+      <label class="switch-row"><span><b>Töne</b><small>Zwei Signale, einzeln schaltbar und mit frei wählbarem Klang aus der Bibliothek (Schiffshorn, Kassenklingel, Glocke, Fanfare …). Sie spielen auch bei stummgeschaltetem iPad.</small></span>
         <input type="checkbox" role="switch" id="sound-toggle"></label>
-      <label class="switch-row" style="margin-top:12px"><span><b>Verbucht (Schiffshorn)</b><small>Wenn ein Einkauf oder eine Spende verbucht ist.</small></span>
+      <label class="switch-row" style="margin-top:12px"><span><b>Verbucht</b><small>Wenn ein Einkauf oder eine Spende verbucht ist.</small></span>
         <input type="checkbox" role="switch" id="sound-booked"></label>
+      <label class="field-row"><span><b>Klang für „Verbucht“</b></span><select id="sound-pick-booked"></select></label>
       <label class="switch-row" style="margin-top:12px"><span><b>Abholbereit</b><small>Wenn eine Bestellung als „Fertig“ gemeldet wird.</small></span>
         <input type="checkbox" role="switch" id="sound-ready"></label>
+      <label class="field-row"><span><b>Klang für „Abholbereit“</b></span><select id="sound-pick-ready"></select></label>
       <label class="field-row"><span><b>Lautstärke</b></span>
         <select id="sound-vol"><option value="low">Leise</option><option value="mid">Mittel</option><option value="high">Laut</option></select></label>
-      <div class="actions-card" style="padding:0"><button class="btn" id="sound-test">Schiffshorn testen</button><button class="btn" id="sound-test-ready">Abholbereit testen</button></div>
+      <div class="actions-card" style="padding:0"><button class="btn" id="sound-test">Verbucht testen</button><button class="btn" id="sound-test-ready">Abholbereit testen</button></div>
     </section>
     <section class="card" id="kitchen-card">
       <h3>Bestellungen und Küchenanzeige</h3>
@@ -421,8 +423,8 @@
 <div id="toast" class="toast" hidden></div>
 <pre id="print-area"></pre>
 
-<script src="qrcode.js?v=32"></script>
-<script src="sound.js?v=32"></script>
-<script src="app.js?v=32"></script>
+<script src="qrcode.js?v=33"></script>
+<script src="sound.js?v=33"></script>
+<script src="app.js?v=33"></script>
 </body>
 </html>

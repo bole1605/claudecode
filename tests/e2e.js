@@ -553,6 +553,19 @@ async function test(name, fn) {
     await p.ctx.close();
   });
 
+  if (feat('sound-pick')) await test('Klangbibliothek: jeder Klang spielbar, Auswahl je Ereignis bleibt erhalten', async errs => {
+    const p = await open(errs, '#crepes');
+    const lib = await p.evaluate(() => Sound.library.map(x => x.id)); assert.ok(lib.length >= 10, 'mindestens 10 Klänge: ' + lib.length);
+    await p.evaluate(() => { window.__o = 0; const f = AudioContext.prototype.createOscillator; AudioContext.prototype.createOscillator = function () { window.__o++; return f.call(this); }; });
+    for (const id of lib) { await p.evaluate(() => { window.__o = 0; }); await p.evaluate(i => Sound.preview(i), id); assert.ok(await p.evaluate(() => window.__o) > 0, 'Klang ' + id + ' spielt'); }
+    assert.deepStrictEqual(await p.evaluate(() => [Sound.pickOf('booked'), Sound.pickOf('ready')]), ['horn', 'hell'], 'Standard');
+    await admin(p, true); assert.strictEqual(await p.inputValue('#sound-pick-booked'), 'horn');
+    await p.selectOption('#sound-pick-booked', 'kasse'); assert.deepStrictEqual(await p.evaluate(() => [Sound.pickOf('booked'), state.sound.pick.booked]), ['kasse', 'kasse']);
+    await p.evaluate(() => { window.__o = 0; Sound.play('booked'); }); assert.strictEqual(await p.evaluate(() => window.__o), 6, 'Kassenklingel = zwei Glocken à drei Teiltöne');
+    await p.reload(); assert.strictEqual(await p.evaluate(() => Sound.pickOf('booked')), 'kasse', 'bleibt nach dem Neustart');
+    await p.ctx.close();
+  });
+
   if (feat('embed=1')) await test('Küche (Überlagerung): alle Sparten, nichts abgeschnitten, auch im Weihnachtsdesign, ohne doppelten Titel', async errs => {
     const p = await open(errs, '#burger', { seed: { design: { theme: 'xmas', snow: true, mode: 'auto', accent: null, logo: 'low' } } });
     const book = async (ids, q) => { for (const i of ids) await tap(p, i); await p.click('#pay'); await p.click(`[data-quick="${q}"]`); await p.click('#p-ok'); await p.click('#toast-x').catch(() => {}); };

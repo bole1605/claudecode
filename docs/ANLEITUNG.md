@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v32** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v33** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -158,11 +158,13 @@ Taste „Küche“ → **„Zweiter Monitor“**. Die Anzeige im Monitor (`displ
 
 ## 5g. Töne
 
-Verwaltung → **„Töne“**: alle Töne ein/aus, Lautstärke (leise, mittel, laut) und **jedes Signal einzeln** an oder aus:
-- **Verbucht (Schiffshorn):** wenn ein Einkauf oder eine Spende verbucht ist. Ab Werk **an**.
-- **Abholbereit:** wenn eine Bestellung als „Fertig“ gemeldet wird. Ab Werk **aus**.
+Verwaltung → **„Töne“**: alle Töne ein/aus, Lautstärke (leise, mittel, laut). Es gibt zwei Ereignisse, jedes mit **eigenem Schalter und eigenem Klang** aus der Klangbibliothek:
+- **Verbucht:** wenn ein Einkauf oder eine Spende verbucht ist. Ab Werk **an**, Klang „Schiffshorn“.
+- **Abholbereit:** wenn eine Bestellung als „Fertig“ gemeldet wird. Ab Werk **aus**, Klang „Heller Dreiklang“.
 
-Mit „Schiffshorn testen“ und „Abholbereit testen“ hörst du die Töne an (auch wenn sie ausgeschaltet sind). Sonst ist die Kasse still. Die Töne sollen auch bei stummgeschaltetem iPad (Seitenschalter) zu hören sein; das ließ sich nur im Test-Browser prüfen, nicht auf einem echten iPad. Falls es nicht klappt: einmal die Kasse antippen (der Ton wird erst nach einer Berührung freigeschaltet) und bitte melden.
+**Klangbibliothek (12 Klänge):** Schiffshorn, Nebelhorn (tief, lang), Kassenklingel, Glocke, Gong (tief), Türgong (Ding-Dong), Dreiklang, Heller Dreiklang, Xylophon, Fanfare, Schlittenglöckchen, Kurzer Doppelton. Beim Auswählen hörst du den Klang sofort. Die Klänge werden im Browser erzeugt, es sind keine Dateien nötig; eigene Klangdateien sind nicht vorgesehen.
+
+Mit „Verbucht testen“ und „Abholbereit testen“ hörst du den gewählten Klang an (auch wenn der Ton ausgeschaltet ist). Sonst ist die Kasse still. Die Töne sollen auch bei stummgeschaltetem iPad (Seitenschalter) zu hören sein; das ließ sich nur im Test-Browser prüfen, nicht auf einem echten iPad. Falls es nicht klappt: einmal die Kasse antippen (der Ton wird erst nach einer Berührung freigeschaltet) und bitte melden.
 
 ## 5i. Ausgaben und Ergebnis (Kostenrechnung)
 
