@@ -33,7 +33,7 @@ const DEFAULT_STANDS = [
     ]},
   ]},
 ];
-const VERSION = 28;
+const VERSION = 30;
 // Fokus ins erste Feld – aber nur, wenn die Eingabe nicht schon in einem anderen Feld des Fensters begonnen hat
 const focusFirst = sel => setTimeout(() => { const el = document.querySelector(sel), d = el.closest('dialog'); if (!d.contains(document.activeElement) || document.activeElement === d) el.focus(); }, 50);
 // Test- und Live-Version liegen auf derselben Domain: getrennter Speicher, damit sich die Daten nie vermischen
@@ -51,7 +51,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const PALETTE = Kasse.PALETTE;   // Logo-Farben; kein Rot: Rot ist für Löschen/Storno/Minus reserviert
 
 const RC_DEFAULT = { name: 'Evangelische Kirchengemeinde Kleinglattbach', addr: 'Kirchstraße 15; 71665 Vaihingen an der Enz', foot: 'Vielen Dank, Guten Appetit & frohe Weihnachten!' };
-let state = { design: { theme: 'standard', mode: 'auto', accent: null, logo: 'low', snow: true }, mig23: false, sound: { on: true, vol: 'mid' }, kitchen: { on: true }, orderNo: { day: '', seq: {} }, moves: [], counts: [], lock: null, mig20: false, share: { on: true }, lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
+let state = { design: { theme: 'standard', mode: 'auto', accent: null, logo: 'low', snow: true }, mig23: false, sound: { on: true, vol: 'mid' }, kitchen: { on: true }, orderNo: { day: '', seq: {} }, orderMode: 'manual', moves: [], counts: [], lock: null, mig20: false, share: { on: true }, lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
 try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
 let STANDS, ALL = {};
 function setCatalog(c) {
@@ -119,10 +119,24 @@ function orderFromSale(s) {
   const st = STANDS.find(x => x.id === s.stand);
   return { no: s.on, n: s.n, st: s.stand, sl: labelOf(s.stand), col: st && st.groups[0] ? st.groups[0].color : Kasse.COLORS.lila, t: s.t, items, status: 'open' };
 }
+let manualNo = null;   // von Hand eingegebene Nummer des Märkchens (wird beim Verbuchen verbraucht)
+const hasOrderItems = () => Object.entries(cart()).some(([id, n]) => n > 0 && !isPfand(id));
+const normNo = v => String(v).replace(/^0+(?=\d)/, '');
+const noTaken = v => readOrders().orders.some(o => o.status !== 'done' && normNo(o.no) === normNo(v));   // offen oder fertig, noch nicht abgeholt
+let nv = '';
+function numUpdate() {
+  const taken = nv && noTaken(nv);
+  $('#n-val').textContent = nv || '–';
+  $('#n-err').textContent = taken ? 'Diese Nummer ist noch in Gebrauch (offen oder abholbereit).' : '';
+  $('#n-ok').disabled = !nv || taken;
+}
+function numOpen() { nv = ''; numUpdate(); $('#num-dlg').showModal(); }
+function numKey(k) { if (k === 'back') nv = nv.slice(0, -1); else if (nv.length < 4) nv += k; numUpdate(); }
 function assignOrder(s) {   // Bestellnummer vergeben (nur für echte Bestellungen, nicht für Spenden oder reine Pfand-Rückgabe)
   if (s.donation || !Object.entries(s.lines).some(([id, n]) => n > 0 && !isPfand(id))) return;
   const st = STANDS.find(x => x.id === s.stand) || { id: s.stand, label: s.sl };
-  const r = Kasse.nextOrder(state.orderNo, s.stand, standPrefix(st), today()); state.orderNo = r.st; s.on = r.no;
+  if (state.orderMode === 'manual' && manualNo) { s.on = manualNo; manualNo = null; }
+  else { const r = Kasse.nextOrder(state.orderNo, s.stand, standPrefix(st), today()); state.orderNo = r.st; s.on = r.no; }
   if (state.kitchen.on) { const o = readOrders(); o.orders.push(orderFromSale(s)); writeOrders(o); }
 }
 function syncOrder(s) {     // Storno / Storno aufheben
@@ -356,7 +370,7 @@ function payUpdate() {
   else { ch.classList.add('short'); ch.innerHTML = `<span class="cap">Es fehlen</span><b>${euro(need - g)}</b>`; }
   $('#p-ok').disabled = !cp.ok;
 }
-function openPay() { if (!Object.keys(cart()).length) return; given = ''; tip = ''; target = 'given'; method = 'bar'; payUpdate(); $('#pay-dlg').showModal(); }
+function openPay() { if (!Object.keys(cart()).length) return; manualNo = null; given = ''; tip = ''; target = 'given'; method = 'bar'; payUpdate(); $('#pay-dlg').showModal(); }
 const fmtIn = c => (c / 100).toFixed(2).replace('.', ',').replace(/,00$/, '');
 function key(k) {
   let v = target === 'tip' ? tip : given;
@@ -378,6 +392,7 @@ function finishSale(sale, o) {   // Buchung speichern, Bestellnummer vergeben, T
   save(); update(); $('#pay-dlg').close(); buzz(); Sound.play(o.sound || 'booked'); afterBook(sale);
 }
 function book() {
+  if (state.orderMode === 'manual' && hasOrderItems() && !manualNo) { numOpen(); return; }   // erst die Nummer des Märkchens erfragen
   const total = cartTotal();
   if (total <= 0) { // Auszahlung (z. B. Pfand zurück) oder 0 €: bar, nichts einzunehmen
     finishSale({ method: 'bar', n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: { ...cart() }, info: snap(cart()), total, given: 0, tip: 0, change: -total, payout: total < 0, void: false }, { clear: true }); return;
@@ -488,7 +503,8 @@ function renderAdmin() {
       + `<input type="color" id="d-custom" value="${D.accent || '#A10DBC'}" aria-label="Eigene Farbe wählen">`; }
   $('#sound-toggle').checked = state.sound.on; $('#sound-vol').value = state.sound.vol; $('#kitchen-toggle').checked = state.kitchen.on;
   { const on = state.orderNo && state.orderNo.day === today() ? state.orderNo.seq : {};
-    $('#ord-state').textContent = 'Nächste Bestellnummern: ' + STANDS.map(s => standPrefix(s) + ((on[s.id] || 0) + 1)).join(' · ') + ' (zählt jeden Tag neu)'; }
+    $('#order-mode').value = state.orderMode;
+    $('#ord-state').textContent = state.orderMode === 'manual' ? 'Die Nummer des Märkchens wird beim Verbuchen von Hand eingegeben.' : 'Nächste Bestellnummern: ' + STANDS.map(s => standPrefix(s) + ((on[s.id] || 0) + 1)).join(' · ') + ' (zählt jeden Tag neu)'; }
   $('#share-toggle').checked = state.share.on; $('#share-toggle').disabled = !state.receipt.on;
   $('#tip-toggle').checked = state.tip.on;
   $('#paypal-state').textContent = state.paypal ? `Hinterlegt: ${state.paypal}` : 'Noch kein Link hinterlegt.';
@@ -777,6 +793,9 @@ document.addEventListener('click', async e => {
   else if (t.id === 'clear') { state.cart[state.stand] = {}; save(); update(); }
   else if (t.dataset.key) key(t.dataset.key);
   else if (t.dataset.quick) { target = 'given'; given = t.dataset.quick === 'total' ? (cartTotal() / 100).toFixed(2).replace('.', ',').replace(/,00$/, '') : t.dataset.quick; payUpdate(); }
+  else if (t.dataset.nkey) numKey(t.dataset.nkey);
+  else if (t.id === 'n-ok') { manualNo = normNo(nv); $('#num-dlg').close(); book(); }
+  else if (t.id === 'n-cancel') { $('#num-dlg').close(); }
   else if (t.id === 'p-ok') book();
   else if (t.id === 'p-cancel') $('#pay-dlg').close();
   else if (t.id === 'admin-close') hideAdmin();
@@ -1009,6 +1028,7 @@ $('#d-snow').addEventListener('change', e => setDesign({ snow: e.target.checked 
 $('#d-swatches').addEventListener('change', e => { if (e.target.id === 'd-custom') setDesign({ accent: e.target.value }); });
 $('#sound-toggle').addEventListener('change', e => { state.sound.on = e.target.checked; Sound.setup(state.sound); save(); });
 $('#sound-vol').addEventListener('change', e => { state.sound.vol = e.target.value; Sound.setup(state.sound); save(); Sound.unlock(); Sound.play('booked'); });
+$('#order-mode').addEventListener('change', e => { state.orderMode = e.target.value; save(); renderAdmin(); });
 $('#kitchen-toggle').addEventListener('change', e => { state.kitchen.on = e.target.checked; save(); kitchenBadge(); renderAdmin(); });
 $('#share-toggle').addEventListener('change', e => { state.share.on = e.target.checked; save(); renderAdmin(); });
 $('#rc-toggle').addEventListener('change', e => { state.receipt.on = e.target.checked; save(); renderAdmin(); });
