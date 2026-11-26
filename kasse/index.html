@@ -15,9 +15,9 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=26">
-<script src="logic.js?v=26"></script>
-<script src="theme.js?v=26"></script>
+<link rel="stylesheet" href="styles.css?v=27">
+<script src="logic.js?v=27"></script>
+<script src="theme.js?v=27"></script>
 </head>
 <body>
 <div id="wm" aria-hidden="true"></div>
@@ -36,17 +36,25 @@
   <div class="body">
     <main id="main"></main>
     <aside class="bon" aria-label="Aktueller Bon">
-      <h2>Bon</h2>
+      <div class="segmented" id="aside-tabs" role="tablist"><button role="tab" data-tab="bon" aria-selected="true">Bon</button><button role="tab" data-tab="ord" aria-selected="false">Bestellungen <b id="k-count2" hidden>0</b></button></div>
+      <div id="bon-pane" class="pane">
       <ul id="bon-lines"></ul>
       <div class="bon-vat" id="bon-vat"></div>
       <div class="bon-total"><span>Summe</span><b id="bon-sum">0,00 €</b></div>
       <button class="btn primary" id="pay" disabled>Bezahlen</button>
       <button class="btn destructive" id="clear" disabled>Bon leeren</button>
       <button class="btn" id="donate">Spende buchen</button>
+      </div>
+      <div id="ord-pane" class="pane" hidden>
+        <div id="ord-open" class="ord-list"></div>
+        <h2 id="ord-ready-h" hidden>Fertig · antippen, wenn abgeholt</h2>
+        <div id="ord-ready" class="ready"></div>
+        <button class="btn" id="ord-undo" disabled>↶ Rückgängig</button>
+      </div>
     </aside>
   </div>
 
-  <footer class="foot"><span>coded by Leo B. - 2026</span><span class="ver">v26</span></footer>
+  <footer class="foot"><span>coded by Leo B. - 2026</span><span class="ver">v27</span></footer>
 
 </div>
 
@@ -158,10 +166,8 @@
     </section>
     <section class="card" id="sound-card">
       <h3>Töne</h3>
-      <label class="switch-row"><span><b>Töne</b><small>Signale beim Verbuchen, bei Spenden, Fehlern und Storno sowie wenn die Küche „fertig“ meldet. Auf dem iPad bleiben sie aus, wenn der Seitenschalter auf stumm steht.</small></span>
+      <label class="switch-row"><span><b>Töne</b><small>Genau zwei Signale: wenn ein Einkauf (oder eine Spende) fertig verbucht ist und wenn eine Bestellung fertig zubereitet ist. Sie spielen auch bei stummgeschaltetem iPad.</small></span>
         <input type="checkbox" role="switch" id="sound-toggle"></label>
-      <label class="switch-row" style="margin-top:12px"><span><b>Ton beim Antippen</b><small>Leises Tickern bei Kacheln und Ziffernblock.</small></span>
-        <input type="checkbox" role="switch" id="sound-tap"></label>
       <label class="field-row"><span><b>Lautstärke</b></span>
         <select id="sound-vol"><option value="low">Leise</option><option value="mid">Mittel</option><option value="high">Laut</option></select></label>
       <button class="btn" id="sound-test">Ton testen</button>
@@ -343,16 +349,23 @@
 <div id="kitchen-ov" class="page" hidden>
   <header class="top">
     <h1>Küche</h1>
-    <div class="k-actions"><button class="btn" id="kitchen-window">In neuem Fenster</button><button class="btn primary" id="kitchen-close">Schließen</button></div>
+    <div class="k-actions"><button class="btn" id="kitchen-window">Zweiter Monitor</button><button class="btn primary" id="kitchen-close">Schließen</button></div>
   </header>
   <iframe id="k-frame" class="k-frame" title="Küchenanzeige"></iframe>
 </div>
 
+<dialog id="monitor-dlg">
+  <h3>Küchenanzeige auf zweitem Monitor</h3>
+  <p>Als App vom Home-Bildschirm kann kein zweites Fenster geöffnet werden, ohne die Kasse zu ersetzen. So geht es: Diesen Link kopieren, in <b>Safari</b> öffnen (neuer Tab, auf den Monitor ziehen oder per Stage Manager / erweitertem Bildschirm dorthin schieben). Die Anzeige im Monitor ist nur zum Ansehen; „Fertig“ tippst du hier in der Kasse unter „Bestellungen“.</p>
+  <p class="muted">Wichtig: Safari und die App vom Home-Bildschirm haben getrennte Daten. Läuft die Kasse als App, sieht Safari ihre Bestellungen nicht. Dann Kasse und Anzeige beide in Safari öffnen, oder den Monitor nur spiegeln und die Küchen-Ansicht (Taste „Küche“) in der Kasse offen lassen.</p>
+  <input id="monitor-url" readonly style="width:100%;min-height:44px">
+  <div class="dlg-actions"><button class="btn" id="monitor-copy">Link kopieren</button><button class="btn primary" id="monitor-close">Schließen</button></div>
+</dialog>
 <div id="toast" class="toast" hidden></div>
 <pre id="print-area"></pre>
 
-<script src="qrcode.js?v=26"></script>
-<script src="sound.js?v=26"></script>
-<script src="app.js?v=26"></script>
+<script src="qrcode.js?v=27"></script>
+<script src="sound.js?v=27"></script>
+<script src="app.js?v=27"></script>
 </body>
 </html>

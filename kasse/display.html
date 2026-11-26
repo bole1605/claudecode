@@ -40,6 +40,8 @@
   li span{min-width:0;overflow-wrap:anywhere;hyphens:auto;-webkit-hyphens:auto}
   #snow{position:fixed;inset:0;pointer-events:none}
   body.embed h1{display:none}
+  .back{display:inline-flex;align-items:center;text-decoration:none}.back[hidden]{display:none}
+  body.view .done,body.view #undo,body.view .rd small{display:none}body.view .rd{pointer-events:none}
   li:first-child{border-top:0}
   li b{min-width:44px;font-variant-numeric:tabular-nums}
   .done{margin:0 12px 12px;min-height:58px;border-radius:14px;background:var(--green);color:#000;font-size:20px;font-weight:700}
@@ -58,6 +60,7 @@
   <h1>Küche</h1>
   <div class="chips" id="chips" role="group" aria-label="Sparte"></div>
   <span class="sp"></span>
+  <a class="btn back" id="back" href="./" hidden>← Zur Kasse</a>
   <button class="btn" id="undo" disabled>↶ Rückgängig</button>
   <span id="clock"></span>
 </header>
@@ -65,7 +68,6 @@
   <section><div class="grid" id="open"></div><div class="empty" id="empty" hidden></div></section>
   <section id="ready-sec" hidden><h2>Fertig · zur Abholung (antippen, wenn abgeholt)</h2><div class="ready" id="ready"></div></section>
 </main>
-<script src="sound.js"></script>
 <script>
 'use strict';
 // Küchenanzeige: zeigt die Bestellungen der Kasse (gleiches Gerät, zweites Fenster). Die Daten liegen im Speicher des Browsers;
@@ -80,10 +82,11 @@ const read = () => { try { const o = JSON.parse(localStorage.getItem(ORD_KEY)); 
 function write(o) { try { localStorage.setItem(ORD_KEY, JSON.stringify(o)); } catch (e) {} if (chan) chan.postMessage('changed'); }
 const idOf = o => o.no + '|' + o.n;
 
+const VIEW = /[?&]view=1/.test(location.search), EMBED = /[?&]embed=1/.test(location.search);
+if (VIEW) document.body.classList.add('view');   // Monitor ohne Touch: nur anzeigen
+if (!EMBED && !VIEW) $('#back').hidden = false;
 if (/[?&]embed=1/.test(location.search)) document.body.classList.add('embed');   // im Überlagerungsfenster der Kasse: Titel steht schon dort
 let filter = decodeURIComponent(location.hash.slice(1)) || 'all', known = null, undo = [];
-Sound.setup(mainState().sound);
-document.addEventListener('pointerdown', () => Sound.unlock(), { passive: true });
 
 function stands() {   // Sparten aus dem Sortiment der Kasse, sonst aus den Bestellungen
   const cat = mainState().catalog;
@@ -99,12 +102,10 @@ const visible = o => filter === 'all' || o.st === filter;
 const mins = t => Math.max(0, Math.floor((Date.now() - t) / 60000));
 
 function render() {
-  Sound.setup(mainState().sound);
   const all = read().orders.filter(visible).sort((a, b) => a.t - b.t);
   const open = all.filter(o => o.status === 'open'), ready = all.filter(o => o.status === 'ready');
   // Ton bei neuen Bestellungen (nicht beim ersten Laden)
   const ids = new Set(open.map(idOf));
-  if (known && open.some(o => !known.has(idOf(o)))) Sound.play('newOrder');
   known = ids;
   $('#open').innerHTML = open.map(o => { const m = mins(o.t), cls = m >= 10 ? 'late' : m >= 5 ? 'warn' : '';
     return `<article class="tk ${cls}" style="--c:${esc(o.col || '#A10DBC')}"><header><b class="no">${esc(o.no)}</b><span class="sl">${esc(o.sl)}</span><time>${m} min</time></header>
@@ -125,7 +126,7 @@ function setStatus(id, status, remember) {
 document.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.f) { filter = b.dataset.f; history.replaceState(null, '', '#' + encodeURIComponent(filter)); known = null; chips(); render(); }
-  else if (b.dataset.done) { setStatus(b.dataset.done, 'ready', true); Sound.play('ready'); }
+  else if (b.dataset.done) { setStatus(b.dataset.done, 'ready', true); }
   else if (b.dataset.pick) setStatus(b.dataset.pick, 'done', true);
   else if (b.id === 'undo') { const u = undo.pop(); if (u) setStatus(u.id, u.prev, false); }
 });
