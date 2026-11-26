@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v21** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v22** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -71,6 +71,8 @@ Einstellungen (alle in der Verwaltung):
 | **Zahlen speichern (Datei)** | Erzeugt eine CSV-Datei (siehe 5.). |
 | **Passwort ändern** | Neues Passwort festlegen (erzeugt auch einen neuen Wiederherstellungscode). |
 | **QR-Code / E-Mail nach dem Verbuchen** | Schalter im Bereich „Bons“, siehe Abschnitt 5b. |
+| **Töne** | Ein/aus, Lautstärke, Ton beim Antippen, Test (Abschnitt 5g). |
+| **Küchenanzeige / Bestellnummern** | Ein/aus, Nummern zurücksetzen, Anzeige leeren (Abschnitt 5f). |
 | **Bons (PDF & Druck)** | Schalter und „Bon-Kopf und Fußzeile festlegen“. Nach dem Verbuchen erscheint „PDF“ und „Drucken“, später auch bei jeder Buchung in der Liste. |
 | **Sortiment auf Standard zurücksetzen** | Stellt das ursprüngliche Sortiment wieder her. Gebuchte Verkäufe bleiben erhalten. |
 | **Alle Buchungen auf diesem Gerät löschen** | Löscht alle Buchungen (mit Rückfrage). Mit „Gelöschte Buchungen wiederherstellen“ holst du sie zurück, solange du nicht erneut löschst. |
@@ -106,6 +108,30 @@ Inhalt: Anzahl und Umsatz je Produkt, Summen je Stand, Gesamtsumme, Zahlarten (B
 **Empfehlung:** Speichere die Zahlen **am Ende jedes Markttags** und schicke dir die Datei selbst zu. Die Zählungen jedes Tablets stehen nur dort, einen Gesamtstand über alle Tablets gibt es nicht. Die Dateien der drei Stände rechnest du von Hand zusammen.
 
 ---
+
+## 5e. Spende ohne Einkauf
+
+Unter dem Bon steht die Taste **„Spende buchen“**. Du wählst **Bar** oder **PayPal**, tippst den Betrag (Schnelltasten 1, 2, 5, 10, 20, 50 € oder Ziffernblock) und buchst. Bei PayPal erscheint der QR-Code mit dem Betrag (wie bei Bestellungen, Einstellung „Inhalt des QR-Codes“); verbuche erst, wenn die Spende angekommen ist.
+- Die Spende ist **keine Einnahme aus Verkauf**: Sie steht getrennt bei den **Spenden** (Verwaltung, Bon, CSV, Kassenbericht). Bar erhöht sie den Kassenstand, PayPal nicht.
+- Sie bekommt einen **Bon** (mit QR-Code/PDF wie gewohnt) und **keine Bestellnummer** und erscheint nicht in der Küche.
+- Ein Fehler lässt sich in der Verwaltung mit **Stornieren** zurücknehmen.
+
+## 5f. Bestellnummern und Küchenanzeige
+
+**Bestellnummern:** Jede Bestellung bekommt nach dem Verbuchen eine Nummer **je Sparte**, zum Beispiel **C1, C2 …** (Crêpes), **B1, B2 …** (Burger & Spezi), **K1 …** (Karten). Sie erscheint groß unter dem Bon-Hinweis, auf dem Bon, auf dem Online-Bon und in der Buchungsliste. Die Zählung **beginnt jeden Tag neu**. Das Kürzel änderst du im Bearbeitungsmodus mit der Taste **„Kürzel“**; „Bestellnummern zurücksetzen“ gibt es in der Verwaltung unter „Bestellungen und Küchenanzeige“. Eine reine Pfand-Rückgabe oder eine Spende bekommt keine Nummer.
+
+**Küchenanzeige:** Oben rechts steht die Taste **„Küche“** mit der Zahl der offenen Bestellungen.
+- **Küche** öffnet die Anzeige über der Kasse (Schließen mit „Schließen“). So wechselst du auf einem Tablet zwischen Kasse und Küche.
+- **In neuem Fenster** öffnet sie als eigenes Fenster desselben Geräts, zum Beispiel nebeneinander (iPad: Split View mit zwei Safari-Fenstern, Android: zweites Fenster/Tab). Die Seite heißt `display.html` neben der Kasse, du kannst sie auch direkt öffnen, mit `#crepes`, `#burger` oder `#karten` am Ende für eine Sparte.
+- Auf der Küchenanzeige stehen **Nummer, Sparte, Wartezeit** (orange ab 5, rot ab 10 Minuten) und die **Artikel mit Sorte** (zum Beispiel „Fleisch“). Mit den Tasten oben filterst du nach Sparte.
+- **Fertig** schiebt die Bestellung in die Liste „Fertig · zur Abholung“. Die Kasse spielt dann einen Ton. Antippen der Nummer dort heißt „abgeholt“. **Rückgängig** nimmt den letzten Schritt zurück.
+- Storniert die Kasse einen Bon, verschwindet die Bestellung aus der Anzeige.
+- Der Austausch läuft **nur auf demselben Gerät** (kein Server, keine Verbindung zu anderen Tablets). Auf dem iPad gilt: Eine **zum Home-Bildschirm hinzugefügte App** und ein Safari-Fenster haben getrennte Speicher. Nutze dort „Küche“ (Anzeige über der Kasse) oder öffne beide Fenster in Safari.
+- Aus: Verwaltung → „Küchenanzeige“ ausschalten (Bestellnummern gibt es weiter).
+
+## 5g. Töne
+
+Verwaltung → **„Töne“**: ein/aus, Lautstärke (leise, mittel, laut), „Ton beim Antippen“ extra abschaltbar, „Ton testen“. Es gibt kurze Signale beim Antippen und Entfernen, beim Verbuchen, bei einer Spende, bei Fehlern (zum Beispiel falsches Passwort, Kassensturz mit Differenz), bei Storno, bei einer neuen Bestellung in der Küche und wenn die Küche „fertig“ meldet. Auf dem iPad bleiben Töne aus, wenn der **Seitenschalter auf stumm** steht oder die Lautstärke ganz unten ist.
 
 ## 5d. Kassensturz und Kassenbericht
 
@@ -150,6 +176,7 @@ Verwaltung → **„Datensicherung“**:
 - [ ] MwSt.-Rechner nach Bedarf ein- oder ausgeschaltet; Steuersätze geprüft
 - [ ] Testbuchungen entfernt: Verwaltung → „Alle Buchungen auf diesem Gerät löschen“
 - [ ] Tablets geladen, Ladekabel oder Powerbank dabei, automatische Sperre auf „nie“ oder mindestens 5 Minuten
+- [ ] **Küchenanzeige** am Crêpes- und am Burger-Tablet einmal ausprobiert (Bestellung buchen, „Fertig“ drücken); Töne laut genug eingestellt
 - [ ] **Geführter Zugriff** (iPad: Einstellungen → Bedienungshilfen) oder Bildschirmfixierung (Android) eingeschaltet
 - [ ] App einmal mit Internet gestartet und danach im **Flugmodus** getestet: Sie muss starten und einen Bon verbuchen können
 - [ ] Ersatztablet mit installierter App bereit; Sicherungsdatei zum Einspielen

@@ -12,6 +12,8 @@
   @media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1C1C1E;--label:#fff;--label2:rgba(235,235,245,.6);--sep:rgba(84,84,88,.6);--blue:#0A84FF}}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--label);font:17px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;padding:16px 16px 40px}
+  .logo{display:block;height:56px;width:auto;margin:0 auto 10px}
+  .ono{font-size:28px}
   .bon{max-width:440px;margin:0 auto;background:var(--card);border-radius:20px;padding:22px 20px;box-shadow:0 1px 4px rgba(0,0,0,.1)}
   .c{text-align:center}.h1{font-weight:700;font-size:18px}.m{color:var(--label2);font-size:15px}
   hr{border:0;border-top:1px dashed var(--sep);margin:14px 0}
@@ -45,8 +47,9 @@ const pct = r => String(r).replace('.', ',') + ' %';
       : b.m === 'p' ? '<tr><td>Bezahlt mit PayPal</td><td class="r"></td></tr>'
       : b.tot === 0 ? '' : `<tr><td>Bar gegeben</td><td class="r">${euro(b.giv)}</td></tr>${b.tip ? `<tr><td>Spende</td><td class="r">${euro(b.tip)}</td></tr>` : ''}<tr><td>Rückgeld</td><td class="r">${euro(b.chg)}</td></tr>`;
     out.innerHTML = `<div class="bon">
+      <picture><source srcset="icons/jugend-dunkel.png" media="(prefers-color-scheme: dark)"><img class="logo" src="icons/jugend-hell.png" alt="ev. Jugend Kleinglattbach"></picture>
       ${name ? `<div class="c h1">${esc(name)}</div>` : ''}${addr ? `<div class="c m">${esc(addr).split(/\n|;/).map(x => x.trim()).filter(Boolean).join('<br>')}</div>` : ''}${tax ? `<div class="c m">${esc(tax)}</div>` : ''}
-      <hr><div class="nr">BON NR. ${String(b.n).padStart(4, '0')}</div>
+      <hr><div class="nr">BON NR. ${String(b.n).padStart(4, '0')}</div>${b.o ? `<div class="nr">BESTELLNUMMER ${esc(b.o)}</div>` : ''}
       <div class="c m">${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} · ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}<br>${esc(b.s)}</div>
       <hr><table>${lines}</table><hr>
       <table><tr class="sum"><td>SUMME</td><td class="r">${euro(b.tot)}</td></tr>${pay}</table>${vat}
