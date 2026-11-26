@@ -33,13 +33,14 @@ const DEFAULT_STANDS = [
     ]},
   ]},
 ];
-const VERSION = 31;
+const VERSION = 32;
 // Fokus ins erste Feld – aber nur, wenn die Eingabe nicht schon in einem anderen Feld des Fensters begonnen hat
 const focusFirst = sel => setTimeout(() => { const el = document.querySelector(sel), d = el.closest('dialog'); if (!d.contains(document.activeElement) || document.activeElement === d) el.focus(); }, 50);
 // Test- und Live-Version liegen auf derselben Domain: getrennter Speicher, damit sich die Daten nie vermischen
 const IS_TEST = /\/kasse-test\//.test(location.pathname);
 const KEY = IS_TEST ? 'kasse-test-v2' : 'kasse-v2';
 const $ = s => document.querySelector(s);
+const priceTxt = c => c === 0 ? 'Gratis' : euro(c);
 const euro = c => (c / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 const items = s => s.groups.flatMap(g => g.items);
 
@@ -51,7 +52,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const PALETTE = Kasse.PALETTE;   // Logo-Farben; kein Rot: Rot ist für Löschen/Storno/Minus reserviert
 
 const RC_DEFAULT = { name: 'Evangelische Kirchengemeinde Kleinglattbach', addr: 'Kirchstraße 15; 71665 Vaihingen an der Enz', foot: 'Vielen Dank, Guten Appetit & frohe Weihnachten!' };
-let state = { design: { theme: 'standard', mode: 'auto', accent: null, logo: 'low', snow: true }, mig23: false, sound: { on: true, vol: 'mid', tones: { booked: true, ready: false } }, kitchen: { on: true }, orderNo: { day: '', seq: {} }, orderMode: 'manual', moves: [], counts: [], lock: null, mig20: false, share: { on: true }, lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
+let state = { design: { theme: 'standard', mode: 'auto', accent: null, logo: 'low', snow: true }, mig23: false, sound: { on: true, vol: 'mid', tones: { booked: true, ready: false } }, kitchen: { on: true }, orderNo: { day: '', seq: {} }, orderMode: 'manual', orderOff: {}, exp: [], moves: [], counts: [], lock: null, mig20: false, share: { on: true }, lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
 try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
 let STANDS, ALL = {};
 function setCatalog(c) {
@@ -135,7 +136,7 @@ function numUpdate() {
 function numOpen() { nv = ''; numUpdate(); $('#num-dlg').showModal(); }
 function numKey(k) { if (k === 'back') nv = nv.slice(0, -1); else if (nv.length < 4) nv += k; numUpdate(); }
 function assignOrder(s) {   // Bestellnummer vergeben (nur für echte Bestellungen, nicht für Spenden oder reine Pfand-Rückgabe)
-  if (s.donation || !Object.entries(s.lines).some(([id, n]) => n > 0 && !isPfand(id))) return;
+  if (s.donation || (state.orderOff || {})[s.stand] || !Object.entries(s.lines).some(([id, n]) => n > 0 && !isPfand(id))) return;
   const st = STANDS.find(x => x.id === s.stand) || { id: s.stand, label: s.sl };
   if (state.orderMode === 'manual' && manualNo) { s.on = manualNo; manualNo = null; }
   else { const r = Kasse.nextOrder(state.orderNo, s.stand, standPrefix(st), today()); state.orderNo = r.st; s.on = r.no; }
@@ -245,7 +246,7 @@ function build() {
             <span class="badge" data-count="${it.id}">0</span>
             <span class="name">${esc(it.name)}</span>
             ${it.sub ? `<span class="sub">${esc(it.sub)}</span>` : ''}
-            <span class="price">${euro(it.price)}</span>
+            <span class="price">${priceTxt(it.price)}</span>
             <span class="rev" data-sold="${it.id}"></span>
           </button>
           <button class="minus" data-sub="${it.id}" aria-label="${esc(it.name)} vom Bon entfernen">−</button>
@@ -270,7 +271,7 @@ function buildEdit() {
       <div class="grid">${g.items.map(it => `
         <div class="tile-wrap"><button class="tile edit" data-edit="${it.id}">
           <span class="pencil">✎</span><span class="name">${esc(it.name)}</span>
-          ${it.sub ? `<span class="sub">${esc(it.sub)}</span>` : ''}<span class="price">${euro(it.price)}</span></button></div>`).join('')}
+          ${it.sub ? `<span class="sub">${esc(it.sub)}</span>` : ''}<span class="price">${priceTxt(it.price)}</span></button></div>`).join('')}
         <div class="tile-wrap"><button class="tile add-tile" data-newitem="${g.id}">＋ Produkt</button></div>
       </div>
     </section>`).join('') + '<button class="btn wide" data-newgroup>＋ Unterkategorie hinzufügen</button>';
@@ -289,7 +290,7 @@ function update() {
   const lines = items(s).filter(it => c[it.id]);
   $('#bon-lines').innerHTML = lines.length ? lines.map(it => `
     <li><span class="bl-n">${c[it.id]}×</span><span class="bl-name">${esc(it.name)}</span>
-    <span class="bl-sum">${euro(c[it.id] * it.price)}</span>
+    <span class="bl-sum">${priceTxt(c[it.id] * it.price)}</span>
     <button class="bl-minus" data-sub="${it.id}" aria-label="${esc(it.name)} entfernen">−</button></li>`).join('')
     : '<li class="empty">Kachel antippen, um einen Artikel hinzuzufügen</li>';
   const t = cartTotal();
@@ -394,7 +395,7 @@ function finishSale(sale, o) {   // Buchung speichern, Bestellnummer vergeben, T
   save(); update(); $('#pay-dlg').close(); buzz(); Sound.play(o.sound || 'booked'); afterBook(sale);
 }
 function book() {
-  if (state.orderMode === 'manual' && hasOrderItems() && !manualNo) { numOpen(); return; }   // erst die Nummer des Märkchens erfragen
+  if (state.orderMode === 'manual' && hasOrderItems() && !state.orderOff[state.stand] && !manualNo) { numOpen(); return; }   // erst die Nummer des Märkchens erfragen
   const total = cartTotal();
   if (total <= 0) { // Auszahlung (z. B. Pfand zurück) oder 0 €: bar, nichts einzunehmen
     finishSale({ method: 'bar', n: ++state.seq, t: Date.now(), stand: state.stand, sl: stand().label, lines: { ...cart() }, info: snap(cart()), total, given: 0, tip: 0, change: -total, payout: total < 0, void: false }, { clear: true }); return;
@@ -506,6 +507,7 @@ function renderAdmin() {
   $('#sound-toggle').checked = state.sound.on; $('#sound-booked').checked = Sound.toneOn('booked'); $('#sound-ready').checked = Sound.toneOn('ready'); $('#sound-vol').value = state.sound.vol; $('#kitchen-toggle').checked = state.kitchen.on;
   { const on = state.orderNo && state.orderNo.day === today() ? state.orderNo.seq : {};
     $('#order-mode').value = state.orderMode;
+    $('#ord-stands').innerHTML = STANDS.map(s => `<label class="switch-row" style="margin-top:12px"><span><b>${esc(s.label)}</b><small>Bestellnummer, Bestellstatus und Küche für diese Sparte</small></span><input type="checkbox" role="switch" data-ordstand="${esc(s.id)}"${state.orderOff[s.id] ? '' : ' checked'}></label>`).join('');
     $('#ord-state').textContent = state.orderMode === 'manual' ? 'Die Nummer des Märkchens wird beim Verbuchen von Hand eingegeben.' : 'Nächste Bestellnummern: ' + STANDS.map(s => standPrefix(s) + ((on[s.id] || 0) + 1)).join(' · ') + ' (zählt jeden Tag neu)'; }
   $('#share-toggle').checked = state.share.on; $('#share-toggle').disabled = !state.receipt.on;
   $('#tip-toggle').checked = state.tip.on;
@@ -543,6 +545,15 @@ function renderAdmin() {
     const k = state.sales.filter(x => x.stand === id), g = k.filter(x => !x.void).length, v = k.length - g;
     return `<div class="sum-row"><span>${esc(labelOf(id))}</span><span>${g} ${g === 1 ? 'Buchung' : 'Buchungen'} · ${cnt[id] || 0} Artikel${v ? ` · ${v} storniert` : ''}</span><b>${euro(rev[id] || 0)}</b></div>${state.vat.on && grS[id] ? `<div class="vat-sub">${vatText(grS[id]).text}</div>` : ''}`;
   }).join('') + `<div class="sum-row total"><span>Gesamt</span><span>Bar ${euro(pay.bar)} · PayPal ${euro(pay.paypal)}${pay.tip ? ` · Spenden ${euro(pay.tip)} (nicht enthalten)` : ''}</span><b>${euro(Object.values(rev).reduce((a, b) => a + b, 0))}</b></div>`;
+  { const E = state.exp.filter(x => !x.void), eTot = E.reduce((a, x) => a + x.amt, 0), rTot = Object.values(rev).reduce((a, b) => a + b, 0), res = rTot - eTot;
+    const sumE = id => E.filter(x => (x.stand || '') === id).reduce((a, x) => a + x.amt, 0), general = sumE('');
+    $('#exp-card').innerHTML = `<h3>Ausgaben und Ergebnis</h3>
+      <div class="sum-row"><span>Einnahmen</span><span>ohne Spenden, ohne Storno</span><b>${euro(rTot)}</b></div>
+      <div class="sum-row"><span>− Ausgaben</span><span>${E.length} ${E.length === 1 ? 'Posten' : 'Posten'}</span><b>${euro(eTot ? -eTot : 0)}</b></div>
+      <div class="sum-row total"><span>${res >= 0 ? 'Gewinn' : 'Verlust'}</span><span>Einnahmen − Ausgaben${pay.tip ? ` · mit Spenden ${euro(res + pay.tip)}` : ''}</span><b class="${res >= 0 ? 'ok' : 'bad'}">${euro(res)}</b></div>
+      ${E.some(x => x.stand) ? '<div class="exp-by">' + standIds().map(id => `<div class="sum-row"><span>${esc(labelOf(id))}</span><span>${euro(rev[id] || 0)} − ${euro(sumE(id))}</span><b>${euro((rev[id] || 0) - sumE(id))}</b></div>`).join('') + (general ? `<div class="sum-row"><span>Allgemein</span><span>keiner Sparte zugeordnet</span><b>${euro(-general)}</b></div>` : '') + '</div>' : ''}
+      ${state.exp.length ? '<div class="mv-list">' + [...state.exp].reverse().map(x => `<div class="mv${x.void ? ' void' : ''}"><span>${fmtTS(x.t)} · ${esc(x.note)} · ${x.stand ? esc(labelOf(x.stand)) : 'Allgemein'}${x.cash ? ' · aus der Kasse' : ''}${x.void ? ' · <span class="tag">storniert</span>' : ''}</span><b>${euro(x.amt)}</b><button class="btn sm ${x.void ? '' : 'destructive'}" data-expvoid="${x.id}">${x.void ? 'Aufheben' : 'Stornieren'}</button></div>`).join('') + '</div>' : ''}
+      <div class="actions-card" style="padding:0;margin-top:12px"><button class="btn primary" id="exp-open">Ausgabe erfassen …</button></div>`; }
   $('#restore').hidden = !state.backup;
   const lb = state.lastBackup, since = state.sales.filter(s => s.t > (lb || 0)).length;
   $('#backup-status').textContent = lb ? `Letzte Sicherung: ${fmtTS(lb)} · seitdem ${since} neue ${since === 1 ? 'Buchung' : 'Buchungen'}` : `Noch keine Sicherung erstellt (${state.sales.length} Buchungen auf diesem Gerät).`;
@@ -564,7 +575,7 @@ function renderAdmin() {
 }
 
 // --- Datensicherung (Datei zum Wiederherstellen)
-const BACKUP_KEYS = ['design', 'catalog', 'sales', 'seq', 'vat', 'tip', 'cash', 'moves', 'counts', 'receipt', 'paypal', 'ppMode'];
+const BACKUP_KEYS = ['design', 'catalog', 'sales', 'seq', 'vat', 'tip', 'cash', 'moves', 'counts', 'receipt', 'paypal', 'ppMode', 'exp', 'orderOff'];
 async function deliver(file, title) {
   try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title }); return true; } }
   catch (err) { if (err.name === 'AbortError') return false; }
@@ -614,6 +625,11 @@ async function exportFile() {
   if (V) { rows.push('', row(['Mehrwertsteuer', 'Satz', 'Brutto (€)', 'Netto (€)', 'MwSt (€)'])); for (const r of Object.keys(gr).sort((x, y) => x - y)) rows.push(row(['', pct(r), num(gr[r]), num(gr[r] - vatPart(gr[r], +r)), num(vatPart(gr[r], +r))])); const T = vatText(gr); rows.push(row(['', 'GESAMT', num(all), num(T.net), num(T.vat)])); }
   rows.push('', row(['Bon-Nr.', 'Zeit', 'Stand', 'Artikel', 'Summe (€)', 'Gegeben (€)', 'Rückgeld (€)', 'Status', 'Zahlart', 'Spende (€)', 'Kassenstand danach (€)'].concat(V ? ['MwSt (€)'] : [])));
   for (const s of state.sales) rows.push(row([s.n, fmtTS(s.t), labelOf(s.stand), lineText(s), num(s.total), num(s.given), num(s.change), s.void ? 'storniert' : 'gültig', s.method === 'paypal' ? 'PayPal' : 'Bar', num(s.tip || 0), num(cs.m[s.n])].concat(V ? [num((() => { const g = {}; for (const [id, n] of Object.entries(s.lines)) { const pr = s.info && s.info[id] ? s.info[id].price : ALL[id] ? ALL[id].price : 0, r = vatOf(s.info, id); g[r] = (g[r] || 0) + n * pr; } return vatText(g).vat; })())] : [])));
+  if (state.exp.length) {
+    rows.push('', row(['Ausgaben', 'Zeit', 'Bezeichnung', 'Betrag (€)', 'Status', 'Sparte', 'Aus der Kasse']));
+    state.exp.forEach(x => rows.push(row(['', fmtTS(x.t), x.note, num(x.amt), x.void ? 'storniert' : 'gültig', x.stand ? labelOf(x.stand) : 'Allgemein', x.cash ? 'ja' : 'nein'])));
+    rows.push(row(['', 'Ausgaben gesamt', '', num(state.exp.filter(x => !x.void).reduce((a, x) => a + x.amt, 0))]));
+  }
   if (state.moves.length || state.counts.length) {
     rows.push('', row(['Kasse: Einlagen/Entnahmen', 'Zeit', 'Bemerkung', 'Betrag (€)', 'Status']));
     state.moves.forEach(x => rows.push(row(['', fmtTS(x.t), x.note || '', num(x.amt), x.void ? 'storniert' : 'gültig'])));
@@ -760,6 +776,11 @@ document.addEventListener('click', async e => {
   if (t.id === 'rep-pdf') { reportPdf(); return; }
   if (t.id === 'rep-print') { reportPrint(); return; }
   if (D.rep) { reportPdf(D.rep); return; }
+  if (t.id === 'exp-open') { expOpen(); return; }
+  if (t.id === 'exp-cancel') { $('#exp-dlg').close(); return; }
+  if (D.expvoid) { const x = state.exp.find(m => m.id === D.expvoid); if (!x) return;
+    if (await ask(x.void ? 'Storno aufheben?' : 'Ausgabe stornieren?', `${fmtTS(x.t)} · ${x.note} · ${euro(x.amt)}`, x.void ? 'Aufheben' : 'Stornieren')) { x.void = !x.void; state.moves.filter(m => m.expId === x.id).forEach(m => { m.void = x.void; }); save(); renderAdmin(); }
+    return; }
   if (t.id === 'mv-open') { mvOpen(); return; }
   if (t.id === 'mv-cancel') { $('#mv-dlg').close(); return; }
   if (D.kind) { mvKind = D.kind; mvSeg(); return; }
@@ -845,6 +866,21 @@ function csSave() {
   $('#cs-before').hidden = true; $('#cs-after').hidden = false;
   $('#cs-result').innerHTML = `Kassensturz gespeichert: gezählt <b>${euro(ist)}</b> · Soll <b>${euro(soll)}</b> · <b class="${csSaved.diff === 0 ? 'ok' : 'bad'}">${csSaved.diff === 0 ? 'Kasse stimmt' : csSaved.diff > 0 ? 'Überschuss ' + euro(csSaved.diff) : 'Fehlbetrag ' + euro(-csSaved.diff)}</b>`;
 }
+function expOpen() {
+  $('#exp-amt').value = ''; $('#exp-note').value = ''; $('#exp-cash').checked = false; $('#exp-err').textContent = '';
+  $('#exp-stand').innerHTML = '<option value="">Allgemein (keiner Sparte zugeordnet)</option>' + STANDS.map(s => `<option value="${esc(s.id)}">${esc(s.label)}</option>`).join('');
+  $('#exp-dlg').showModal();
+}
+$('#exp-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const amt = parse($('#exp-amt').value.trim()), note = $('#exp-note').value.trim();
+  if (amt === null || amt <= 0) { $('#exp-err').textContent = 'Bitte einen Betrag eingeben, z. B. 24,90'; return; }
+  if (!note) { $('#exp-err').textContent = 'Bitte eine Bezeichnung eingeben, z. B. „Einkauf Metro“'; return; }
+  const x = { id: uid('e'), t: Date.now(), amt, note, stand: $('#exp-stand').value || null, cash: $('#exp-cash').checked, void: false };
+  state.exp.push(x);
+  if (x.cash) state.moves.push({ id: uid('m'), t: x.t, amt: -amt, note: 'Ausgabe: ' + note, expId: x.id });   // aus der Kasse bezahlt: mindert den Kassenstand
+  save(); $('#exp-dlg').close(); renderAdmin();
+});
 let mvKind = 'ein';
 function mvOpen() { mvKind = 'ein'; $('#mv-amt').value = ''; $('#mv-note').value = ''; $('#mv-err').textContent = ''; mvSeg(); $('#mv-dlg').showModal(); }
 function mvSeg() { document.querySelectorAll('#mv-seg button').forEach(b => b.setAttribute('aria-selected', b.dataset.kind === mvKind)); }
@@ -890,6 +926,12 @@ function reportLines(c) {
   hr(); l('UMSÄTZE (brutto, ohne Storno)', true);
   standIds().forEach(id => { const k = valid.filter(x => x.stand === id).length; lr(`${labelOf(id)}: ${k} ${k === 1 ? 'Buchung' : 'Buchungen'}, ${cnt[id] || 0} Artikel`, money(rev[id] || 0)); });
   lr('Gesamt', money(Object.values(rev).reduce((x, y) => x + y, 0)), true);
+  if (state.exp.some(x => !x.void)) {
+    const E = state.exp.filter(x => !x.void), et = E.reduce((a, x) => a + x.amt, 0), rt = Object.values(rev).reduce((x, y) => x + y, 0);
+    l(''); l('AUSGABEN', true);
+    E.forEach(x => lr('  ' + fmtTS(x.t) + ' ' + x.note + (x.stand ? ' (' + labelOf(x.stand) + ')' : ''), money(-x.amt)));
+    lr('Ausgaben gesamt', money(-et), true); lr(rt - et >= 0 ? 'Gewinn (Einnahmen − Ausgaben)' : 'Verlust (Einnahmen − Ausgaben)', money(rt - et), true);
+  }
   lr('  davon bar bezahlt', money(pay.bar)); lr('  davon PayPal (nicht im Bargeld)', money(pay.paypal));
   if (state.vat.on) { l(''); l('Enthaltene Mehrwertsteuer:'); Object.keys(gr).sort((x, y) => x - y).forEach(r => lr(`  Satz ${pct(r)}  (brutto ${money(gr[r])})`, money(vatPart(gr[r], +r)))); }
   hr(); l('HINWEISE', true);
@@ -1031,6 +1073,7 @@ $('#d-snow').addEventListener('change', e => setDesign({ snow: e.target.checked 
 $('#d-swatches').addEventListener('change', e => { if (e.target.id === 'd-custom') setDesign({ accent: e.target.value }); });
 $('#sound-toggle').addEventListener('change', e => { state.sound.on = e.target.checked; Sound.setup(state.sound); save(); });
 $('#sound-vol').addEventListener('change', e => { state.sound.vol = e.target.value; Sound.setup(state.sound); save(); Sound.unlock(); Sound.play('booked'); });
+$('#ord-stands').addEventListener('change', e => { const id = e.target.dataset.ordstand; if (!id) return; if (e.target.checked) delete state.orderOff[id]; else state.orderOff[id] = true; save(); renderAdmin(); });
 $('#order-mode').addEventListener('change', e => { state.orderMode = e.target.value; save(); renderAdmin(); });
 $('#sound-booked').addEventListener('change', e => { state.sound.tones = Object.assign({}, state.sound.tones, { booked: e.target.checked }); Sound.setup(state.sound); save(); });
 $('#sound-ready').addEventListener('change', e => { state.sound.tones = Object.assign({}, state.sound.tones, { ready: e.target.checked }); Sound.setup(state.sound); save(); });

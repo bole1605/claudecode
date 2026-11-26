@@ -15,9 +15,9 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=31">
-<script src="logic.js?v=31"></script>
-<script src="theme.js?v=31"></script>
+<link rel="stylesheet" href="styles.css?v=32">
+<script src="logic.js?v=32"></script>
+<script src="theme.js?v=32"></script>
 </head>
 <body>
 <div id="wm" aria-hidden="true"></div>
@@ -74,7 +74,7 @@
     </aside>
   </div>
 
-  <footer class="foot"><span>Copyright by Leo B. und Pascal B. - 2026</span><span class="ver">v31</span></footer>
+  <footer class="foot"><span>Copyright by Leo B. und Pascal B. - 2026</span><span class="ver">v32</span></footer>
 
 </div>
 
@@ -161,6 +161,7 @@
   <div class="page-body">
     <section class="card" id="cash-card"></section>
     <section class="card" id="admin-summary"></section>
+    <section class="card" id="exp-card"></section>
     <section class="card" id="vat-summary" hidden></section>
     <section class="card switch-card">
       <label class="switch-row"><span><b>Spende bei Barzahlung</b><small>Beim Bezahlen kann eine Spende erfasst werden. Es zählt nicht zu den Einnahmen und wird getrennt ausgewiesen.</small></span>
@@ -216,6 +217,7 @@
         <input type="checkbox" role="switch" id="kitchen-toggle"></label>
       <label class="field-row"><span><b>Bestellnummer</b><small>Automatisch: C1, B1 … je Sparte. Von Hand: beim Verbuchen die Nummer des Märkchens eintippen.</small></span>
         <select id="order-mode"><option value="auto">Automatisch</option><option value="manual">Von Hand (Märkchen)</option></select></label>
+      <div id="ord-stands"></div>
       <small class="muted" id="ord-state"></small>
       <div class="actions-card" style="padding:0;margin-top:8px">
         <button class="btn" id="ord-reset">Bestellnummern zurücksetzen …</button>
@@ -299,6 +301,21 @@
   </div>
 </dialog>
 
+<dialog id="exp-dlg" class="form-dlg">
+  <form id="exp-form">
+    <h2>Ausgabe erfassen</h2>
+    <label>Betrag in €<input id="exp-amt" inputmode="decimal" autocomplete="off" placeholder="24,90"></label>
+    <label>Bezeichnung (z. B. „Einkauf Metro“)<input id="exp-note" autocomplete="off"></label>
+    <label>Sparte<select id="exp-stand"></select></label>
+    <label class="switch-row" style="margin-top:8px"><span><b>Aus der Kasse bezahlt</b><small>Mindert den Kassenstand (wird als Entnahme gebucht).</small></span><input type="checkbox" role="switch" id="exp-cash"></label>
+    <p class="err" id="exp-err"></p>
+    <div class="dlg-actions">
+      <button type="button" class="btn" id="exp-cancel">Abbrechen</button>
+      <button type="submit" class="btn primary">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="mv-dlg" class="form-dlg">
   <form id="mv-form">
     <h2>Einlage / Entnahme</h2>
@@ -349,7 +366,7 @@
     <h2 id="i-title"></h2>
     <label>Name<input id="i-name" autocomplete="off"></label>
     <label>Zusatz (optional, z. B. „0,5 l“)<input id="i-sub" autocomplete="off"></label>
-    <label>Preis in €<input id="i-price" inputmode="decimal" autocomplete="off" placeholder="3,50"></label>
+    <label>Preis in € (0 = Gratis)<input id="i-price" inputmode="decimal" autocomplete="off" placeholder="3,50"></label>
     <label>Unterkategorie<select id="i-group"></select></label>
     <label id="i-auto-l" hidden>Pfand automatisch mit auf den Bon<select id="i-auto"><option value="">Nein</option><option value="g-pfand">Ja, „Pfand“ dazubuchen</option></select></label>
     <label>MwSt.-Satz (im Preis enthalten)<select id="i-vat"><option value="0">0 %</option><option value="7">7 %</option><option value="19">19 %</option></select></label>
@@ -404,8 +421,8 @@
 <div id="toast" class="toast" hidden></div>
 <pre id="print-area"></pre>
 
-<script src="qrcode.js?v=31"></script>
-<script src="sound.js?v=31"></script>
-<script src="app.js?v=31"></script>
+<script src="qrcode.js?v=32"></script>
+<script src="sound.js?v=32"></script>
+<script src="app.js?v=32"></script>
 </body>
 </html>

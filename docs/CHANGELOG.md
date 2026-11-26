@@ -33,3 +33,4 @@
 | **v29** | **Bestellnummer von Hand:** Einstellung „Von Hand (Märkchen)“; beim Verbuchen wird die Nummer des Märkchens eingetippt, doppelt vergebene (noch nicht abgeholte) Nummern sind gesperrt. Standard bleibt „Automatisch“. |
 | **v30** | Standard der Bestellnummer ist jetzt „Von Hand (Märkchen)“; „Automatisch“ bleibt wählbar. Ziffernblock der Märkchen-Nummer mit gleichmäßigen Abständen. |
 | **v31** | **Weihnachtsdesign:** Dunkelmodus schwarz statt grün, unten Schneehaufen und kleiner Weihnachtsmarkt (hell und dunkel). Fußzeile „Copyright by Leo B. und Pascal B. - 2026“. **Töne:** „Verbucht“ ist jetzt ein Schiffshorn, jedes Signal ist einzeln schaltbar („Abholbereit“ ab Werk aus). **Bestellnummer 0 gesperrt.** |
+| **v32** | **Bestellprozess je Sparte abschaltbar** (Nummer, Status, Küche). **Ausgaben und Ergebnis** in der Verwaltung (Gewinn/Verlust, je Sparte, optional aus der Kasse bezahlt, in CSV, Kassenbericht und Sicherung). **Gratis-Produkte** (Preis 0). |

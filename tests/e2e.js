@@ -514,6 +514,45 @@ async function test(name, fn) {
     await p.ctx.close();
   });
 
+  if (feat('orderOff')) await test('Bestellprozess je Sparte abschaltbar, Gratis-Produkte verbuchen', async errs => {
+    const cat = [{ id: 'a', label: 'Ohne Status', groups: [{ id: 'ga', name: 'Gratis', color: '#A10DBC', items: [{ id: 'a-free', name: 'Probierhäppchen', price: 0, vat: 7 }, { id: 'a-paid', name: 'Tasse', price: 300, vat: 7 }] }] },
+      { id: 'b', label: 'Mit Status', groups: [{ id: 'gb', name: 'Essen', color: '#A10DBC', items: [{ id: 'b-1', name: 'Crêpe', price: 300, vat: 7 }] }] }];
+    const p = await open(errs, '#a', { seed: { mig17: true, mig20: true, mig23: true, stand: 'a', catalog: cat, orderMode: 'manual', orderOff: { a: true } } });
+    assert.strictEqual(await txt(p, '[data-add=a-free] .price'), 'Gratis', 'Gratis statt 0,00 €');
+    await tap(p, 'a-free'); assert.ok((await txt(p, '#bon-lines')).includes('Gratis'));
+    await p.click('#pay'); assert.ok((await txt(p, '#p-change')).includes('Nichts zu zahlen')); await p.click('#p-ok');
+    assert.deepStrictEqual(await p.evaluate(() => [state.sales.length, state.sales[0].total, state.sales[0].on || null, readOrders().orders.length]), [1, 0, null, 0], 'gratis verbucht, ohne Nummer und ohne Küche');
+    await tap(p, 'a-free'); await tap(p, 'a-paid'); await p.click('#pay'); await p.click('[data-quick="5"]'); await p.click('#p-ok');
+    assert.deepStrictEqual(await p.evaluate(() => [state.sales[1].total, document.querySelector('#num-dlg').open]), [300, false], 'Sparte ohne Bestellprozess: keine Nummernabfrage');
+    await p.click('[data-stand=b]'); await tap(p, 'b-1'); await p.click('#pay'); await p.click('[data-quick="5"]'); await p.click('#p-ok');
+    assert.strictEqual(await p.evaluate(() => document.querySelector('#num-dlg').open), true, 'andere Sparte fragt weiter nach der Nummer');
+    await p.click('[data-nkey="4"]'); await p.click('#n-ok'); assert.deepStrictEqual(await p.evaluate(() => [state.sales[2].on, readOrders().orders.length]), ['4', 1]);
+    await admin(p, true); assert.deepStrictEqual(await p.evaluate(() => [...document.querySelectorAll('[data-ordstand]')].map(x => x.checked)), [false, true]);
+    await p.click('.switch-row:has([data-ordstand=a])'); assert.deepStrictEqual(await p.evaluate(() => state.orderOff), {}, 'wieder eingeschaltet');
+    await p.ctx.close();
+  });
+
+  if (feat('exp-open')) await test('Ausgaben: erfassen, gegenrechnen, aus der Kasse, stornieren, Bericht und Datei', async errs => {
+    const p = await open(errs, '#crepes');
+    await tap(p, 'c-nutella'); await p.click('#pay'); await p.click('[data-quick="5"]'); await p.click('#p-ok');
+    await p.evaluate(() => { state.orderMode = 'auto'; });
+    await admin(p, true); assert.ok((await txt(p, '#exp-card')).includes('Gewinn'));
+    await p.click('#exp-open'); await p.fill('#exp-amt', '0'); await p.click('#exp-form button[type=submit]'); assert.ok((await txt(p, '#exp-err')).includes('Betrag'));
+    await p.fill('#exp-amt', '1,50'); await p.click('#exp-form button[type=submit]'); assert.ok((await txt(p, '#exp-err')).includes('Bezeichnung'));
+    await p.fill('#exp-note', 'Einkauf Nutella'); await p.selectOption('#exp-stand', 'crepes'); await p.click('.switch-row:has(#exp-cash)'); await p.click('#exp-form button[type=submit]');
+    assert.deepStrictEqual(await p.evaluate(() => [state.exp.length, state.exp[0].amt, state.exp[0].cash, state.moves.length, state.moves[0].amt]), [1, 150, true, 1, -150], 'Ausgabe und Entnahme');
+    let c = await txt(p, '#exp-card'); assert.ok(c.includes('2,50') && c.includes('Gewinn') && c.includes('Einkauf Nutella') && c.includes('Crêpes'), c);   // 4,00 − 1,50
+    await p.click('#exp-open'); await p.fill('#exp-amt', '10'); await p.fill('#exp-note', 'Miete Stand'); await p.click('#exp-form button[type=submit]');
+    c = await txt(p, '#exp-card'); assert.ok(c.includes('Verlust') && c.includes('Allgemein'), c);
+    // stornieren: Ausgabe und die zugehörige Entnahme
+    const id1 = await p.evaluate(() => state.exp[0].id); await p.click(`[data-expvoid="${id1}"]`); await p.waitForSelector('#confirm[open]'); await p.click('#c-ok');
+    assert.strictEqual(await p.evaluate(() => state.exp[0].void), true);
+    assert.strictEqual(await p.evaluate(() => state.moves.every(m => m.void === state.exp.find(x => x.id === m.expId).void)), true, 'Entnahme folgt der Ausgabe');
+    const csv = (await dl(p, '#save')).toString('utf8'); assert.ok(csv.includes('Ausgaben') && csv.includes('Einkauf Nutella'), 'Datei enthält Ausgaben');
+    assert.ok(await p.evaluate(() => reportLines(null).some(x => x.t.includes('AUSGABEN'))), 'Kassenbericht enthält Ausgaben');
+    await p.ctx.close();
+  });
+
   if (feat('embed=1')) await test('Küche (Überlagerung): alle Sparten, nichts abgeschnitten, auch im Weihnachtsdesign, ohne doppelten Titel', async errs => {
     const p = await open(errs, '#burger', { seed: { design: { theme: 'xmas', snow: true, mode: 'auto', accent: null, logo: 'low' } } });
     const book = async (ids, q) => { for (const i of ids) await tap(p, i); await p.click('#pay'); await p.click(`[data-quick="${q}"]`); await p.click('#p-ok'); await p.click('#toast-x').catch(() => {}); };

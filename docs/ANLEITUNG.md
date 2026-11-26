@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v31** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v32** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -123,6 +123,8 @@ Unter dem Bon steht die Taste **„Spende buchen“**. Du wählst **Bar** oder *
 
 **Nummer von Hand (Märkchen):** Verwaltung → „Bestellungen und Küchenanzeige“ → **Bestellnummer: „Von Hand (Märkchen)“**. Dann fragt die Kasse nach „Verbuchen“ nach der **Nummer des Märkchens**: Nummer eintippen (bis 4 Ziffern), „Verbuchen“. Die **Nummer 0 ist gesperrt**. Eine Nummer, die noch offen oder abholbereit ist, ist ebenfalls gesperrt; sobald die Bestellung als „abgeholt“ gilt, ist sie wieder frei. Spenden brauchen keine Nummer. Die Einstellung gilt je Gerät; der Standard ist „Von Hand“; „Automatisch“ vergibt C1, B1 ….
 
+**Bestellprozess je Sparte abschalten:** Verwaltung → „Bestellungen und Küchenanzeige“ → unter „Bestellnummer“ steht für jede Sparte ein Schalter. **Aus** heißt: keine Bestellnummer, kein Bestellstatus und kein Eintrag in der Küche, auch keine Nummernabfrage beim Verbuchen. Das ist für Sparten gedacht, bei denen das nicht nötig ist (zum Beispiel Karten oder Getränke).
+
 **Küchenanzeige:** Oben rechts steht die Taste **„Küche“** mit der Zahl der offenen Bestellungen.
 - **Küche** öffnet die Anzeige über der Kasse (Schließen mit „Schließen“). So wechselst du auf einem Tablet zwischen Kasse und Küche.
 - **Zweiter Monitor** zeigt die Anzeige nur zum Ansehen (ohne Knöpfe, `display.html?view=1`). Läuft die Kasse in **Safari**, öffnet sich ein zweites Fenster, das du auf den Monitor schiebst. Läuft sie als **App vom Home-Bildschirm**, kann kein zweites Fenster geöffnet werden: Die Kasse zeigt einen Link zum Kopieren für Safari (Abschnitt „Zweiter Monitor“ unten). `#crepes`, `#burger` oder `#karten` am Ende des Links zeigen nur eine Sparte.
@@ -161,6 +163,18 @@ Verwaltung → **„Töne“**: alle Töne ein/aus, Lautstärke (leise, mittel, 
 - **Abholbereit:** wenn eine Bestellung als „Fertig“ gemeldet wird. Ab Werk **aus**.
 
 Mit „Schiffshorn testen“ und „Abholbereit testen“ hörst du die Töne an (auch wenn sie ausgeschaltet sind). Sonst ist die Kasse still. Die Töne sollen auch bei stummgeschaltetem iPad (Seitenschalter) zu hören sein; das ließ sich nur im Test-Browser prüfen, nicht auf einem echten iPad. Falls es nicht klappt: einmal die Kasse antippen (der Ton wird erst nach einer Berührung freigeschaltet) und bitte melden.
+
+## 5i. Ausgaben und Ergebnis (Kostenrechnung)
+
+Verwaltung → Karte **„Ausgaben und Ergebnis“**. Dort stehen Einnahmen (ohne Spenden, ohne Storno), die erfassten Ausgaben und das **Ergebnis** (Gewinn oder Verlust). Sind Spenden dabei, steht daneben das Ergebnis mit Spenden.
+- **Ausgabe erfassen …:** Betrag, Bezeichnung (zum Beispiel „Einkauf Metro“) und die Sparte, der die Ausgabe gehört (oder „Allgemein“). Sind Ausgaben Sparten zugeordnet, zeigt die Karte je Sparte Einnahmen − Ausgaben.
+- **Aus der Kasse bezahlt:** Der Schalter bucht zusätzlich eine Entnahme, damit der Kassenstand stimmt.
+- **Stornieren / Aufheben:** Eine Ausgabe lässt sich stornieren (und wieder aufheben); die Entnahme folgt automatisch.
+- Ausgaben stehen auch in der **CSV-Datei**, im **Kassenbericht** und in der **Sicherung**.
+
+## 5j. Gratis-Produkte
+
+Beim Anlegen oder Bearbeiten eines Produkts den Preis **0** eingeben („0 = Gratis“). Die Kachel zeigt dann „Gratis“. Beim Verbuchen heißt es „Nichts zu zahlen“, die Buchung läuft über 0,00 €, zählt als Artikel und bekommt wie jede Bestellung eine Nummer (außer die Sparte hat den Bestellprozess abgeschaltet).
 
 ## 5d. Kassensturz und Kassenbericht
 
