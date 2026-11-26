@@ -101,8 +101,8 @@ t('Sortiment-Umstellung (Burger, Pfand)', () => {
 t('Lesbarkeit: Schrift auf Kategorie-Farben', () => {
   if (!K.textOn) return;
   assert.ok(K.contrast('#000000', '#ffffff') > 20.9);
-  assert.strictEqual(K.textOn('#FF9F0A'), '#000000'); assert.strictEqual(K.textOn('#5856D6'), '#ffffff');
-  for (const col of ['#FF9F0A', '#34C759', '#30B0C7', '#5856D6', '#AF52DE', '#007AFF', '#A2845E', '#00C7BE'])
+  assert.strictEqual(K.textOn('#FF9F0A'), '#000000'); assert.strictEqual(K.textOn('#5856D6'), '#ffffff'); assert.strictEqual(K.textOn('#A10DBC'), '#ffffff'); assert.strictEqual(K.textOn('#909090'), '#000000');
+  for (const col of ['#A10DBC', '#909090', '#CB7ADA', '#6E6E73', '#FF9F0A', '#34C759', '#30B0C7', '#5856D6'])
     assert.ok(K.contrast(K.textOn(col), col) >= 4.5, col + ' ' + K.contrast(K.textOn(col), col).toFixed(2));   // WCAG AA für normalen Text
 });
 t('Bestellnummern je Sparte, pro Tag neu', () => {
@@ -119,6 +119,18 @@ t('Spende ohne Einkauf in den Summen (bar und PayPal)', () => {
   assert.deepStrictEqual(K.payTotals(s), { bar: 600, paypal: 600, tip: 800, don: 2, donSum: 800 });
   const c = K.cashSeries(s.map((x, i) => ({ ...x, n: i + 1, t: i })), 1000);
   assert.strictEqual(c.bal, 1000 + 600 + 500); assert.strictEqual(c.tips, 500);   // PayPal und Storno ändern den Bargeldbestand nicht
+});
+t('Kachelfarben aus dem Logo: lesbar auf hellem und dunklem Grund', () => {
+  if (!K.COLORS) return;
+  assert.deepStrictEqual(K.COLORS, { lila: '#A10DBC', grau: '#909090', flieder: '#CB7ADA', dunkelgrau: '#6E6E73' });
+  assert.strictEqual(K.PALETTE.length, 4);
+  for (const col of K.PALETTE) {
+    assert.ok(K.contrast(K.textOn(col), col) >= 4.5, 'Schrift auf ' + col + ': ' + K.contrast(K.textOn(col), col).toFixed(2));        // Zähler auf der Kachel
+    assert.ok(K.contrast(col, '#FFFFFF') >= 2.5 && K.contrast(col, '#1C1C1E') >= 2.5, 'Rand ' + col + ' hell/dunkel');                  // Kachelrand auf weißer bzw. dunkler Karte
+  }
+  assert.strictEqual(K.migrateColor('#ff9f0a'), '#A10DBC'); assert.strictEqual(K.migrateColor('#34C759'), '#909090');
+  assert.strictEqual(K.migrateColor('#30B0C7'), '#CB7ADA'); assert.strictEqual(K.migrateColor('#5856D6'), '#6E6E73');
+  assert.strictEqual(K.migrateColor('#123456'), '#123456'); assert.strictEqual(K.migrateColor(undefined), undefined);   // eigene Farben bleiben
 });
 (async () => {
   const sample = { v: 1, n: 7, t: 1764000000000, s: 'Burger & Spezi', m: 'b', tot: 1250, giv: 2000, tip: 150, chg: 600, po: 0, x: 1,

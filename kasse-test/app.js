@@ -3,7 +3,7 @@ const { parse, vatPart, normalizeLink, migrateCatalog, enc, wrapText, makePdf } 
 // Preise in Cent, damit nie Rundungsfehler entstehen.
 const DEFAULT_STANDS = [
   { id: 'crepes', label: 'Crêpes', groups: [
-    { name: 'Crêpes', color: '#FF9F0A', items: [
+    { name: 'Crêpes', color: Kasse.COLORS.lila, items: [
       { id: 'c-zimt',   name: 'Zimt und Zucker', price: 300 },
       { id: 'c-apfel',  name: 'Apfelmus', price: 350 },
       { id: 'c-nutella', name: 'Nutella', price: 400 },
@@ -14,26 +14,26 @@ const DEFAULT_STANDS = [
     ]},
   ]},
   { id: 'burger', label: 'Burger & Spezi', groups: [
-    { name: 'Maultaschenburger', color: '#34C759', items: [
+    { name: 'Maultaschenburger', color: Kasse.COLORS.grau, items: [
       { id: 'b-maul-v', name: 'Maultaschen auf karamellisierten Zwiebeln – Vegi', sub: 'Vegetarische Füllung', price: 600 },
       { id: 'b-maul-f', name: 'Maultaschen auf karamellisierten Zwiebeln – Fleisch', sub: 'Fleischfüllung', price: 600 },
       { id: 'b-spezial-v', name: 'Glabbicher Weihnachtsmarkt Spezial-Maultaschenburger – Vegi', sub: 'Vegetarische Füllung', price: 750 },
       { id: 'b-spezial-f', name: 'Glabbicher Weihnachtsmarkt Spezial-Maultaschenburger – Fleisch', sub: 'Fleischfüllung', price: 750 },
     ]},
-    { name: 'Getränke', color: '#30B0C7', items: [
+    { name: 'Getränke', color: Kasse.COLORS.flieder, items: [
       { id: 'g-spezi', name: 'Paulaner Spezi', sub: '0,5 l', price: 300, autoAdd: 'g-pfand' },
       { id: 'g-pfand', name: 'Pfand', sub: 'pro Flasche', price: 200, kind: 'pfand' },
       { id: 'g-pfand-rueck', name: 'Pfand zurück', sub: 'wird ausgezahlt', price: -200, kind: 'pfand' },
     ]},
   ]},
   { id: 'karten', label: 'Karten', groups: [
-    { name: 'Handgemachte Weihnachtskarten', color: '#5856D6', items: [
+    { name: 'Handgemachte Weihnachtskarten', color: Kasse.COLORS.dunkelgrau, items: [
       { id: 'k-1', name: 'Eine Karte', price: 300 },
       { id: 'k-2', name: 'Zwei Karten', price: 500 },
     ]},
   ]},
 ];
-const VERSION = 22;
+const VERSION = 23;
 // Fokus ins erste Feld – aber nur, wenn die Eingabe nicht schon in einem anderen Feld des Fensters begonnen hat
 const focusFirst = sel => setTimeout(() => { const el = document.querySelector(sel), d = el.closest('dialog'); if (!d.contains(document.activeElement) || document.activeElement === d) el.focus(); }, 50);
 // Test- und Live-Version liegen auf derselben Domain: getrennter Speicher, damit sich die Daten nie vermischen
@@ -48,10 +48,10 @@ const isPfand = id => id.startsWith('g-pfand');
 const clone = o => JSON.parse(JSON.stringify(o));
 const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const PALETTE = ['#FF9F0A', '#34C759', '#30B0C7', '#5856D6', '#AF52DE', '#007AFF', '#A2845E', '#00C7BE'];   // kein Rot: Rot ist für Löschen/Storno/Minus reserviert
+const PALETTE = Kasse.PALETTE;   // Logo-Farben; kein Rot: Rot ist für Löschen/Storno/Minus reserviert
 
 const RC_DEFAULT = { name: 'Evangelische Kirchengemeinde Kleinglattbach', addr: 'Kirchstraße 15; 71665 Vaihingen an der Enz', foot: 'Vielen Dank, Guten Appetit & frohe Weihnachten!' };
-let state = { sound: { on: true, vol: 'mid', tap: true }, kitchen: { on: true }, orderNo: { day: '', seq: {} }, moves: [], counts: [], lock: null, mig20: false, share: { on: true }, lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
+let state = { mig23: false, sound: { on: true, vol: 'mid', tap: true }, kitchen: { on: true }, orderNo: { day: '', seq: {} }, moves: [], counts: [], lock: null, mig20: false, share: { on: true }, lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
 try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
 let STANDS, ALL = {};
 function setCatalog(c) {
@@ -66,6 +66,7 @@ function setCatalog(c) {
 if (Array.isArray(state.catalog) && state.catalog.length && !state.mig17) migrateCatalog(state.catalog);
 state.mig17 = true;
 if (!state.mig20) { (state.catalog || []).forEach(s => s.groups.forEach(g => { if (/^#(FF3B30|FF2D55)$/i.test(g.color)) g.color = '#5856D6'; })); state.mig20 = true; }
+if (!state.mig23) { (state.catalog || []).forEach(s => s.groups.forEach(g => { g.color = Kasse.migrateColor(g.color); })); state.mig23 = true; }   // bisherige Standardfarben -> Logo-Farben (eigene Farben bleiben)
 setCatalog(Array.isArray(state.catalog) && state.catalog.length ? state.catalog : clone(DEFAULT_STANDS));
 // Bon-Kopf: Vorgaben übernehmen, solange nichts Eigenes eingetragen ist
 if (!state.receipt.name && !state.receipt.addr) { state.receipt.name = RC_DEFAULT.name; state.receipt.addr = RC_DEFAULT.addr; }
@@ -115,7 +116,7 @@ const today = () => { const d = new Date(), p = k => String(k).padStart(2, '0');
 function orderFromSale(s) {
   const items = Object.entries(s.lines).filter(([id, n]) => n > 0 && !isPfand(id)).map(([id, n]) => [itemName(s, id), n]);
   const st = STANDS.find(x => x.id === s.stand);
-  return { no: s.on, n: s.n, st: s.stand, sl: labelOf(s.stand), col: st && st.groups[0] ? st.groups[0].color : '#007AFF', t: s.t, items, status: 'open' };
+  return { no: s.on, n: s.n, st: s.stand, sl: labelOf(s.stand), col: st && st.groups[0] ? st.groups[0].color : Kasse.COLORS.lila, t: s.t, items, status: 'open' };
 }
 function assignOrder(s) {   // Bestellnummer vergeben (nur für echte Bestellungen, nicht für Spenden oder reine Pfand-Rückgabe)
   if (s.donation || !Object.entries(s.lines).some(([id, n]) => n > 0 && !isPfand(id))) return;
