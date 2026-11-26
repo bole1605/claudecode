@@ -32,3 +32,4 @@
 | **v28** | **Dauerndes hohes Piepsen entfernt:** das stille Hilfs-Audio war nicht ganz still (4-kHz-Pfeifen), jetzt echte Stille. |
 | **v29** | **Bestellnummer von Hand:** Einstellung „Von Hand (Märkchen)“; beim Verbuchen wird die Nummer des Märkchens eingetippt, doppelt vergebene (noch nicht abgeholte) Nummern sind gesperrt. Standard bleibt „Automatisch“. |
 | **v30** | Standard der Bestellnummer ist jetzt „Von Hand (Märkchen)“; „Automatisch“ bleibt wählbar. Ziffernblock der Märkchen-Nummer mit gleichmäßigen Abständen. |
+| **v31** | **Weihnachtsdesign:** Dunkelmodus schwarz statt grün, unten Schneehaufen und kleiner Weihnachtsmarkt (hell und dunkel). Fußzeile „Copyright by Leo B. und Pascal B. - 2026“. **Töne:** „Verbucht“ ist jetzt ein Schiffshorn, jedes Signal ist einzeln schaltbar („Abholbereit“ ab Werk aus). **Bestellnummer 0 gesperrt.** |

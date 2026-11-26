@@ -1,15 +1,17 @@
 'use strict';
 // Töne der Kasse: nur zwei Signale, direkt im Browser erzeugt (Web Audio, keine Dateien):
-//   booked = Einkauf (oder Spende) fertig verbucht, ready = Bestellung fertig zubereitet.
+//   booked = Einkauf (oder Spende) fertig verbucht: ein Schiffshorn; ready = Bestellung abholbereit. Jeder Ton ist einzeln schaltbar.
 // Einstellungen kommen von außen: Sound.setup({ on: true, vol: 'low' | 'mid' | 'high' })
 (function (root) {
-  let ctx = null, cfg = { on: true, vol: 'mid' }, silent = null;
+  let ctx = null, cfg = { on: true, vol: 'mid', tones: { booked: true, ready: false } }, silent = null;
+  const toneOn = n => { const t = cfg.tones || {}; return t[n] != null ? !!t[n] : n !== 'ready'; };   // Abholbereit ist ab Werk aus
   const VOL = { low: 0.18, mid: 0.4, high: 0.85 };
 
   // Töne: Liste aus { f: Frequenz Hz, d: Dauer s, at: Startzeit s, w: Wellenform, v: relative Lautstärke }
   const TONES = {
-    booked: [{ f: 523, d: 0.1, at: 0, w: 'sine', v: 0.8 }, { f: 659, d: 0.1, at: 0.09, w: 'sine', v: 0.8 }, { f: 784, d: 0.22, at: 0.18, w: 'sine', v: 0.9 }],      // verbucht
-    ready:  [{ f: 1047, d: 0.12, at: 0, w: 'sine', v: 0.8 }, { f: 1319, d: 0.12, at: 0.11, w: 'sine', v: 0.8 }, { f: 1568, d: 0.3, at: 0.22, w: 'sine', v: 0.9 }]     // fertig zubereitet
+    // Schiffshorn: tiefe, warme Sägezahn-Töne (Grundton + Quinte + Oktave), weich eingeschwungen, durch einen Tiefpass gedämpft
+    ready:  [{ f: 1047, d: 0.12, at: 0, w: 'sine', v: 0.8 }, { f: 1319, d: 0.12, at: 0.11, w: 'sine', v: 0.8 }, { f: 1568, d: 0.3, at: 0.22, w: 'sine', v: 0.9 }],   // Abholbereit
+    booked: [{ f: 98, d: 1.0, at: 0, w: 'sawtooth', v: 0.9, a: 0.09, rel: 0.3, lp: 520 }, { f: 147, d: 1.0, at: 0, w: 'sawtooth', v: 0.7, a: 0.09, rel: 0.3, lp: 520 }, { f: 196, d: 1.0, at: 0, w: 'sawtooth', v: 0.45, a: 0.09, rel: 0.3, lp: 520 }]
   };
 
   function ensure() {
@@ -41,8 +43,8 @@
     }
   }
 
-  function play(name) {
-    if (!cfg.on) return;
+  function play(name, force) {
+    if (!force && (!cfg.on || !toneOn(name))) return;
     const c = ensure(), seq = TONES[name]; if (!c || !seq) return;
     try { if (root.navigator && root.navigator.audioSession) root.navigator.audioSession.type = 'playback'; } catch (e) {}
     if (c.state !== 'running') c.resume().catch(() => {});
@@ -51,10 +53,13 @@
       const o = c.createOscillator(), g = c.createGain(), s = t0 + n.at, e = s + n.d;
       o.type = n.w; o.frequency.setValueAtTime(n.f, s);
       const peak = Math.max(0.0001, master * n.v * 0.35);
-      g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(peak, s + Math.min(0.01, n.d / 3)); g.gain.exponentialRampToValueAtTime(0.0001, e);
-      o.connect(g); g.connect(c.destination); o.start(s); o.stop(e + 0.02);
+      g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(peak, s + (n.a || Math.min(0.01, n.d / 3)));
+      if (n.rel) g.gain.setValueAtTime(peak, e - n.rel);   // Horn: Ton bleibt stehen, dann ausklingen
+      g.gain.exponentialRampToValueAtTime(0.0001, e);
+      if (n.lp) { const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = n.lp; o.connect(lp); lp.connect(g); } else o.connect(g);
+      g.connect(c.destination); o.start(s); o.stop(e + 0.02);
     }
   }
 
-  root.Sound = { play, unlock, names: Object.keys(TONES), setup: o => { cfg = Object.assign({}, cfg, o || {}); }, get config() { return cfg; } };
+  root.Sound = { play, unlock, names: Object.keys(TONES), toneOn, setup: o => { cfg = Object.assign({}, cfg, o || {}); }, get config() { return cfg; } };
 })(typeof self !== 'undefined' ? self : this);

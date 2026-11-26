@@ -360,7 +360,7 @@ async function test(name, fn) {
 
   if (feat('Leo B.') || has('display.html')) await test('Logo (hell/dunkel) und Fußzeile', async errs => {
     const p = await open(errs);
-    assert.ok((await txt(p, '.foot')).includes('coded by Leo B. - 2026'));
+    assert.ok((await txt(p, '.foot')).includes(feat('sound-booked') ? 'Copyright by Leo B. und Pascal B. - 2026' : 'coded by Leo B. - 2026'));
     const vis = sel => p.evaluate(s => { const i = document.querySelector(s); return !!i && getComputedStyle(i).display !== 'none' && i.complete && i.naturalWidth > 100 && i.getBoundingClientRect().height >= 40; }, sel);
     assert.ok(await vis('.top .logo.l') && !(await p.evaluate(() => getComputedStyle(document.querySelector('.top .logo.d')).display !== 'none')), 'Hell: schwarze Variante');
     assert.strictEqual(await p.evaluate(() => document.querySelector('.top .logo.l').getAttribute('src')), 'icons/jugend-hell.png');
@@ -373,7 +373,7 @@ async function test(name, fn) {
     const p = await open(errs); await admin(p, true);
     assert.strictEqual(await p.isChecked('#sound-toggle'), true); assert.strictEqual(await p.inputValue('#sound-vol'), 'mid');
     for (const n of await p.evaluate(() => Sound.names)) await p.evaluate(x => Sound.play(x), n);   // kein Fehler
-    if (feat('ord-pane')) assert.deepStrictEqual(await p.evaluate(() => Sound.names), ['booked', 'ready'], 'nur zwei Töne');
+    if (feat('ord-pane')) assert.deepStrictEqual((await p.evaluate(() => Sound.names)).sort(), ['booked', 'ready'], 'nur zwei Töne');
     await p.selectOption('#sound-vol', 'high'); assert.deepStrictEqual(await p.evaluate(() => [Sound.config.vol, state.sound.vol]), ['high', 'high']);
     await p.evaluate(() => { window.__o = 0; const f = AudioContext.prototype.createOscillator; AudioContext.prototype.createOscillator = function () { window.__o++; return f.call(this); }; });
     await p.evaluate(() => Sound.play('booked')); assert.strictEqual(await p.evaluate(() => window.__o), 3, '„booked“ besteht aus drei Tönen');
@@ -486,6 +486,31 @@ async function test(name, fn) {
     // Spende braucht keine Nummer; Zurück bricht die Eingabe ab
     await p.click('#toast-x').catch(() => {}); await tap(p, 'c-zimt'); await p.click('#pay'); await p.click('[data-quick="20"]'); await p.click('#p-ok'); await p.waitForSelector('#num-dlg[open]');
     await p.click('#n-cancel'); assert.strictEqual(await p.evaluate(() => state.sales.length), 3, 'abgebrochen: nicht verbucht');
+    await p.ctx.close();
+  });
+
+  if (feat('sound-booked')) await test('Töne einzeln schaltbar (Abholbereit ab Werk aus), Nummer 0 gesperrt, Schneehaufen und Weihnachtsmarkt nur im Weihnachtsdesign', async errs => {
+    const p = await open(errs, '#crepes');
+    await p.evaluate(() => { window.__o = 0; const f = AudioContext.prototype.createOscillator; AudioContext.prototype.createOscillator = function () { window.__o++; return f.call(this); }; });
+    await p.evaluate(() => Sound.play('ready')); assert.strictEqual(await p.evaluate(() => window.__o), 0, 'Abholbereit ist ab Werk aus');
+    await p.evaluate(() => Sound.play('booked')); assert.strictEqual(await p.evaluate(() => window.__o), 3, 'Schiffshorn spielt');
+    await admin(p, true); assert.deepStrictEqual(await p.evaluate(() => [document.querySelector('#sound-booked').checked, document.querySelector('#sound-ready').checked]), [true, false]);
+    await p.click('.switch-row:has(#sound-ready)'); await p.click('.switch-row:has(#sound-booked)');
+    assert.deepStrictEqual(await p.evaluate(() => [state.sound.tones.booked, state.sound.tones.ready]), [false, true]);
+    await p.evaluate(() => { window.__o = 0; Sound.play('booked'); }); assert.strictEqual(await p.evaluate(() => window.__o), 0, 'Verbucht ausgeschaltet');
+    await p.evaluate(() => Sound.play('ready')); assert.ok(await p.evaluate(() => window.__o) > 0, 'Abholbereit eingeschaltet');
+    await p.reload(); assert.deepStrictEqual(await p.evaluate(() => [Sound.toneOn('booked'), Sound.toneOn('ready')]), [false, true], 'bleibt nach dem Neustart');
+    // Schneehaufen / Weihnachtsmarkt
+    const vis = () => p.evaluate(() => getComputedStyle(document.querySelector('#xmas-scene')).display);
+    await p.evaluate(() => { state.design.theme = 'standard'; save(); Theme.apply(state.design); }); assert.strictEqual(await vis(), 'none');
+    for (const mode of ['light', 'dark']) { await p.evaluate(m => { state.design.theme = 'xmas'; state.design.mode = m; save(); Theme.apply(state.design); }, mode); assert.strictEqual(await vis(), 'block', 'Szene im Weihnachtsdesign (' + mode + ')'); }
+    assert.strictEqual(await p.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()), '#000000', 'Dunkelmodus: schwarz statt grün');
+    // Nummer 0 sperren
+    await p.evaluate(() => { state.orderMode = 'manual'; save(); });
+    await tap(p, 'c-nutella'); await p.click('#pay'); await p.click('[data-quick="20"]'); await p.click('#p-ok'); await p.waitForSelector('#num-dlg[open]');
+    await p.click('[data-nkey="0"]'); assert.strictEqual(await p.isDisabled('#n-ok'), true, '0 gesperrt'); assert.ok((await txt(p, '#n-err')).includes('0 ist gesperrt'));
+    await p.click('[data-nkey="0"]'); assert.strictEqual(await p.isDisabled('#n-ok'), true, '00 gesperrt');
+    await p.click('[data-nkey="5"]'); assert.strictEqual(await p.isDisabled('#n-ok'), false, '005 erlaubt (= 5)');
     await p.ctx.close();
   });
 

@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v30** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v31** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -72,7 +72,7 @@ Einstellungen (alle in der Verwaltung):
 | **Passwort ändern** | Neues Passwort festlegen (erzeugt auch einen neuen Wiederherstellungscode). |
 | **QR-Code / E-Mail nach dem Verbuchen** | Schalter im Bereich „Bons“, siehe Abschnitt 5b. |
 | **Design** | Thema (Logo-Lila, Weihnachten, Klassisch), hell/dunkel, Farbe der Knöpfe, Logo im Hintergrund, Schnee (Abschnitt 5h). |
-| **Töne** | Ein/aus, Lautstärke, Test: zwei Signale, „verbucht“ und „fertig“ (Abschnitt 5g). |
+| **Töne** | Ein/aus, Lautstärke, jedes der zwei Signale einzeln (Schiffshorn beim Verbuchen, Abholbereit), Test (Abschnitt 5g). |
 | **Küchenanzeige / Bestellnummern** | Ein/aus, Nummern zurücksetzen, Anzeige leeren (Abschnitt 5f). |
 | **Bons (PDF & Druck)** | Schalter und „Bon-Kopf und Fußzeile festlegen“. Nach dem Verbuchen erscheint „PDF“ und „Drucken“, später auch bei jeder Buchung in der Liste. |
 | **Sortiment auf Standard zurücksetzen** | Stellt das ursprüngliche Sortiment wieder her. Gebuchte Verkäufe bleiben erhalten. |
@@ -121,7 +121,7 @@ Unter dem Bon steht die Taste **„Spende buchen“**. Du wählst **Bar** oder *
 
 **Bestellnummern:** Jede Bestellung bekommt nach dem Verbuchen eine Nummer **je Sparte**, zum Beispiel **C1, C2 …** (Crêpes), **B1, B2 …** (Burger & Spezi), **K1 …** (Karten). Sie erscheint groß unter dem Bon-Hinweis, auf dem Bon, auf dem Online-Bon und in der Buchungsliste. Die Zählung **beginnt jeden Tag neu**. Das Kürzel änderst du im Bearbeitungsmodus mit der Taste **„Kürzel“**; „Bestellnummern zurücksetzen“ gibt es in der Verwaltung unter „Bestellungen und Küchenanzeige“. Eine reine Pfand-Rückgabe oder eine Spende bekommt keine Nummer.
 
-**Nummer von Hand (Märkchen):** Verwaltung → „Bestellungen und Küchenanzeige“ → **Bestellnummer: „Von Hand (Märkchen)“**. Dann fragt die Kasse nach „Verbuchen“ nach der **Nummer des Märkchens**: Nummer eintippen (bis 4 Ziffern), „Verbuchen“. Eine Nummer, die noch offen oder abholbereit ist, ist gesperrt; sobald die Bestellung als „abgeholt“ gilt, ist sie wieder frei. Spenden brauchen keine Nummer. Die Einstellung gilt je Gerät; der Standard ist „Von Hand“; „Automatisch“ vergibt C1, B1 ….
+**Nummer von Hand (Märkchen):** Verwaltung → „Bestellungen und Küchenanzeige“ → **Bestellnummer: „Von Hand (Märkchen)“**. Dann fragt die Kasse nach „Verbuchen“ nach der **Nummer des Märkchens**: Nummer eintippen (bis 4 Ziffern), „Verbuchen“. Die **Nummer 0 ist gesperrt**. Eine Nummer, die noch offen oder abholbereit ist, ist ebenfalls gesperrt; sobald die Bestellung als „abgeholt“ gilt, ist sie wieder frei. Spenden brauchen keine Nummer. Die Einstellung gilt je Gerät; der Standard ist „Von Hand“; „Automatisch“ vergibt C1, B1 ….
 
 **Küchenanzeige:** Oben rechts steht die Taste **„Küche“** mit der Zahl der offenen Bestellungen.
 - **Küche** öffnet die Anzeige über der Kasse (Schließen mit „Schließen“). So wechselst du auf einem Tablet zwischen Kasse und Küche.
@@ -132,6 +132,8 @@ Unter dem Bon steht die Taste **„Spende buchen“**. Du wählst **Bar** oder *
 - Storniert die Kasse einen Bon, verschwindet die Bestellung aus der Anzeige.
 - Der Austausch läuft **nur auf demselben Gerät** (kein Server, keine Verbindung zu anderen Tablets). Auf dem iPad gilt: Eine **zum Home-Bildschirm hinzugefügte App** und ein Safari-Fenster haben getrennte Speicher. Nutze dort „Küche“ (Anzeige über der Kasse, Monitor spiegeln) oder öffne beide Fenster in Safari. Dazu braucht es **kein Internet**, sobald die Kasse einmal geladen wurde.
 - Aus: Verwaltung → „Küchenanzeige“ ausschalten (Bestellnummern gibt es weiter).
+
+Im **Weihnachtsdesign** steht unten ein Schneehaufen mit einem kleinen Weihnachtsmarkt (hell und dunkel). Im Dunkelmodus ist der Hintergrund jetzt schwarz statt grün.
 
 ## 5h. Design
 
@@ -154,7 +156,11 @@ Taste „Küche“ → **„Zweiter Monitor“**. Die Anzeige im Monitor (`displ
 
 ## 5g. Töne
 
-Verwaltung → **„Töne“**: ein/aus, Lautstärke (leise, mittel, laut), „Ton testen“. Es gibt **genau zwei Signale**: eines, wenn ein Einkauf (oder eine Spende) fertig verbucht ist, und eines, wenn eine Bestellung fertig zubereitet ist („Fertig“). Sonst ist die Kasse still. Die Töne sollen auch bei stummgeschaltetem iPad (Seitenschalter) zu hören sein; das ließ sich nur im Test-Browser prüfen, nicht auf einem echten iPad. Falls es nicht klappt: einmal die Kasse antippen (der Ton wird erst nach einer Berührung freigeschaltet) und bitte melden.
+Verwaltung → **„Töne“**: alle Töne ein/aus, Lautstärke (leise, mittel, laut) und **jedes Signal einzeln** an oder aus:
+- **Verbucht (Schiffshorn):** wenn ein Einkauf oder eine Spende verbucht ist. Ab Werk **an**.
+- **Abholbereit:** wenn eine Bestellung als „Fertig“ gemeldet wird. Ab Werk **aus**.
+
+Mit „Schiffshorn testen“ und „Abholbereit testen“ hörst du die Töne an (auch wenn sie ausgeschaltet sind). Sonst ist die Kasse still. Die Töne sollen auch bei stummgeschaltetem iPad (Seitenschalter) zu hören sein; das ließ sich nur im Test-Browser prüfen, nicht auf einem echten iPad. Falls es nicht klappt: einmal die Kasse antippen (der Ton wird erst nach einer Berührung freigeschaltet) und bitte melden.
 
 ## 5d. Kassensturz und Kassenbericht
 
