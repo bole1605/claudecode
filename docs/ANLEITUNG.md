@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v35** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v36** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -163,6 +163,12 @@ Verwaltung → **„Töne“**: alle Töne ein/aus, Lautstärke (leise, mittel, 
 - **Abholbereit:** wenn eine Bestellung als „Fertig“ gemeldet wird. Ab Werk **aus**, Klang „Heller Dreiklang“.
 
 **Klangbibliothek (12 Klänge):** Schiffshorn, Nebelhorn (tief, lang), Kassenklingel, Glocke, Gong (tief), Türgong (Ding-Dong), Dreiklang, Heller Dreiklang, Xylophon, Fanfare, Schlittenglöckchen, Kurzer Doppelton. Beim Auswählen hörst du den Klang sofort. Die Klänge werden im Browser erzeugt, es sind keine Dateien nötig; eigene Klangdateien sind nicht vorgesehen.
+
+**Stummer Seitenschalter und Musik (Spotify):** Unter „Bei stummem iPad / Musik“ wählst du, wie die Kasse mit der Tonausgabe umgeht:
+- **Kurz über stumm (Standard):** Der Ton läuft nur für einen Moment als Medium und ist so auch bei stummem iPad zu hören. Es läuft **kein Dauerton**. Andere Musik, zum Beispiel Spotify, kann dabei kurz unterbrochen werden; ob sie danach von selbst weiterläuft, hängt von der App ab.
+- **Normal (mit Musik):** Die Töne mischen sich mit der Musik, Spotify läuft ungestört weiter. Bei stummem iPad ist die Kasse aber still.
+- **Dauerhaft bereit:** wie bisher, ein stilles Audio läuft ständig. Immer hörbar bei stumm, aber **blockiert andere Musik**.
+Das Verhalten ließ sich nur im Test-Browser prüfen, nicht auf einem echten iPad. Probiere am iPad aus, welche Einstellung mit deiner Musik funktioniert.
 
 Mit „Verbucht testen“ und „Abholbereit testen“ hörst du den gewählten Klang an (auch wenn der Ton ausgeschaltet ist). Sonst ist die Kasse still. Die Töne sollen auch bei stummgeschaltetem iPad (Seitenschalter) zu hören sein; das ließ sich nur im Test-Browser prüfen, nicht auf einem echten iPad. Falls es nicht klappt: einmal die Kasse antippen (der Ton wird erst nach einer Berührung freigeschaltet) und bitte melden.
 

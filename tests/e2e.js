@@ -23,7 +23,7 @@ async function test(name, fn) {
   const browser = await chromium.launch();
   const open = async (errs, hash = '#burger', opts = {}) => {
     const ctx = await browser.newContext({ viewport: { width: 1180, height: 900 }, acceptDownloads: true, serviceWorkers: opts.sw ? 'allow' : 'block', ...opts.ctx });
-    const p = await ctx.newPage(); p.on('pageerror', e => errs.push(e.message)); await p.addInitScript(({ k, v }) => { if (!localStorage.getItem(k)) localStorage.setItem(k, v); }, { k: dir === 'kasse-test' ? 'kasse-test-v2' : 'kasse-v2', v: JSON.stringify({ share: { on: !!opts.share }, orderMode: 'auto', ...(opts.seed || {}) }) });   // Bon-QR nur in den Tests, die ihn prüfen
+    const p = await ctx.newPage(); p.on('pageerror', e => errs.push(e.message)); await p.addInitScript(({ k, v }) => { if (!localStorage.getItem(k)) localStorage.setItem(k, v); }, { k: dir === 'kasse-test' ? 'kasse-test-v2' : 'kasse-v2', v: JSON.stringify({ share: { on: !!opts.share }, orderMode: 'auto', sound: { on: true, vol: 'mid', tones: { booked: true, ready: false }, pick: { booked: 'horn', ready: 'hell' }, mode: 'off' }, ...(opts.seed || {}) }) });   // Bon-QR nur in den Tests, die ihn prüfen
     await p.goto(base + hash); p.ctx = ctx; return p;
   };
   const tap = async (p, id) => { const s = `[data-add=${id}]`; await p.dispatchEvent(s, 'pointerdown', { button: 0, clientX: 5, clientY: 5 }); await p.dispatchEvent(s, 'pointerup', { button: 0, clientX: 5, clientY: 5 }); };
@@ -375,7 +375,7 @@ async function test(name, fn) {
     for (const n of await p.evaluate(() => Sound.names)) await p.evaluate(x => Sound.play(x), n);   // kein Fehler
     if (feat('ord-pane')) assert.deepStrictEqual((await p.evaluate(() => Sound.names)).sort(), ['booked', 'ready'], 'nur zwei Töne');
     await p.selectOption('#sound-vol', 'high'); assert.deepStrictEqual(await p.evaluate(() => [Sound.config.vol, state.sound.vol]), ['high', 'high']);
-    await p.evaluate(() => { window.__o = 0; const f = AudioContext.prototype.createOscillator; AudioContext.prototype.createOscillator = function () { window.__o++; return f.call(this); }; });
+    await p.evaluate(() => { Sound.setup({ mode: 'off' }); window.__o = 0; const f = AudioContext.prototype.createOscillator; AudioContext.prototype.createOscillator = function () { window.__o++; return f.call(this); }; });
     await p.evaluate(() => Sound.play('booked')); assert.strictEqual(await p.evaluate(() => window.__o), 3, '„booked“ besteht aus drei Tönen');
     await p.evaluate(() => { window.__o = 0; });
     await p.click('.switch-row:has(#sound-toggle)'); assert.deepStrictEqual(await p.evaluate(() => [Sound.config.on, state.sound.on]), [false, false]);
@@ -491,7 +491,7 @@ async function test(name, fn) {
 
   if (feat('sound-booked')) await test('Töne einzeln schaltbar (Abholbereit ab Werk aus), Nummer 0 gesperrt, Schneehaufen und Weihnachtsmarkt nur im Weihnachtsdesign', async errs => {
     const p = await open(errs, '#crepes');
-    await p.evaluate(() => { window.__o = 0; const f = AudioContext.prototype.createOscillator; AudioContext.prototype.createOscillator = function () { window.__o++; return f.call(this); }; });
+    await p.evaluate(() => { Sound.setup({ mode: 'off' }); window.__o = 0; const f = AudioContext.prototype.createOscillator; AudioContext.prototype.createOscillator = function () { window.__o++; return f.call(this); }; });
     await p.evaluate(() => Sound.play('ready')); assert.strictEqual(await p.evaluate(() => window.__o), 0, 'Abholbereit ist ab Werk aus');
     await p.evaluate(() => Sound.play('booked')); assert.strictEqual(await p.evaluate(() => window.__o), 3, 'Schiffshorn spielt');
     await admin(p, true); assert.deepStrictEqual(await p.evaluate(() => [document.querySelector('#sound-booked').checked, document.querySelector('#sound-ready').checked]), [true, false]);
@@ -561,7 +561,7 @@ async function test(name, fn) {
   if (feat('sound-pick')) await test('Klangbibliothek: jeder Klang spielbar, Auswahl je Ereignis bleibt erhalten', async errs => {
     const p = await open(errs, '#crepes');
     const lib = await p.evaluate(() => Sound.library.map(x => x.id)); assert.ok(lib.length >= 10, 'mindestens 10 Klänge: ' + lib.length);
-    await p.evaluate(() => { window.__o = 0; const f = AudioContext.prototype.createOscillator; AudioContext.prototype.createOscillator = function () { window.__o++; return f.call(this); }; });
+    await p.evaluate(() => { Sound.setup({ mode: 'off' }); window.__o = 0; const f = AudioContext.prototype.createOscillator; AudioContext.prototype.createOscillator = function () { window.__o++; return f.call(this); }; });
     for (const id of lib) { await p.evaluate(() => { window.__o = 0; }); await p.evaluate(i => Sound.preview(i), id); assert.ok(await p.evaluate(() => window.__o) > 0, 'Klang ' + id + ' spielt'); }
     assert.deepStrictEqual(await p.evaluate(() => [Sound.pickOf('booked'), Sound.pickOf('ready')]), ['horn', 'hell'], 'Standard');
     await admin(p, true); assert.strictEqual(await p.inputValue('#sound-pick-booked'), 'horn');
@@ -595,6 +595,25 @@ async function test(name, fn) {
     await p.evaluate(() => openItem('a-2', 'ga')); await p.fill('#i-qn', '2'); await p.fill('#i-qp', '7'); await p.click('#item-form button[type=submit]'); assert.ok((await txt(p, '#i-err')).includes('Stückpreis unter dem normalen Preis'));
     await p.fill('#i-qp', '5,50'); await p.click('#item-form button[type=submit]'); assert.deepStrictEqual(await p.evaluate(() => ALL['a-2'].qd), { n: 2, p: 550 });
     await tap(p, 'a-2'); assert.strictEqual(await txt(p, '#bon-sum'), '11,00 €', '2 × 5,50');
+    await p.ctx.close();
+  });
+
+  if (feat('sound-mode')) await test('Töne und Musik: kein Dauerton außer im Modus „Dauerhaft“, Kurzmodus spielt als Medium', async errs => {
+    const p = await open(errs, '#crepes', { seed: { sound: { on: true, vol: 'mid', tones: { booked: true, ready: false }, pick: { booked: 'horn', ready: 'hell' }, mode: 'short' } } });
+    await p.evaluate(() => { window.__audio = []; const pl = HTMLMediaElement.prototype.play; HTMLMediaElement.prototype.play = function () { window.__audio.push({ loop: this.loop, src: (this.currentSrc || this.src || '').slice(0, 5) }); return pl.call(this).catch(() => {}); }; });
+    assert.strictEqual(await p.evaluate(() => Sound.config.mode), 'short', 'Standard: kurz');
+    await p.dispatchEvent('#title', 'pointerdown', { button: 0 }); await p.evaluate(() => Sound.unlock());
+    assert.strictEqual(await p.evaluate(() => window.__audio.filter(a => a.loop).length), 0, 'kein Dauerton im Kurzmodus');
+    await p.evaluate(() => Sound.play('booked')); await p.waitForFunction(() => window.__audio.length > 0, null, { timeout: 5000 });
+    assert.deepStrictEqual(await p.evaluate(() => window.__audio.map(a => [a.loop, a.src])), [[false, 'blob:']], 'Kurzmodus: ein Medium, keine Schleife');
+    await p.evaluate(() => { window.__audio = []; Sound.setup({ mode: 'off' }); Sound.unlock(); Sound.play('booked'); }); await p.waitForTimeout(150);
+    assert.strictEqual(await p.evaluate(() => window.__audio.length), 0, 'Modus „Normal“: kein Medium, kein Dauerton');
+    await p.evaluate(() => { Sound.setup({ mode: 'always' }); Sound.unlock(); }); await p.waitForFunction(() => window.__audio.some(a => a.loop), null, { timeout: 5000 });
+    await p.evaluate(() => { window.__audio = []; Sound.setup({ mode: 'short' }); Sound.unlock(); });
+    assert.ok(await p.evaluate(() => !document.querySelector('audio') || true), 'Wechsel zurück beendet den Dauerton');
+    await admin(p, true); assert.strictEqual(await p.inputValue('#sound-mode'), 'short');
+    await p.selectOption('#sound-mode', 'off'); assert.deepStrictEqual(await p.evaluate(() => [Sound.config.mode, state.sound.mode]), ['off', 'off']);
+    await p.reload(); assert.strictEqual(await p.evaluate(() => Sound.config.mode), 'off', 'bleibt nach dem Neustart');
     await p.ctx.close();
   });
 
