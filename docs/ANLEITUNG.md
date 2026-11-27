@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v37** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v38** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -132,6 +132,7 @@ Unter dem Bon steht die Taste **„Spende buchen“**. Du wählst **Bar** oder *
 - Auf der Küchenanzeige stehen **Nummer, Sparte, Wartezeit** (orange ab 5, rot ab 10 Minuten) und die **Artikel mit Sorte** (zum Beispiel „Fleisch“). Mit den Tasten oben filterst du nach Sparte.
 - **Fertig** schiebt die Bestellung in die Liste „Fertig · zur Abholung“. Die Kasse spielt dann einen Ton. Das geht auch direkt in der Kasse im Reiter **„Bestellungen“** (Abschnitt unten). Antippen der Nummer dort heißt „abgeholt“. **Rückgängig** nimmt den letzten Schritt zurück.
 - Storniert die Kasse einen Bon, verschwindet die Bestellung aus der Anzeige.
+- Jede Bestellung hat eine eigene unsichtbare Kennung. Auch wenn nach einem Zurücksetzen der Buchungen dieselbe Nummer noch einmal vorkommt (zum Beispiel C1 oder Märkchen 7), ändern „Fertig“ und „abgeholt“ immer die richtige Bestellung.
 - Der Austausch läuft **nur auf demselben Gerät** (kein Server, keine Verbindung zu anderen Tablets). Auf dem iPad gilt: Eine **zum Home-Bildschirm hinzugefügte App** und ein Safari-Fenster haben getrennte Speicher. Nutze dort „Küche“ (Anzeige über der Kasse, Monitor spiegeln) oder öffne beide Fenster in Safari. Dazu braucht es **kein Internet**, sobald die Kasse einmal geladen wurde.
 - Aus: Verwaltung → „Küchenanzeige“ ausschalten (Bestellnummern gibt es weiter).
 
