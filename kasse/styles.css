@@ -366,3 +366,13 @@ body.theme-xmas .foot{position:relative;z-index:2;color:#44505F}body.theme-xmas 
 .bl-name[data-disc]{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:left;cursor:pointer;min-height:44px}
 .bl-disc{color:var(--brand-text);font-size:14px}.bl-disc .bl-name{overflow-wrap:anywhere}
 .tile .qd{display:block;font-size:12px;color:var(--label2);margin-top:2px}
+
+/* v37: Clear-Taste, Wartezeiten, Andrang */
+.keypad .k-clear{grid-column:1/-1;min-height:48px;font-size:18px;font-weight:600;color:var(--red)}
+#pay-dlg .keypad .k-clear,#don-dlg .keypad .k-clear{min-height:50px}
+.stat-h{margin:14px 0 2px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--label2)}
+.rush{display:flex;flex-direction:column;gap:4px;margin-top:10px}
+.rush-row{display:grid;grid-template-columns:52px 1fr 34px;gap:10px;align-items:center;font-size:14px;font-variant-numeric:tabular-nums}
+.rush-bar{background:var(--fill);border-radius:6px;height:16px;overflow:hidden}.rush-bar i{display:block;height:100%;background:var(--brand);border-radius:6px;min-width:2px}
+.rush-row.peak .rush-bar i{background:var(--red)}.rush-row.peak .rush-t,.rush-row.peak .rush-n{font-weight:700}
+.rush-n{text-align:right}

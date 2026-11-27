@@ -15,9 +15,9 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=36">
-<script src="logic.js?v=36"></script>
-<script src="theme.js?v=36"></script>
+<link rel="stylesheet" href="styles.css?v=37">
+<script src="logic.js?v=37"></script>
+<script src="theme.js?v=37"></script>
 </head>
 <body>
 <div id="wm" aria-hidden="true"></div>
@@ -75,7 +75,7 @@
     </aside>
   </div>
 
-  <footer class="foot"><span>Copyright by Leo B. und Pascal B. - 2026</span><span class="ver">v36</span></footer>
+  <footer class="foot"><span>Copyright by Leo B. und Pascal B. - 2026</span><span class="ver">v37</span></footer>
 
 </div>
 
@@ -112,6 +112,7 @@
         <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
         <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
         <button data-key=",">,</button><button data-key="0">0</button><button data-key="back" aria-label="Löschen">⌫</button>
+        <button class="k-clear" data-key="clear" aria-label="Alles löschen">C · Alles löschen</button>
       </div>
       </div>
     </div>
@@ -132,7 +133,7 @@
     <button data-nkey="7">7</button><button data-nkey="8">8</button><button data-nkey="9">9</button>
     <button data-nkey="4">4</button><button data-nkey="5">5</button><button data-nkey="6">6</button>
     <button data-nkey="1">1</button><button data-nkey="2">2</button><button data-nkey="3">3</button>
-    <button data-nkey="0" style="grid-column:2">0</button><button data-nkey="back" aria-label="Löschen">⌫</button>
+    <button data-nkey="clear" aria-label="Alles löschen">C</button><button data-nkey="0">0</button><button data-nkey="back" aria-label="Löschen">⌫</button>
   </div>
   <div class="dlg-actions"><button class="btn" id="n-cancel">Zurück</button><button class="btn primary" id="n-ok" disabled>Verbuchen</button></div>
 </dialog>
@@ -163,6 +164,7 @@
     <section class="card" id="cash-card"></section>
     <section class="card" id="admin-summary"></section>
     <section class="card" id="exp-card"></section>
+    <section class="card" id="stat-card"></section>
     <section class="card" id="vat-summary" hidden></section>
     <section class="card switch-card">
       <label class="switch-row"><span><b>Spende bei Barzahlung</b><small>Beim Bezahlen kann eine Spende erfasst werden. Es zählt nicht zu den Einnahmen und wird getrennt ausgewiesen.</small></span>
@@ -278,6 +280,7 @@
         <button data-dkey="4">4</button><button data-dkey="5">5</button><button data-dkey="6">6</button>
         <button data-dkey="1">1</button><button data-dkey="2">2</button><button data-dkey="3">3</button>
         <button data-dkey=",">,</button><button data-dkey="0">0</button><button data-dkey="back" aria-label="Löschen">⌫</button>
+        <button class="k-clear" data-dkey="clear" aria-label="Alles löschen">C · Alles löschen</button>
       </div>
     </div>
   </div>
@@ -438,8 +441,8 @@
 <div id="toast" class="toast" hidden></div>
 <pre id="print-area"></pre>
 
-<script src="qrcode.js?v=36"></script>
-<script src="sound.js?v=36"></script>
-<script src="app.js?v=36"></script>
+<script src="qrcode.js?v=37"></script>
+<script src="sound.js?v=37"></script>
+<script src="app.js?v=37"></script>
 </body>
 </html>
