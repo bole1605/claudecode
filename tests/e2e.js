@@ -315,7 +315,7 @@ async function test(name, fn) {
     await k.click('[data-f=all]'); assert.ok((await txt(k, '#open')).includes('B1'), 'Alle Sparten');
     assert.ok((await txt(k, '#open')).includes('Fleisch'), 'Sorte steht in der Bestellung');
     // Küche meldet fertig -> Kasse bekommt Ton und Zähler sinkt
-    await k.click('[data-done^="C1|"]'); await p.waitForFunction(() => document.querySelector('#k-count').textContent === '2');
+    await k.click('.tk:has(.no:text-is("C1")) [data-done]'); await p.waitForFunction(() => document.querySelector('#k-count').textContent === '2');
     assert.ok((await p.evaluate(() => __s)).includes('ready'), 'Ton „fertig“ in der Kasse');
     assert.ok((await txt(k, '#ready')).includes('C1') && !(await txt(k, '#open')).includes('C1'));
     await k.click('#undo'); assert.ok((await txt(k, '#open')).includes('C1'), 'Rückgängig');
@@ -625,7 +625,7 @@ async function test(name, fn) {
     await p.evaluate(() => { const d = (h, m) => new Date(2026, 10, 27, h, m).getTime(); state.sales[0].t = d(17, 10); state.sales[1].t = d(17, 20); const o = readOrders(); o.orders[0].t = d(17, 10); o.orders[1].t = d(17, 20); writeOrders(o); save(); });
     await p.evaluate(() => { const t = Date.now(); const o = readOrders(); o.orders[0].t = t - 200000; o.orders[1].t = t - 100000; writeOrders(o); state.sales[0].t = o.orders[0].t; state.sales[1].t = o.orders[1].t; save(); });
     await p.click('[data-tab=ord]');
-    const ids = await p.evaluate(() => readOrders().orders.map(o => o.no + '|' + o.n));
+    const ids = await p.evaluate(() => readOrders().orders.map(o => o.id || o.no + '|' + o.n));
     await p.click(`[data-ord-done="${ids[0]}"]`); await p.click(`[data-ord-done="${ids[1]}"]`);                 // fertig nach ca. 3:20 bzw. 1:40
     await p.click(`[data-ord-pick="${ids[0]}"]`);                                                           // abgeholt
     const tm = await p.evaluate(() => Object.values(state.times).map(x => [!!x.tr, !!x.td, Math.round((x.tr - x.t) / 1000)]).sort((a, b) => b[2] - a[2]));
@@ -647,6 +647,28 @@ async function test(name, fn) {
     await p.evaluate(() => hideAdmin()); await tap(p, 'c-nutella'); await p.click('#pay'); await p.click('[data-key="1"]'); await p.click('[data-key="2"]'); assert.strictEqual(await txt(p, '#p-given'), '12 €');
     await p.click('[data-key="clear"]'); assert.strictEqual(await txt(p, '#p-given'), '–', 'C im Zahlungsfenster'); await p.click('#p-cancel');
     await p.click('#donate'); await p.click('[data-dkey="5"]'); await p.click('[data-dkey=","]'); await p.click('[data-dkey="5"]'); assert.ok((await txt(p, '#d-amt')).startsWith('5,5')); await p.click('[data-dkey="clear"]'); assert.strictEqual(await txt(p, '#d-amt'), '–', 'C bei der Spende');
+    await p.ctx.close();
+  });
+
+  if (feat('ensureOrderIds')) await test('Gleiche Bestellnummer nach Zurücksetzen der Buchungen: „Fertig“ trifft die richtige Bestellung (auch alte ohne Kennung)', async errs => {
+    const p = await open(errs, '#crepes');
+    const buy = async () => { await tap(p, 'c-nutella'); await p.click('#pay'); await p.click('[data-quick="5"]'); await p.click('#p-ok'); await p.click('#toast-x').catch(() => {}); };
+    await buy(); await p.click('[data-tab=ord]'); await p.click('[data-ord-done]'); await p.click('[data-ord-pick]');
+    await p.evaluate(() => { state.sales = []; state.seq = 0; state.orderNo = { day: '', seq: {} }; save(); });   // Zähler beginnt wieder bei 1, die alte Bestellung bleibt gespeichert
+    await p.click('[data-tab=bon]'); await buy();
+    assert.deepStrictEqual(await p.evaluate(() => readOrders().orders.map(o => [o.no, o.n, o.status])), [['C1', 1, 'done'], ['C1', 1, 'open']], 'gleiche Nummer und Buchung');
+    await p.click('[data-tab=ord]'); assert.strictEqual(await p.locator('#ord-open .ord').count(), 1);
+    await p.click('[data-ord-done]'); assert.deepStrictEqual(await p.evaluate(() => readOrders().orders.map(o => o.status)), ['done', 'ready'], '„Fertig“ ändert die neue, nicht die alte');
+    await p.click('[data-ord-pick]'); assert.deepStrictEqual(await p.evaluate(() => readOrders().orders.map(o => o.status)), ['done', 'done']);
+    assert.strictEqual(await p.locator('#ord-open .ord, #ord-ready .rd').count(), 0, 'nichts mehr offen');
+    // alte Bestellungen ohne Kennung mit gleicher Nummer: bekommen beim Start je eine eigene
+    await p.evaluate(() => { const o = { orders: [{ no: 'C1', n: 1, st: 'crepes', sl: 'Crêpes', col: '#A10DBC', t: Date.now() - 60000, items: [['Nutella', 1]], status: 'done' }, { no: 'C1', n: 1, st: 'crepes', sl: 'Crêpes', col: '#A10DBC', t: Date.now(), items: [['Käse', 1]], status: 'open' }] }; localStorage.setItem(ORD_KEY, JSON.stringify(o)); });
+    await p.reload(); const ids = await p.evaluate(() => readOrders().orders.map(o => o.id)); assert.ok(ids[0] && ids[1] && ids[0] !== ids[1], 'Kennungen ergänzt: ' + ids);
+    const k = await p.ctx.newPage(); await k.goto(base.replace('index.html', 'display.html') + '#all'); await k.waitForSelector('.tk');
+    await k.click('[data-done]'); await k.waitForFunction(() => document.querySelectorAll('.rd').length === 1);
+    assert.deepStrictEqual(await p.evaluate(() => readOrders().orders.map(o => o.status)), ['done', 'ready'], 'Anzeige: richtige Bestellung');
+    await k.click('[data-pick]'); await k.waitForFunction(() => document.querySelectorAll('.tk, .rd').length === 0);
+    assert.deepStrictEqual(await p.evaluate(() => readOrders().orders.map(o => o.status)), ['done', 'done']);
     await p.ctx.close();
   });
 

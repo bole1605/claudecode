@@ -80,7 +80,7 @@ const chan = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(ORD_
 const mainState = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } };
 const read = () => { try { const o = JSON.parse(localStorage.getItem(ORD_KEY)); return o && Array.isArray(o.orders) ? o : { orders: [] }; } catch (e) { return { orders: [] }; } };
 function write(o) { try { localStorage.setItem(ORD_KEY, JSON.stringify(o)); } catch (e) {} if (chan) chan.postMessage('changed'); }
-const idOf = o => o.no + '|' + o.n;
+const idOf = o => o.id || (o.no + '|' + o.n);   // eindeutige Kennung (die Kasse vergibt sie)
 
 const VIEW = /[?&]view=1/.test(location.search), EMBED = /[?&]embed=1/.test(location.search);
 if (VIEW) document.body.classList.add('view');   // Monitor ohne Touch: nur anzeigen
