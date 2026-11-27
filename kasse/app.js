@@ -33,7 +33,7 @@ const DEFAULT_STANDS = [
     ]},
   ]},
 ];
-const VERSION = 37;
+const VERSION = 38;
 // Fokus ins erste Feld – aber nur, wenn die Eingabe nicht schon in einem anderen Feld des Fensters begonnen hat
 const focusFirst = sel => setTimeout(() => { const el = document.querySelector(sel), d = el.closest('dialog'); if (!d.contains(document.activeElement) || document.activeElement === d) el.focus(); }, 50);
 // Test- und Live-Version liegen auf derselben Domain: getrennter Speicher, damit sich die Daten nie vermischen
@@ -115,10 +115,15 @@ function writeOrders(o) {
 }
 const standPrefix = s => s.prefix || Kasse.defaultPrefix(s.id, s.label);
 const today = () => { const d = new Date(), p = k => String(k).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+const ordId = o => o.id || (o.no + '|' + o.n);   // eindeutige Kennung (ältere Bestellungen: Nummer|Buchung)
+function ensureOrderIds() {   // Bestellungen ohne Kennung bekommen eine (verhindert Verwechslung gleicher Nummern)
+  const o = readOrders(); let ch = false; o.orders.forEach(x => { if (!x.id) { x.id = uid('o'); ch = true; } }); if (ch) writeOrders(o);
+}
 function orderFromSale(s) {
   const items = Object.entries(s.lines).filter(([id, n]) => n > 0 && !isPfand(id)).map(([id, n]) => [itemName(s, id), n]);
   const st = STANDS.find(x => x.id === s.stand);
-  return { no: s.on, n: s.n, st: s.stand, sl: labelOf(s.stand), col: st && st.groups[0] ? st.groups[0].color : Kasse.COLORS.lila, t: s.t, items, status: 'open' };
+  s.oid = s.oid || uid('o');
+  return { id: s.oid, no: s.on, n: s.n, st: s.stand, sl: labelOf(s.stand), col: st && st.groups[0] ? st.groups[0].color : Kasse.COLORS.lila, t: s.t, items, status: 'open' };
 }
 let manualNo = null;   // von Hand eingegebene Nummer des Märkchens (wird beim Verbuchen verbraucht)
 const hasOrderItems = () => Object.entries(cart()).some(([id, n]) => n > 0 && !isPfand(id));
@@ -144,7 +149,7 @@ function assignOrder(s) {   // Bestellnummer vergeben (nur für echte Bestellung
 }
 function syncOrder(s) {     // Storno / Storno aufheben
   if (!s.on) return;
-  const o = readOrders(), i = o.orders.findIndex(x => x.no === s.on && x.n === s.n);
+  const o = readOrders(), i = o.orders.findIndex(x => s.oid ? x.id === s.oid : x.no === s.on && x.n === s.n);
   if (s.void) { if (i >= 0) o.orders.splice(i, 1); } else if (i < 0 && state.kitchen.on) o.orders.push(orderFromSale(s));
   writeOrders(o);
 }
@@ -157,9 +162,9 @@ function renderOrders() {
   const all = readOrders().orders.filter(o => !state.lock || o.st === state.lock).sort((x, y) => x.t - y.t);
   const open = all.filter(o => o.status === 'open'), ready = all.filter(o => o.status === 'ready');
   $('#ord-open').innerHTML = open.length ? open.map(o => `<div class="ord" style="--c:${esc(o.col || '#A10DBC')}"><div class="ord-h"><b>${esc(o.no)}</b><span>${esc(o.sl)}</span><time>${ordMins(o.t)} min</time></div>
-    <div class="ord-i">${o.items.map(([n, q]) => `${q}× ${esc(n)}`).join(', ')}</div><button class="btn primary" data-ord-done="${esc(o.no + '|' + o.n)}">Fertig</button></div>`).join('') : '<p class="muted">Keine offenen Bestellungen</p>';
+    <div class="ord-i">${o.items.map(([n, q]) => `${q}× ${esc(n)}`).join(', ')}</div><button class="btn primary" data-ord-done="${esc(ordId(o))}">Fertig</button></div>`).join('') : '<p class="muted">Keine offenen Bestellungen</p>';
   $('#ord-ready-h').hidden = !ready.length;
-  $('#ord-ready').innerHTML = ready.map(o => `<button class="rd" style="--c:${esc(o.col || '#909090')}" data-ord-pick="${esc(o.no + '|' + o.n)}">${esc(o.no)} <small>abgeholt</small></button>`).join('');
+  $('#ord-ready').innerHTML = ready.map(o => `<button class="rd" style="--c:${esc(o.col || '#909090')}" data-ord-pick="${esc(ordId(o))}">${esc(o.no)} <small>abgeholt</small></button>`).join('');
   $('#ord-undo').disabled = !ordUndo.length;
 }
 function setAsideTab(t) {
@@ -173,7 +178,7 @@ function stampOrder(x, status) {   // Zeitpunkte: tr = Bestellung fertig, td = A
   else { delete x.tr; delete x.td; }
 }
 function setOrdStatus(id, status, remember) {
-  const o = readOrders(), x = o.orders.find(y => y.no + '|' + y.n === id); if (!x) return;
+  const o = readOrders(), x = o.orders.find(y => ordId(y) === id); if (!x) return;
   if (remember) ordUndo.push({ id, prev: x.status });
   stampOrder(x, status); x.status = status; writeOrders(o); harvestTimes(); if (status === 'ready') { knownReady.add(x.no); Sound.play('ready'); } renderOrders();
 }
@@ -182,12 +187,13 @@ setInterval(renderOrders, 20000);
 function harvestTimes() {
   let ch = false;
   for (const o of readOrders().orders) {
-    const k = o.st + '|' + o.n;
+    const k = ordId(o);
     if (o.tr || o.td) { const e = state.times[k]; if (!e || e.tr !== (o.tr || null) || e.td !== (o.td || null)) { state.times[k] = { n: o.n, st: o.st, t: o.t, tr: o.tr || null, td: o.td || null }; ch = true; } }
     else if (state.times[k] && o.status === 'open') { delete state.times[k]; ch = true; }   // Schritt zurückgenommen
   }
   if (ch) save();
 }
+ensureOrderIds();
 function kitchenBadge() {
   const b2 = $('#k-count2'); if (b2) { b2.textContent = openOrders(); b2.hidden = !openOrders(); }
   const b = $('#k-count'), btn = $('#kitchen-open'); if (!b || !btn) return;
@@ -195,7 +201,7 @@ function kitchenBadge() {
 }
 let knownReady = new Set(readOrders().orders.filter(x => x.status === 'ready').map(x => x.no));
 function ordersChanged() {
-  harvestTimes(); kitchenBadge(); renderOrders();
+  ensureOrderIds(); harvestTimes(); kitchenBadge(); renderOrders();
   const rd = readOrders().orders.filter(x => x.status === 'ready').map(x => x.no);
   if (rd.some(no => !knownReady.has(no))) Sound.play('ready');   // Küche meldet: Bestellung fertig
   knownReady = new Set(rd);
