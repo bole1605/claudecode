@@ -1,6 +1,6 @@
 # Anleitung Kasse – Weihnachtsmarkt
 
-Stand dieser Anleitung: Version **v36** (die Versionsnummer steht oben rechts in der App).
+Stand dieser Anleitung: Version **v37** (die Versionsnummer steht oben rechts in der App).
 
 ---
 
@@ -190,6 +190,18 @@ Verwaltung → Karte **„Ausgaben und Ergebnis“**. Dort stehen Einnahmen (ohn
 **Mengenrabatt am Produkt:** In der Bearbeitung beim Produkt **„Mengenrabatt ab (Stück)“** und **„Stückpreis ab dieser Menge“** eintragen, zum Beispiel ab 3 Stück 2,50 € statt 3,00 €. Die Kachel zeigt „ab 3 Stück 2,50 €“. Ab dieser Menge rechnet die Kasse alle Stücke dieses Artikels zum Mengenpreis und zeigt die Ersparnis als Zeile „Mengenrabatt“. Mengenrabatt und Rabatt am Bon lassen sich kombinieren (erst Menge, dann Rabatt). Der Stückpreis muss unter dem normalen Preis liegen. Pfand wird nie rabattiert.
 
 Rabattzeilen zählen nicht als Produkt (kein Zähler, nicht in der Bestellung/Küche).
+
+## 5k. Wartezeiten und Andrang
+
+Verwaltung → Karte **„Wartezeiten“** und **„Andrang nach Uhrzeit“**.
+- **Bestellung → fertig:** Zeit von der Buchung bis „Fertig“ im Bestellstatus, als Durchschnitt (Ø) und längste Zeit, für alle Sparten zusammen und je Sparte.
+- **Bestellung → Ausgabe:** Zeit von der Buchung bis die Bestellung als „abgeholt“ gilt. So siehst du, wie lange ein Gast insgesamt wartet.
+- Gemessen wird **nur**, was im Bestellstatus (auch auf dem zweiten Monitor-Fenster oder im Reiter „Bestellungen“) angetippt wird. Wer „Fertig“ oder „abgeholt“ nicht antippt, fließt nicht ein. „Rückgängig“ nimmt die Zeit wieder heraus, stornierte Buchungen zählen nicht. Die Zeiten bleiben gespeichert, auch wenn die Bestellanzeige geleert wird, und stehen in der Sicherung, der CSV-Datei und dem Kassenbericht.
+- **Andrang:** Die Balken zeigen die Zahl der Buchungen je **halbe Stunde** (alle Tage zusammen, ohne Spenden und Stornos). Die stärkste Zeit ist rot markiert und steht im Text darüber.
+
+## 5l. Zahlenfelder: Taste C
+
+An den Ziffernblöcken (Bezahlen, Spende, Nummer des Märkchens) löscht **„C“** den ganzen Wert auf einmal. Das ⌫ löscht wie bisher nur die letzte Stelle.
 
 ## 5d. Kassensturz und Kassenbericht
 
