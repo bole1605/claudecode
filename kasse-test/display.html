@@ -121,6 +121,8 @@ function render() {
 function setStatus(id, status, remember) {
   const o = read(), x = o.orders.find(y => idOf(y) === id); if (!x) return;
   if (remember) undo.push({ id, prev: x.status });
+  { const now = Date.now();   // Zeitpunkte für die Wartezeit-Auswertung der Kasse
+    if (status === 'ready') { x.tr = x.status === 'done' && x.tr ? x.tr : now; delete x.td; } else if (status === 'done') { if (!x.tr) x.tr = now; x.td = now; } else { delete x.tr; delete x.td; } }
   x.status = status; write(o); render();
 }
 document.addEventListener('click', e => {

@@ -617,6 +617,39 @@ async function test(name, fn) {
     await p.ctx.close();
   });
 
+  if (feat('harvestTimes')) await test('Wartezeiten (Buchung → fertig → Ausgabe), Andrang nach Uhrzeit, Clear-Taste an allen Zahlenfeldern', async errs => {
+    const p = await open(errs, '#crepes');
+    const book = async (ids, q) => { for (const i of ids) await tap(p, i); await p.click('#pay'); await p.click(`[data-quick="${q}"]`); await p.click('#p-ok'); await p.click('#toast-x').catch(() => {}); };
+    await book(['c-nutella'], '5'); await book(['c-kaese'], '5');
+    // Buchungen auf Uhrzeiten legen: zwei um 17:10/17:20, eine um 18:05
+    await p.evaluate(() => { const d = (h, m) => new Date(2026, 10, 27, h, m).getTime(); state.sales[0].t = d(17, 10); state.sales[1].t = d(17, 20); const o = readOrders(); o.orders[0].t = d(17, 10); o.orders[1].t = d(17, 20); writeOrders(o); save(); });
+    await p.evaluate(() => { const t = Date.now(); const o = readOrders(); o.orders[0].t = t - 200000; o.orders[1].t = t - 100000; writeOrders(o); state.sales[0].t = o.orders[0].t; state.sales[1].t = o.orders[1].t; save(); });
+    await p.click('[data-tab=ord]');
+    const ids = await p.evaluate(() => readOrders().orders.map(o => o.no + '|' + o.n));
+    await p.click(`[data-ord-done="${ids[0]}"]`); await p.click(`[data-ord-done="${ids[1]}"]`);                 // fertig nach ca. 3:20 bzw. 1:40
+    await p.click(`[data-ord-pick="${ids[0]}"]`);                                                           // abgeholt
+    const tm = await p.evaluate(() => Object.values(state.times).map(x => [!!x.tr, !!x.td, Math.round((x.tr - x.t) / 1000)]).sort((a, b) => b[2] - a[2]));
+    assert.deepStrictEqual(tm.map(x => [x[0], x[1]]), [[true, true], [true, false]], 'Zeiten gesammelt');
+    assert.ok(tm[0][2] >= 199 && tm[0][2] <= 215 && tm[1][2] >= 99 && tm[1][2] <= 115, JSON.stringify(tm));
+    await p.click('#ord-undo'); assert.strictEqual(await p.evaluate(() => Object.values(state.times).filter(x => x.td).length), 0, 'Rückgängig nimmt die Ausgabezeit zurück');
+    await p.click(`[data-ord-pick="${ids[0]}"]`);
+    // Anzeige
+    await p.evaluate(() => { const d = (h, m) => new Date(2026, 10, 27, h, m).getTime(); state.sales[0].t = d(17, 10); state.sales[1].t = d(17, 20); save(); });
+    await p.click('[data-tab=bon]'); await book(['c-zimt'], '5'); await p.evaluate(() => { state.sales[2].t = new Date(2026, 10, 27, 18, 5).getTime(); save(); });
+    await admin(p, true); const st = await txt(p, '#stat-card');
+    assert.ok(/Alle Sparten2 Bestellungen · längste 3:\d\d minØ 2:\d\d min/.test(st), st);
+    assert.ok(/Alle Sparten1 Bestellung · längste 3:\d\d minØ 3:\d\d min/.test(st), st);
+    assert.ok(st.includes('17:00–17:30 Uhr mit 2'), 'stärkste Zeit: ' + st);
+    assert.strictEqual(await p.locator('.rush-row').count(), 3, '17:00, 17:30, 18:00'); assert.strictEqual(await p.locator('.rush-row.peak .rush-t').textContent(), '17:00');
+    const csv = (await dl(p, '#save')).toString('utf8'); assert.ok(csv.includes('Wartezeiten') && csv.includes('Andrang (halbe Stunde)') && csv.includes('"17:00";"2"'), 'Datei: ' + csv.slice(-400));
+    assert.ok(await p.evaluate(() => reportLines(null).some(x => x.t.includes('ANDRANG'))), 'Kassenbericht enthält Andrang');
+    // Clear-Taste: Zahlungsfenster, Spende, Nummernfenster
+    await p.evaluate(() => hideAdmin()); await tap(p, 'c-nutella'); await p.click('#pay'); await p.click('[data-key="1"]'); await p.click('[data-key="2"]'); assert.strictEqual(await txt(p, '#p-given'), '12 €');
+    await p.click('[data-key="clear"]'); assert.strictEqual(await txt(p, '#p-given'), '–', 'C im Zahlungsfenster'); await p.click('#p-cancel');
+    await p.click('#donate'); await p.click('[data-dkey="5"]'); await p.click('[data-dkey=","]'); await p.click('[data-dkey="5"]'); assert.ok((await txt(p, '#d-amt')).startsWith('5,5')); await p.click('[data-dkey="clear"]'); assert.strictEqual(await txt(p, '#d-amt'), '–', 'C bei der Spende');
+    await p.ctx.close();
+  });
+
   if (feat('embed=1')) await test('Küche (Überlagerung): alle Sparten, nichts abgeschnitten, auch im Weihnachtsdesign, ohne doppelten Titel', async errs => {
     const p = await open(errs, '#burger', { seed: { design: { theme: 'xmas', snow: true, mode: 'auto', accent: null, logo: 'low' } } });
     const book = async (ids, q) => { for (const i of ids) await tap(p, i); await p.click('#pay'); await p.click(`[data-quick="${q}"]`); await p.click('#p-ok'); await p.click('#toast-x').catch(() => {}); };

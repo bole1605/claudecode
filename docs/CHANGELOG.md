@@ -38,3 +38,4 @@
 | **v34** | **Kosten je Produkt:** die Karte „Ausgaben und Ergebnis“ rechnet Ausgaben auf die verkauften Produkte um (auch je Sparte, im Kassenbericht). Die Taste „Küche“ heißt jetzt **„Bestellstatus“**. |
 | **v35** | **Rabatte:** Mengenrabatt am Produkt (ab N Stück anderer Stückpreis) und Rabatt am Bon je Artikel (Prozent, Betrag, Gratis, Namen antippen). Rabattzeilen stehen als negative Zeilen auf Bon, Buchung und Auswertung. |
 | **v36** | **Töne und Musik:** kein Dauerton mehr als Standard. Einstellung „Bei stummem iPad / Musik“: Kurz über stumm (Standard), Normal (mit Musik, Spotify ungestört) oder Dauerhaft bereit (wie bisher). |
+| **v37** | **Wartezeiten:** Zeit von der Buchung bis „Fertig“ und bis zur Ausgabe wird gesammelt (Ø und längste, je Sparte). **Andrang nach Uhrzeit:** Buchungen je halbe Stunde mit stärkster Zeit. Beides in Verwaltung, CSV, Kassenbericht und Sicherung. **Taste C** an allen Ziffernblöcken. |
