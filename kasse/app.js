@@ -33,7 +33,7 @@ const DEFAULT_STANDS = [
     ]},
   ]},
 ];
-const VERSION = 36;
+const VERSION = 37;
 // Fokus ins erste Feld – aber nur, wenn die Eingabe nicht schon in einem anderen Feld des Fensters begonnen hat
 const focusFirst = sel => setTimeout(() => { const el = document.querySelector(sel), d = el.closest('dialog'); if (!d.contains(document.activeElement) || document.activeElement === d) el.focus(); }, 50);
 // Test- und Live-Version liegen auf derselben Domain: getrennter Speicher, damit sich die Daten nie vermischen
@@ -52,7 +52,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const PALETTE = Kasse.PALETTE;   // Logo-Farben; kein Rot: Rot ist für Löschen/Storno/Minus reserviert
 
 const RC_DEFAULT = { name: 'Evangelische Kirchengemeinde Kleinglattbach', addr: 'Kirchstraße 15; 71665 Vaihingen an der Enz', foot: 'Vielen Dank, Guten Appetit & frohe Weihnachten!' };
-let state = { design: { theme: 'standard', mode: 'auto', accent: null, logo: 'low', snow: true }, mig23: false, sound: { on: true, vol: 'mid', tones: { booked: true, ready: false }, pick: { booked: 'horn', ready: 'hell' }, mode: 'short' }, kitchen: { on: true }, orderNo: { day: '', seq: {} }, orderMode: 'manual', orderOff: {}, exp: [], adj: {}, moves: [], counts: [], lock: null, mig20: false, share: { on: true }, lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
+let state = { design: { theme: 'standard', mode: 'auto', accent: null, logo: 'low', snow: true }, mig23: false, sound: { on: true, vol: 'mid', tones: { booked: true, ready: false }, pick: { booked: 'horn', ready: 'hell' }, mode: 'short' }, kitchen: { on: true }, orderNo: { day: '', seq: {} }, orderMode: 'manual', orderOff: {}, exp: [], adj: {}, times: {}, moves: [], counts: [], lock: null, mig20: false, share: { on: true }, lastBackup: null, mig17: false, rec: null, stand: DEFAULT_STANDS[0].id, cart: {}, sales: [], seq: 0, pw: null, backup: null, migrated: false, catalog: null, vat: { on: false }, tip: { on: true }, cash: { start: 0, at: null }, ppMode: null, paypal: '', receipt: { on: true, name: RC_DEFAULT.name, addr: RC_DEFAULT.addr, tax: '', foot: RC_DEFAULT.foot } };
 try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
 let STANDS, ALL = {};
 function setCatalog(c) {
@@ -134,7 +134,7 @@ function numUpdate() {
   $('#n-ok').disabled = !nv || taken || zero;
 }
 function numOpen() { nv = ''; numUpdate(); $('#num-dlg').showModal(); }
-function numKey(k) { if (k === 'back') nv = nv.slice(0, -1); else if (nv.length < 4) nv += k; numUpdate(); }
+function numKey(k) { if (k === 'clear') nv = ''; else if (k === 'back') nv = nv.slice(0, -1); else if (nv.length < 4) nv += k; numUpdate(); }
 function assignOrder(s) {   // Bestellnummer vergeben (nur für echte Bestellungen, nicht für Spenden oder reine Pfand-Rückgabe)
   if (s.donation || (state.orderOff || {})[s.stand] || !Object.entries(s.lines).some(([id, n]) => n > 0 && !isPfand(id))) return;
   const st = STANDS.find(x => x.id === s.stand) || { id: s.stand, label: s.sl };
@@ -166,12 +166,28 @@ function setAsideTab(t) {
   asideTab = t; $('#bon-pane').hidden = t !== 'bon'; $('#ord-pane').hidden = t !== 'ord';
   document.querySelectorAll('#aside-tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === t))); renderOrders();
 }
+function stampOrder(x, status) {   // Zeitpunkte: tr = Bestellung fertig, td = Ausgabe (abgeholt)
+  const now = Date.now();
+  if (status === 'ready') { x.tr = x.status === 'done' && x.tr ? x.tr : now; delete x.td; }
+  else if (status === 'done') { if (!x.tr) x.tr = now; x.td = now; }
+  else { delete x.tr; delete x.td; }
+}
 function setOrdStatus(id, status, remember) {
   const o = readOrders(), x = o.orders.find(y => y.no + '|' + y.n === id); if (!x) return;
   if (remember) ordUndo.push({ id, prev: x.status });
-  x.status = status; writeOrders(o); if (status === 'ready') { knownReady.add(x.no); Sound.play('ready'); } renderOrders();
+  stampOrder(x, status); x.status = status; writeOrders(o); harvestTimes(); if (status === 'ready') { knownReady.add(x.no); Sound.play('ready'); } renderOrders();
 }
 setInterval(renderOrders, 20000);
+// Wartezeiten sammeln: aus dem Bestellstatus (auch aus dem zweiten Fenster) in den dauerhaften Speicher übernehmen
+function harvestTimes() {
+  let ch = false;
+  for (const o of readOrders().orders) {
+    const k = o.st + '|' + o.n;
+    if (o.tr || o.td) { const e = state.times[k]; if (!e || e.tr !== (o.tr || null) || e.td !== (o.td || null)) { state.times[k] = { n: o.n, st: o.st, t: o.t, tr: o.tr || null, td: o.td || null }; ch = true; } }
+    else if (state.times[k] && o.status === 'open') { delete state.times[k]; ch = true; }   // Schritt zurückgenommen
+  }
+  if (ch) save();
+}
 function kitchenBadge() {
   const b2 = $('#k-count2'); if (b2) { b2.textContent = openOrders(); b2.hidden = !openOrders(); }
   const b = $('#k-count'), btn = $('#kitchen-open'); if (!b || !btn) return;
@@ -179,7 +195,7 @@ function kitchenBadge() {
 }
 let knownReady = new Set(readOrders().orders.filter(x => x.status === 'ready').map(x => x.no));
 function ordersChanged() {
-  kitchenBadge(); renderOrders();
+  harvestTimes(); kitchenBadge(); renderOrders();
   const rd = readOrders().orders.filter(x => x.status === 'ready').map(x => x.no);
   if (rd.some(no => !knownReady.has(no))) Sound.play('ready');   // Küche meldet: Bestellung fertig
   knownReady = new Set(rd);
@@ -398,7 +414,8 @@ function openPay() { if (!Object.keys(cart()).length) return; manualNo = null; g
 const fmtIn = c => (c / 100).toFixed(2).replace('.', ',').replace(/,00$/, '');
 function key(k) {
   let v = target === 'tip' ? tip : given;
-  if (k === 'back') v = v.slice(0, -1);
+  if (k === 'clear') v = '';
+  else if (k === 'back') v = v.slice(0, -1);
   else if (k === ',') { if (!v.includes(',')) v = (v || '0') + ','; }
   else {
     const dec = v.split(',')[1];
@@ -428,6 +445,7 @@ function book() {
 // --- Spende ohne Einkauf
 let donAmt = '', donMethod = 'bar';
 function typeKey(v, k) {
+  if (k === 'clear') return '';
   if (k === 'back') return v.slice(0, -1);
   if (k === ',') return v.includes(',') ? v : (v || '0') + ',';
   const dec = v.split(',')[1]; if (dec !== undefined && dec.length >= 2) return v;
@@ -581,6 +599,7 @@ function renderAdmin() {
       ${E.some(x => x.stand) ? '<div class="exp-by">' + standIds().map(id => `<div class="sum-row"><span>${esc(labelOf(id))}</span><span>${euro(rev[id] || 0)} − ${euro(sumE(id))} · ${cnt[id] || 0} Produkte · Kosten ${per(sumE(id), cnt[id] || 0)} je Produkt</span><b>${euro((rev[id] || 0) - sumE(id))}</b></div>`).join('') + (general ? `<div class="sum-row"><span>Allgemein</span><span>keiner Sparte zugeordnet, nicht aufgeteilt</span><b>${euro(-general)}</b></div>` : '') + '</div>' : ''}
       ${state.exp.length ? '<div class="mv-list">' + [...state.exp].reverse().map(x => `<div class="mv${x.void ? ' void' : ''}"><span>${fmtTS(x.t)} · ${esc(x.note)} · ${x.stand ? esc(labelOf(x.stand)) : 'Allgemein'}${x.cash ? ' · aus der Kasse' : ''}${x.void ? ' · <span class="tag">storniert</span>' : ''}</span><b>${euro(x.amt)}</b><button class="btn sm ${x.void ? '' : 'destructive'}" data-expvoid="${x.id}">${x.void ? 'Aufheben' : 'Stornieren'}</button></div>`).join('') + '</div>' : ''}
       <div class="actions-card" style="padding:0;margin-top:12px"><button class="btn primary" id="exp-open">Ausgabe erfassen …</button></div>`; }
+  harvestTimes(); renderStats();
   $('#restore').hidden = !state.backup;
   const lb = state.lastBackup, since = state.sales.filter(s => s.t > (lb || 0)).length;
   $('#backup-status').textContent = lb ? `Letzte Sicherung: ${fmtTS(lb)} · seitdem ${since} neue ${since === 1 ? 'Buchung' : 'Buchungen'}` : `Noch keine Sicherung erstellt (${state.sales.length} Buchungen auf diesem Gerät).`;
@@ -602,7 +621,7 @@ function renderAdmin() {
 }
 
 // --- Datensicherung (Datei zum Wiederherstellen)
-const BACKUP_KEYS = ['design', 'catalog', 'sales', 'seq', 'vat', 'tip', 'cash', 'moves', 'counts', 'receipt', 'paypal', 'ppMode', 'exp', 'orderOff'];
+const BACKUP_KEYS = ['design', 'catalog', 'sales', 'seq', 'vat', 'tip', 'cash', 'moves', 'counts', 'receipt', 'paypal', 'ppMode', 'exp', 'orderOff', 'times'];
 async function deliver(file, title) {
   try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title }); return true; } }
   catch (err) { if (err.name === 'AbortError') return false; }
@@ -652,6 +671,10 @@ async function exportFile() {
   if (V) { rows.push('', row(['Mehrwertsteuer', 'Satz', 'Brutto (€)', 'Netto (€)', 'MwSt (€)'])); for (const r of Object.keys(gr).sort((x, y) => x - y)) rows.push(row(['', pct(r), num(gr[r]), num(gr[r] - vatPart(gr[r], +r)), num(vatPart(gr[r], +r))])); const T = vatText(gr); rows.push(row(['', 'GESAMT', num(all), num(T.net), num(T.vat)])); }
   rows.push('', row(['Bon-Nr.', 'Zeit', 'Stand', 'Artikel', 'Summe (€)', 'Gegeben (€)', 'Rückgeld (€)', 'Status', 'Zahlart', 'Spende (€)', 'Kassenstand danach (€)'].concat(V ? ['MwSt (€)'] : [])));
   for (const s of state.sales) rows.push(row([s.n, fmtTS(s.t), labelOf(s.stand), lineText(s), num(s.total), num(s.given), num(s.change), s.void ? 'storniert' : 'gültig', s.method === 'paypal' ? 'PayPal' : 'Bar', num(s.tip || 0), num(cs.m[s.n])].concat(V ? [num((() => { const g = {}; for (const [id, n] of Object.entries(s.lines)) { const pr = s.info && s.info[id] ? s.info[id].price : ALL[id] ? ALL[id].price : 0, r = vatOf(s.info, id); g[r] = (g[r] || 0) + n * pr; } return vatText(g).vat; })())] : [])));
+  { const T = timingStats(), R = rushStats();
+    rows.push('', row(['Wartezeiten', 'Bestellungen bis fertig', 'Ø bis fertig', 'Bestellungen bis Ausgabe', 'Ø bis Ausgabe']));
+    [['Alle Sparten', T.all]].concat(standIds().map(id => [labelOf(id), T.per[id]])).forEach(([l, a]) => rows.push(row([l, a.prep.n, a.prep.n ? fmtDur(a.prep.avg) : '', a.serve.n, a.serve.n ? fmtDur(a.serve.avg) : ''])));
+    if (R.list.length) { rows.push('', row(['Andrang (halbe Stunde)', 'Buchungen', 'Umsatz (€)'])); R.list.forEach(x => rows.push(row([hhmm(x.b), x.n, num(x.rev)]))); } }
   if (state.exp.length) {
     rows.push('', row(['Ausgaben', 'Zeit', 'Bezeichnung', 'Betrag (€)', 'Status', 'Sparte', 'Aus der Kasse']));
     state.exp.forEach(x => rows.push(row(['', fmtTS(x.t), x.note, num(x.amt), x.void ? 'storniert' : 'gültig', x.stand ? labelOf(x.stand) : 'Allgemein', x.cash ? 'ja' : 'nein'])));
@@ -935,6 +958,35 @@ $('#disc-form').addEventListener('submit', e => {
     a[discId] = t === 'pct' ? { t: 'pct', v: v / 100 } : { t: 'eur', v }; }
   save(); $('#disc-dlg').close(); update();
 });
+// --- Wartezeiten und Andrang
+const fmtDur = ms => { const s = Math.round(ms / 1000), m = Math.floor(s / 60); return `${m}:${String(s % 60).padStart(2, '0')} min`; };
+const hhmm = b => `${String(Math.floor(b / 2)).padStart(2, '0')}:${b % 2 ? '30' : '00'}`;
+function timingStats() {   // Zeiten je Sparte und gesamt (nur nicht stornierte Buchungen)
+  const valid = new Set(state.sales.filter(s => !s.void).map(s => s.n)), rows = Object.values(state.times).filter(x => valid.has(x.n));
+  const agg = list => ({ n: list.length, avg: list.length ? list.reduce((a, b) => a + b, 0) / list.length : 0, max: list.length ? Math.max(...list) : 0 });
+  const mk = rs => ({ prep: agg(rs.filter(x => x.tr && x.tr >= x.t).map(x => x.tr - x.t)), serve: agg(rs.filter(x => x.td && x.td >= x.t).map(x => x.td - x.t)) });
+  const per = {}; standIds().forEach(id => { per[id] = mk(rows.filter(x => x.st === id)); });
+  return { all: mk(rows), per };
+}
+function rushStats() {   // Buchungen je halbe Stunde (alle Tage zusammen)
+  const bins = {}; let min = 99, max = -1;
+  for (const s of state.sales) { if (s.void || s.donation || !Object.entries(s.lines).some(([id, n]) => n > 0 && !isPfand(id))) continue;
+    const d = new Date(s.t), b = d.getHours() * 2 + (d.getMinutes() >= 30 ? 1 : 0), e = bins[b] = bins[b] || { n: 0, rev: 0 }; e.n++; e.rev += s.total; min = Math.min(min, b); max = Math.max(max, b); }
+  const list = []; for (let b = min; b <= max; b++) list.push({ b, n: (bins[b] || { n: 0 }).n, rev: (bins[b] || { rev: 0 }).rev });
+  const peak = list.reduce((a, x) => !a || x.n > a.n ? x : a, null);
+  return { list, peak, total: list.reduce((a, x) => a + x.n, 0) };
+}
+function renderStats() {
+  const T = timingStats(), R = rushStats(), mx = R.peak ? R.peak.n : 1;
+  const line = (label, a) => `<div class="sum-row"><span>${esc(label)}</span><span>${a.n} ${a.n === 1 ? 'Bestellung' : 'Bestellungen'}${a.n ? ' · längste ' + fmtDur(a.max) : ''}</span><b>${a.n ? 'Ø ' + fmtDur(a.avg) : '–'}</b></div>`;
+  $('#stat-card').innerHTML = `<h3>Wartezeiten</h3>
+    <small class="muted">Von der Buchung bis „Fertig“ und bis zur Ausgabe („abgeholt“) im Bestellstatus. Gemessen wird nur, was dort angetippt wird.</small>
+    <div class="stat-h">Bestellung → fertig</div>${line('Alle Sparten', T.all.prep)}${standIds().filter(id => T.per[id].prep.n).map(id => line(labelOf(id), T.per[id].prep)).join('')}
+    <div class="stat-h">Bestellung → Ausgabe</div>${line('Alle Sparten', T.all.serve)}${standIds().filter(id => T.per[id].serve.n).map(id => line(labelOf(id), T.per[id].serve)).join('')}
+    <h3 style="margin-top:18px">Andrang nach Uhrzeit</h3>
+    ${R.peak ? `<small class="muted">Buchungen je halbe Stunde (alle Tage zusammen, ohne Spenden und Stornos). Die meisten Bestellungen: <b>${hhmm(R.peak.b)}–${hhmm(R.peak.b + 1)} Uhr</b> mit ${R.peak.n}.</small>
+    <div class="rush">${R.list.map(x => `<div class="rush-row${x.b === R.peak.b ? ' peak' : ''}"><span class="rush-t">${hhmm(x.b)}</span><span class="rush-bar"><i style="width:${Math.round(x.n / mx * 100)}%"></i></span><span class="rush-n">${x.n}</span></div>`).join('')}</div>` : '<small class="muted">Noch keine Buchungen.</small>'}`;
+}
 let mvKind = 'ein';
 function mvOpen() { mvKind = 'ein'; $('#mv-amt').value = ''; $('#mv-note').value = ''; $('#mv-err').textContent = ''; mvSeg(); $('#mv-dlg').showModal(); }
 function mvSeg() { document.querySelectorAll('#mv-seg button').forEach(b => b.setAttribute('aria-selected', b.dataset.kind === mvKind)); }
@@ -980,6 +1032,9 @@ function reportLines(c) {
   hr(); l('UMSÄTZE (brutto, ohne Storno)', true);
   standIds().forEach(id => { const k = valid.filter(x => x.stand === id).length; lr(`${labelOf(id)}: ${k} ${k === 1 ? 'Buchung' : 'Buchungen'}, ${cnt[id] || 0} Artikel`, money(rev[id] || 0)); });
   lr('Gesamt', money(Object.values(rev).reduce((x, y) => x + y, 0)), true);
+  { const T = timingStats(), R = rushStats();
+    if (T.all.prep.n || T.all.serve.n) { l(''); l('WARTEZEITEN', true); if (T.all.prep.n) lr('Bestellung bis fertig (Ø, ' + T.all.prep.n + ' Bestellungen)', fmtDur(T.all.prep.avg)); if (T.all.serve.n) lr('Bestellung bis Ausgabe (Ø, ' + T.all.serve.n + ' Bestellungen)', fmtDur(T.all.serve.avg)); }
+    if (R.peak) { l(''); l('ANDRANG', true); lr('Stärkste Zeit: ' + hhmm(R.peak.b) + '–' + hhmm(R.peak.b + 1) + ' Uhr', R.peak.n + ' Buchungen'); } }
   if (state.exp.some(x => !x.void)) {
     const E = state.exp.filter(x => !x.void), et = E.reduce((a, x) => a + x.amt, 0), rt = Object.values(rev).reduce((x, y) => x + y, 0);
     l(''); l('AUSGABEN', true);
