@@ -1,10 +1,16 @@
 'use strict';
 // Töne der Kasse: direkt im Browser erzeugt (Web Audio, keine Dateien). Zwei Ereignisse, jedes mit einem Ton aus der Klangbibliothek:
 //   booked = Einkauf (oder Spende) fertig verbucht, ready = Bestellung abholbereit. Jeder Ton ist einzeln schaltbar.
-// Einstellungen kommen von außen: Sound.setup({ on, vol: 'low' | 'mid' | 'high', tones: { booked, ready }, pick: { booked: 'horn', ready: 'hell' } })
+// Einstellungen kommen von außen: Sound.setup({ on, vol: 'low' | 'mid' | 'high', tones: { booked, ready }, pick: { booked: 'horn', ready: 'hell' }, mode })
+// mode: 'short'  = Ton kurz als Medienwiedergabe (hörbar auch bei stummem iPad), danach gibt die Seite die Tonausgabe wieder frei (Standard)
+//       'off'    = normaler Web-Audio-Ton, mischt sich mit anderer Musik (z. B. Spotify), bei stummem iPad aber still
+//       'always' = dauerhaft bereit (ein stilles Audio läuft ständig): hörbar bei stumm, blockiert aber andere Musik
 (function (root) {
   const DEFAULT_PICK = { booked: 'horn', ready: 'hell' };
-  let ctx = null, cfg = { on: true, vol: 'mid', tones: { booked: true, ready: false }, pick: Object.assign({}, DEFAULT_PICK) }, silent = null;
+  let ctx = null, cfg = { on: true, vol: 'mid', tones: { booked: true, ready: false }, pick: Object.assign({}, DEFAULT_PICK), mode: 'short' }, silent = null, player = null;
+  const cache = {};
+  const modeOf = () => cfg.mode === 'off' || cfg.mode === 'always' ? cfg.mode : 'short';
+  const setType = t => { try { if (root.navigator && root.navigator.audioSession) root.navigator.audioSession.type = t; } catch (e) {} };
   const toneOn = n => { const t = cfg.tones || {}; return t[n] != null ? !!t[n] : n !== 'ready'; };   // Abholbereit ist ab Werk aus
   const VOL = { low: 0.18, mid: 0.4, high: 0.85 };
 
@@ -45,8 +51,11 @@
 
   // Muss nach einer Berührung aufgerufen werden. Auf dem iPad schaltet der Seitenschalter „stumm“ sonst Web Audio ab:
   // Ton-Kategorie „Wiedergabe“ (iOS 17+) und ein leise laufendes Audio-Element halten die Ausgabe offen.
+  function stopSilent() { if (silent) { try { silent.pause(); silent.removeAttribute('src'); silent.load(); } catch (e) {} silent = null; } }
   function unlock() {
-    try { if (root.navigator && root.navigator.audioSession) root.navigator.audioSession.type = 'playback'; } catch (e) {}
+    const m = modeOf();
+    if (m !== 'always') { stopSilent(); return; }   // kein Dauerton: andere Musik bleibt ungestört
+    setType('playback');
     const c = ensure(); if (c && c.state !== 'running') c.resume().catch(() => {});
     if (!silent && root.document) {
       try {
@@ -56,11 +65,7 @@
     }
   }
 
-  function playSeq(seq) {
-    const c = ensure(); if (!c || !seq) return;
-    try { if (root.navigator && root.navigator.audioSession) root.navigator.audioSession.type = 'playback'; } catch (e) {}
-    if (c.state !== 'running') c.resume().catch(() => {});
-    const master = VOL[cfg.vol] != null ? VOL[cfg.vol] : VOL.mid, t0 = c.currentTime + 0.01;
+  function schedule(c, seq, master, t0) {
     for (const n of seq) {
       const o = c.createOscillator(), g = c.createGain(), s = t0 + n.at, e = s + n.d;
       o.type = n.w; o.frequency.setValueAtTime(n.f, s);
@@ -72,15 +77,53 @@
       g.connect(c.destination); o.start(s); o.stop(e + 0.02);
     }
   }
+  const masterVol = () => VOL[cfg.vol] != null ? VOL[cfg.vol] : VOL.mid;
+
+  // Web Audio direkt (stumm = still, mischt sich mit anderer Musik)
+  function playWeb(seq) {
+    const c = ensure(); if (!c || !seq) return;
+    setType(modeOf() === 'always' ? 'playback' : 'auto');
+    if (c.state !== 'running') c.resume().catch(() => {});
+    schedule(c, seq, masterVol(), c.currentTime + 0.01);
+  }
+
+  // Klang als WAV vorrechnen (Offline-Rendering), damit er wie ein kurzes Medium abgespielt werden kann
+  function wavUrl(id, seq) {
+    const key = id + '|' + (cfg.vol || 'mid'); if (cache[key]) return cache[key];
+    const OAC = root.OfflineAudioContext || root.webkitOfflineAudioContext; if (!OAC) return Promise.reject(new Error('no offline audio'));
+    const rate = 44100, dur = seq.reduce((m, n) => Math.max(m, n.at + n.d), 0) + 0.15, oc = new OAC(1, Math.ceil(rate * dur), rate);
+    schedule(oc, seq, masterVol(), 0.01);
+    return cache[key] = Promise.resolve(oc.startRendering()).then(buf => {
+      const d = buf.getChannelData(0), n = d.length, b = new Uint8Array(44 + n * 2), dv = new DataView(b.buffer), w = (o, s) => { for (let i = 0; i < s.length; i++) b[o + i] = s.charCodeAt(i); };
+      w(0, 'RIFF'); dv.setUint32(4, 36 + n * 2, true); w(8, 'WAVEfmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+      dv.setUint32(24, rate, true); dv.setUint32(28, rate * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true); w(36, 'data'); dv.setUint32(40, n * 2, true);
+      for (let i = 0; i < n; i++) dv.setInt16(44 + i * 2, Math.max(-1, Math.min(1, d[i])) * 32767, true);
+      return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
+    });
+  }
+
+  // Kurzmodus: Klang als Medienwiedergabe (läuft auch bei stummem iPad), danach Tonausgabe wieder freigeben
+  function playShort(id, seq) {
+    if (!root.document || !root.Audio) return playWeb(seq);
+    wavUrl(id, seq).then(url => {
+      if (!player) { player = new root.Audio(); player.setAttribute('playsinline', ''); player.addEventListener('ended', () => setType('auto')); }
+      player.src = url; setType('transient'); if (root.navigator && root.navigator.audioSession && root.navigator.audioSession.type !== 'transient') setType('playback');
+      const p = player.play(); if (p && p.catch) p.catch(() => { setType('auto'); playWeb(seq); });
+    }).catch(() => playWeb(seq));
+  }
+  function playSeq(seq, id) {
+    if (!seq) return;
+    if (modeOf() === 'short') playShort(id, seq); else playWeb(seq);
+  }
 
   // Ereignis abspielen ('booked' / 'ready'); force: auch wenn ausgeschaltet (Probehören)
   function play(name, force) {
     if (!DEFAULT_PICK[name]) return;
     if (!force && (!cfg.on || !toneOn(name))) return;
-    playSeq(LIBRARY[idFor(name)].seq);
+    const id = idFor(name); playSeq(LIBRARY[id].seq, id);
   }
-  function preview(id) { if (LIBRARY[id]) playSeq(LIBRARY[id].seq); }
+  function preview(id) { if (LIBRARY[id]) playSeq(LIBRARY[id].seq, id); }
 
   root.Sound = { play, preview, unlock, names: Object.keys(DEFAULT_PICK), library: Object.keys(LIBRARY).map(id => ({ id, name: LIBRARY[id].name })), defaults: DEFAULT_PICK, pickOf: idFor, toneOn,
-    setup: o => { cfg = Object.assign({}, cfg, o || {}); }, get config() { return cfg; } };
+    setup: o => { cfg = Object.assign({}, cfg, o || {}); if (modeOf() !== 'always') stopSilent(); }, get config() { return cfg; } };
 })(typeof self !== 'undefined' ? self : this);
